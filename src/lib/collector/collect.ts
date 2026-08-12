@@ -22,6 +22,9 @@ import type {
   PortalFiltersQuery
 } from "./client";
 import { CAIXA_ESCOLAR_API_BASE_URL } from "./client";
+import categoriesRaw from "@/lib/classification/categories.json";
+import { classifyOpportunity } from "@/lib/parsing/normalize";
+import { summarize } from "@/lib/parsing/summarize";
 
 export type CollectMode = "full" | "incremental" | "refresh_stale";
 
@@ -89,6 +92,10 @@ export type OpportunityRecord = {
   rawJson: unknown;
   items: ItemRecord[];
   attachments: AttachmentRecord[];
+  categorySlug?: string;
+  headline?: string;
+  summary?: string;
+  topItems?: string[];
 };
 
 export type ItemRecord = {
@@ -405,6 +412,20 @@ async function buildOpportunityRecord(
   const school = await schoolPromise;
 
   const mappedItems = sourceItems.map(mapItem);
+  const classification = classifyOpportunity({
+    expenseGroup: detail.expenseGroupDescription ?? listing.expenseGroup,
+    initiativeDescription: detail.initiativeDescription,
+    itemNames: mappedItems.map((item) => item.name)
+  });
+  const category = (categoriesRaw as Array<{ slug: string; name: string }>).find(
+    (candidate) => candidate.slug === (classification.needsFallback ? "outros" : classification.categoryId)
+  ) ?? { slug: "outros", name: "Outros" };
+  const summary = summarize({
+    category: { slug: category.slug, name: category.name, confidence: classification.confidence, needsFallback: classification.needsFallback },
+    initiativeDescription: detail.initiativeDescription,
+    expenseGroup: detail.expenseGroupDescription ?? listing.expenseGroup,
+    items: mappedItems.map((item) => ({ order: item.itemOrder, name: item.name, description: item.description, unit: item.unit, quantity: item.quantity, unitValue: item.unitValue, totalValue: item.totalValue, isPermanent: item.isPermanent, expenseCategory: item.expenseCategory }))
+  });
   const valuedItems = mappedItems.filter((item) => item.totalValue !== null);
   const totalValue =
     valuedItems.length === 0
@@ -444,6 +465,10 @@ async function buildOpportunityRecord(
     },
     items: mappedItems,
     attachments: sourceAttachments.map(mapAttachment)
+    ,categorySlug: category.slug,
+    headline: summary.headline,
+    summary: summary.summary,
+    topItems: summary.topItems
   };
 }
 
@@ -693,6 +718,10 @@ export class DrizzleCollectorRepository implements CollectorRepository {
           initiativeDescription: opportunity.initiativeDescription,
           totalValue: opportunity.totalValue,
           itemCount: opportunity.itemCount,
+          categoryId: sql`(SELECT id FROM categories WHERE slug = ${opportunity.categorySlug ?? "outros"})`,
+          headline: opportunity.headline ?? "Outros",
+          summary: opportunity.summary ?? "Fornecedor para itens e serviços da escola.",
+          topItems: opportunity.topItems ?? [],
           rawJson: opportunity.rawJson,
           collectedAt
         })
@@ -722,6 +751,10 @@ export class DrizzleCollectorRepository implements CollectorRepository {
             initiativeDescription: opportunity.initiativeDescription,
             totalValue: opportunity.totalValue,
             itemCount: opportunity.itemCount,
+            categoryId: sql`(SELECT id FROM categories WHERE slug = ${opportunity.categorySlug ?? "outros"})`,
+            headline: opportunity.headline ?? "Outros",
+            summary: opportunity.summary ?? "Fornecedor para itens e serviços da escola.",
+            topItems: opportunity.topItems ?? [],
             rawJson: opportunity.rawJson,
             collectedAt,
             updatedAt: collectedAt

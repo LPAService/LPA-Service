@@ -193,7 +193,7 @@ function requiredIds(listingRecord: JsonObject, detailRecord: JsonObject): Requi
   return { idSubprogram, idSchool, idBudget };
 }
 
-function classifyOpportunity(input: {
+export function classifyOpportunity(input: {
   expenseGroup: string;
   initiativeDescription: string | null;
   itemNames: string[];
