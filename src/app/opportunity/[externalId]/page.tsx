@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { formatCurrency, formatDate } from "@/components/opportunity-card";
+import { formatCurrency, formatDate, pluralize } from "@/components/opportunity-card";
 import { opportunitySource } from "@/lib/data/source";
 
 type DetailPageProps = {
@@ -22,36 +22,39 @@ export default async function DetailPage({ params }: DetailPageProps) {
     <main className="min-h-screen overflow-x-hidden bg-[var(--color-bg-subtle)]">
       <section className="border-b border-[var(--color-border)] bg-[var(--color-bg)]">
         <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
-          <Link className="text-sm font-semibold text-[var(--color-primary)]" href="/">
-            Voltar
+          <Link className="inline-flex min-h-11 items-center text-sm font-semibold text-[var(--color-primary)]" href="/">
+            ← Todas as oportunidades
           </Link>
           <div className="mt-4 grid min-w-0 gap-4 lg:grid-cols-[1fr_auto]">
             <div className="min-w-0">
-              <p className="text-sm font-semibold uppercase tracking-normal text-[var(--color-fg-muted)]">
+              <p className="eyebrow">
                 Pedido {opportunity.orderId}
               </p>
-              <h1 className="mt-1 text-2xl font-bold tracking-normal text-[var(--color-fg)] sm:text-3xl">
+              <h1 className="mt-2 text-3xl font-bold leading-none tracking-normal text-[var(--color-fg)] sm:text-5xl">
                 {opportunity.headline}
               </h1>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--color-fg-muted)]">
-                {opportunity.summary}
-              </p>
+              <div className="mt-5 max-w-3xl border-l-4 border-[var(--color-accent)] pl-4">
+                <p className="eyebrow">O que precisam</p>
+                <p className="mt-2 text-base font-semibold leading-6 text-[var(--color-fg)]">
+                  {opportunity.summary || "Resumo não informado."}
+                </p>
+              </div>
             </div>
-            <div className="grid min-w-0 gap-2 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-4 text-right shadow-[var(--shadow-card)]">
-              <p className="text-2xl font-bold text-[var(--color-success)]">
+            <div className="grid min-w-0 content-start gap-2 border-l-4 border-[var(--color-success)] bg-[var(--color-bg-subtle)] p-5 text-right shadow-[var(--shadow-card)]">
+              <p className="text-3xl font-bold tabular-nums text-[var(--color-success)]">
                 {formatCurrency(opportunity.totalValue)}
               </p>
               <p className="text-sm text-[var(--color-fg-muted)]">
-                {opportunity.itemCount} itens · {opportunity.expenseGroup}
+                {pluralize(opportunity.itemCount, "item", "itens")} · {opportunity.expenseGroup}
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl min-w-0 gap-5 px-4 py-5 sm:px-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:px-8">
-        <div className="grid min-w-0 gap-5">
-          <Panel title="Resumo comercial">
+      <section className="shell grid min-w-0 gap-6 py-8 sm:py-10 lg:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)]">
+        <div className="grid min-w-0 gap-6">
+          <Panel title="Contexto comercial">
             <dl className="grid gap-3 text-sm sm:grid-cols-2">
               <Fact label="Escola" value={opportunity.school} />
               <Fact label="Cidade" value={opportunity.city ?? "Não informado"} />
@@ -70,15 +73,15 @@ export default async function DetailPage({ params }: DetailPageProps) {
             </div>
           </Panel>
 
-          <Panel title="Itens">
+          <Panel title={`Itens solicitados · ${pluralize(opportunity.itemCount, "item", "itens")}`}>
             {opportunity.items.length === 0 ? (
               <p className="text-sm text-[var(--color-fg-muted)]">Itens não informados.</p>
             ) : (
               <div className="min-w-0 max-w-full overflow-x-auto">
                 <table className="w-max min-w-full border-separate border-spacing-0 text-left text-sm">
                   <thead>
-                    <tr className="text-xs uppercase tracking-normal text-[var(--color-fg-muted)]">
-                      <th className="border-b border-[var(--color-border)] py-2 pr-3">Item</th>
+                    <tr className="bg-[var(--color-bg-subtle)] text-xs uppercase tracking-normal text-[var(--color-fg-muted)]">
+                      <th className="border-b border-[var(--color-border)] px-3 py-3">Item</th>
                       <th className="border-b border-[var(--color-border)] px-3">Descrição</th>
                       <th className="border-b border-[var(--color-border)] px-3">Un.</th>
                       <th className="border-b border-[var(--color-border)] px-3 text-right">Qtd</th>
@@ -93,22 +96,22 @@ export default async function DetailPage({ params }: DetailPageProps) {
                   <tbody>
                     {opportunity.items.map((item) => (
                       <tr key={item.order} className="align-top">
-                        <td className="border-b border-[var(--color-border)] py-3 pr-3 font-semibold text-[var(--color-fg)]">
+                        <td className="border-b border-[var(--color-border)] px-3 py-4 font-semibold text-[var(--color-fg)]">
                           {item.name}
                         </td>
-                        <td className="max-w-md border-b border-[var(--color-border)] px-3 py-3 text-[var(--color-fg-muted)]">
+                        <td className="max-w-md border-b border-[var(--color-border)] px-3 py-4 leading-5 text-[var(--color-fg-muted)]">
                           {item.description}
                         </td>
-                        <td className="border-b border-[var(--color-border)] px-3 py-3 text-[var(--color-fg-muted)]">
+                        <td className="border-b border-[var(--color-border)] px-3 py-4 text-[var(--color-fg-muted)]">
                           {item.unit}
                         </td>
-                        <td className="border-b border-[var(--color-border)] px-3 py-3 text-right text-[var(--color-fg-muted)]">
+                        <td className="border-b border-[var(--color-border)] px-3 py-4 text-right tabular-nums text-[var(--color-fg-muted)]">
                           {item.quantity}
                         </td>
-                        <td className="border-b border-[var(--color-border)] px-3 py-3 text-right text-[var(--color-fg-muted)]">
+                        <td className="border-b border-[var(--color-border)] px-3 py-4 text-right tabular-nums text-[var(--color-fg-muted)]">
                           {formatCurrency(item.unitValue)}
                         </td>
-                        <td className="border-b border-[var(--color-border)] py-3 pl-3 text-right font-semibold text-[var(--color-fg)]">
+                        <td className="border-b border-[var(--color-border)] px-3 py-4 text-right font-semibold tabular-nums text-[var(--color-fg)]">
                           {formatCurrency(item.totalValue)}
                         </td>
                       </tr>
@@ -174,7 +177,7 @@ export default async function DetailPage({ params }: DetailPageProps) {
           </Panel>
 
           <a
-            className="inline-flex min-h-11 items-center justify-center rounded-md bg-[var(--color-primary)] px-4 text-sm font-semibold text-[var(--color-primary-fg)] hover:opacity-90"
+            className="action-primary"
             href={opportunity.sourceUrl}
             rel="noreferrer"
             target="_blank"
@@ -195,9 +198,9 @@ function Panel({
   title: string;
 }) {
   return (
-    <section className="min-w-0 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4 shadow-[var(--shadow-card)]">
-      <h2 className="text-base font-bold text-[var(--color-fg)]">{title}</h2>
-      <div className="mt-4">{children}</div>
+    <section className="min-w-0 border-t-2 border-[var(--color-fg)] bg-[var(--color-bg)] p-5 shadow-[var(--shadow-card)]">
+      <h2 className="text-xl font-bold text-[var(--color-fg)]">{title}</h2>
+      <div className="mt-5">{children}</div>
     </section>
   );
 }
@@ -205,7 +208,7 @@ function Panel({
 function Fact({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-xs font-semibold uppercase tracking-normal text-[var(--color-fg-muted)]">
+      <dt className="eyebrow">
         {label}
       </dt>
       <dd className="mt-1 font-semibold text-[var(--color-fg)]">{value}</dd>
