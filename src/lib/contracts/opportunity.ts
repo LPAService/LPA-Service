@@ -20,8 +20,8 @@ export type OpportunityAttachment = {
 export type OpportunityCategory = {
   slug: string;
   name: string;
-  confidence: number;
-  needsFallback: boolean;
+  confidence: number | null;
+  needsFallback: boolean | null;
 };
 
 export type NormalizedOpportunity = {
