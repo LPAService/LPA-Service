@@ -1,0 +1,318 @@
+[
+  {
+    "id": "R01",
+    "name": "Consumíveis de impressão (toner/cartucho)",
+    "categoryId": "impressao-toner",
+    "priority": 100,
+    "weight": 0.98,
+    "pattern": "\\btoner\\b|\\bcartucho\\b|\\bcilindro\\b|\\bdrum\\b|\\bunidade de imagem\\b|\\bfotocondutor\\b|\\bkit de manutencao para impressora\\b|\\bfita para impressora\\b|\\bribbon\\b"
+  },
+  {
+    "id": "R05",
+    "name": "Manutenção predial/preventiva",
+    "categoryId": "manutencao",
+    "priority": 100,
+    "weight": 0.97,
+    "pattern": "\\bmanutencao (predial|preventiva|corretiva|basica|geral)\\b|\\bmanutencao de (predio|predios|edificio)\\b"
+  },
+  {
+    "id": "R08",
+    "name": "Manutenção/suporte de informática",
+    "categoryId": "informatica",
+    "priority": 100,
+    "weight": 0.95,
+    "pattern": "\\bmanutencao de (computador|computadores|microcomputador|informatica|micro)\\b|\\bsuporte tecnico\\b|\\bsuporte de informatica\\b|\\bservico de informatica\\b|\\bempresa especializada em informatica\\b"
+  },
+  {
+    "id": "R06",
+    "name": "Serviço elétrico",
+    "categoryId": "eletrica",
+    "priority": 98,
+    "weight": 0.96,
+    "pattern": "\\binstalacao eletrica\\b|\\binstalacoes eletricas\\b|\\bmanutencao eletrica\\b|\\breparo eletrico\\b|\\bservico eletrico\\b|\\beletricista\\b"
+  },
+  {
+    "id": "R07",
+    "name": "Serviço hidráulico",
+    "categoryId": "hidraulica",
+    "priority": 98,
+    "weight": 0.96,
+    "pattern": "\\binstalacao hidraulica\\b|\\binstalacoes hidraulicas\\b|\\bmanutencao hidraulica\\b|\\breparo hidraulico\\b|\\bservico hidraulico\\b|\\bencanador\\b"
+  },
+  {
+    "id": "R05c",
+    "name": "Manutenção/instalação de ar condicionado",
+    "categoryId": "manutencao",
+    "priority": 98,
+    "weight": 0.93,
+    "pattern": "\\b(manutencao|instalacao|limpeza|higienizacao) de ar condicionado\\b|\\bar condicionado\\b.*\\b(manutencao|instalacao|limpeza|higienizacao)\\b"
+  },
+  {
+    "id": "R05d",
+    "name": "Conservação e pequenos reparos",
+    "categoryId": "manutencao",
+    "priority": 91,
+    "weight": 0.85,
+    "pattern": "\\bconservacao e pequeno reparo\\b|\\bconservacao e pequenos reparos\\b|\\bmanutencao e reforma\\b|\\bmanutencao e reformas\\b"
+  },
+  {
+    "id": "R24",
+    "name": "Transporte e combustível",
+    "categoryId": "transporte",
+    "priority": 98,
+    "weight": 0.95,
+    "pattern": "\\btransporte escolar\\b|\\btransporte de alunos\\b|\\bfretamento\\b|\\bfretes\\b|\\blocacao de veiculo\\b|\\baluguel de veiculo\\b|\\bveiculo escolar\\b|\\bgasolina\\b|\\bdiesel\\b|\\betanol\\b|\\balcool combustivel\\b|\\bcombustivel\\b"
+  },
+  {
+    "id": "R24b",
+    "name": "Serviço de transporte contínuo",
+    "categoryId": "transporte",
+    "priority": 74,
+    "weight": 0.75,
+    "pattern": "^servico de transporte continuo$|^servico transporte continuo$"
+  },
+  {
+    "id": "R02",
+    "name": "Itens de limpeza e higiene",
+    "categoryId": "limpeza-higiene",
+    "priority": 95,
+    "weight": 0.95,
+    "pattern": "\\bdetergente\\b|\\bdesinfetante\\b|\\bagua sanitaria\\b|\\bsabao\\b|\\bsabonete\\b|\\bshampoo\\b|\\bcondicionador\\b|\\balvejante\\b|\\bamaciante\\b|\\bpalha de aco\\b|\\bsoda caustica\\b|\\bproduto de limpeza\\b|\\bprodutos de limpeza\\b|\\bmaterial de limpeza\\b|\\bmaterial de higiene\\b|\\bpapel higienico\\b|\\bpapel toalha\\b|\\btoalha de papel\\b|\\bguardanapo\\b|\\bsabao em po\\b|\\bvassoura\\b|\\brodo\\b|\\bbalde\\b|\\besponja\\b|\\bflanela\\b|\\bpano de chao\\b|\\bpano de limpeza\\b|\\balcool\\b|\\balcool em gel\\b|\\balcool gel\\b|\\bhigiene pessoal\\b|\\bpasta de dente\\b|\\bescova de dente\\b|\\bfio dental\\b|\\bfralda\\b|\\babsorvente\\b|\\bavental descartavel\\b|\\btouca descartavel\\b|\\bmascara descartavel\\b"
+  },
+  {
+    "id": "R09",
+    "name": "Alimentos congelados",
+    "categoryId": "congelados",
+    "priority": 95,
+    "weight": 0.93,
+    "pattern": "\\bcongelado\\b|\\bcongelada\\b|\\bsorvete\\b|\\bpizza congelada\\b|\\bpolpa de fruta\\b|\\bhamburguer\\b|\\bnuggets\\b|\\bpicole\\b|\\bgelo\\b"
+  },
+  {
+    "id": "R03",
+    "name": "Impressão/tinta de impressora e gráfica",
+    "categoryId": "impressao-toner",
+    "priority": 93,
+    "weight": 0.9,
+    "pattern": "\\btinta para impressora\\b|\\btinta de impressora\\b|\\bimpressao digital\\b|\\bservico grafico\\b|\\bservicos graficos\\b|\\bgrafica\\b|\\bimpressao de\\b"
+  },
+  {
+    "id": "R13",
+    "name": "Laticínios",
+    "categoryId": "lacticinios",
+    "priority": 92,
+    "weight": 0.92,
+    "pattern": "\\bleite\\b|\\bqueijo\\b|\\bmanteiga\\b|\\bmargarina\\b|\\biogurte\\b|\\brequeijao\\b|\\bcreme de leite\\b|\\bricota\\b|\\bmucarela\\b|\\bparmesao\\b|\\bcoalhada\\b|\\bdoce de leite\\b|\\bleite em po\\b"
+  },
+  {
+    "id": "R10",
+    "name": "Carnes e peixes",
+    "categoryId": "carnes",
+    "priority": 90,
+    "weight": 0.93,
+    "pattern": "\\bcarne\\b|\\bcarne bovina\\b|\\bcarne de frango\\b|\\bfrango\\b|\\bpeito de frango\\b|\\bcoxa\\b|\\bsobrecoxa\\b|\\bbovina\\b|\\bsuina\\b|\\bcarne moida\\b|\\balcatra\\b|\\bpicanha\\b|\\bpatinho\\b|\\bmusculo\\b|\\blinguica\\b|\\bsalsicha\\b|\\bpresunto\\b|\\bpeixe\\b|\\bpescado\\b|\\btilapia\\b|\\bsardinha\\b|\\bcamarao\\b"
+  },
+  {
+    "id": "R16",
+    "name": "Hardware de informática",
+    "categoryId": "informatica",
+    "priority": 90,
+    "weight": 0.93,
+    "pattern": "\\bcomputador\\b|\\bnotebook\\b|\\bdesktop\\b|\\bmonitor\\b|\\bmouse\\b|\\bteclado\\b|\\bimpressora\\b|\\bscanner\\b|\\broteador\\b|\\bswitch\\b|\\bnobreak\\b|\\bestabilizador\\b|\\bpen drive\\b|\\bprojetor\\b|\\bdatashow\\b|\\bcabo de rede\\b|\\bmicrocomputador\\b"
+  },
+  {
+    "id": "R16b",
+    "name": "Equipamentos tecnológicos",
+    "categoryId": "informatica",
+    "priority": 74,
+    "weight": 0.75,
+    "pattern": "^equipamento tecnologico$|^equipamentos tecnologicos$"
+  },
+  {
+    "id": "R22",
+    "name": "Uniformes e têxtil",
+    "categoryId": "uniformes-textil",
+    "priority": 90,
+    "weight": 0.9,
+    "pattern": "\\buniforme\\b|\\bfardamento\\b|\\bjaleco\\b|\\bbata\\b|\\bcamiseta\\b|\\bcamisa\\b|\\bcalca\\b|\\bbermuda\\b"
+  },
+  {
+    "id": "R25",
+    "name": "Utensílios de cozinha",
+    "categoryId": "utensilios",
+    "priority": 90,
+    "weight": 0.9,
+    "pattern": "\\bpanela\\b|\\bpanela de pressao\\b|\\btalher\\b|\\bfaqueiro\\b|\\bprato\\b|\\bxicara\\b|\\bcopo\\b|\\btravessa\\b|\\bjarra\\b|\\bassadeira\\b|\\butensilio de cozinha\\b|\\butensilios de cozinha\\b"
+  },
+  {
+    "id": "R17",
+    "name": "Eletrodomésticos e eletrônicos",
+    "categoryId": "eletronicos",
+    "priority": 90,
+    "weight": 0.9,
+    "pattern": "\\btelevisao\\b|\\btelevisor\\b|\\bmicro-ondas\\b|\\bmicroondas\\b|\\bmicro ondas\\b|\\bmicro onda\\b|\\bgeladeira\\b|\\brefrigerador\\b|\\bfogao\\b|\\bliquidificador\\b|\\bventilador\\b|\\bbatedeira\\b|\\beletrodomestico\\b|\\bar condicionado\\b|\\bar-condicionado\\b|\\barcondicionado\\b|\\bcafeteira\\b|\\bsanduicheira\\b|\\baparelho de som\\b"
+  },
+  {
+    "id": "R15",
+    "name": "Móveis",
+    "categoryId": "moveis",
+    "priority": 90,
+    "weight": 0.9,
+    "pattern": "\\bmovel\\b|\\bmobiliario\\b|\\bmesa escolar\\b|\\bcarteira escolar\\b|\\bcarteira universitaria\\b|\\bcadeira universitaria\\b|\\barmario\\b|\\bestante\\b|\\bescrivaninha\\b|\\bcolchao\\b|\\bsofa\\b|\\bbeliche\\b|\\bcama\\b"
+  },
+  {
+    "id": "R14",
+    "name": "Alimentos não perecíveis",
+    "categoryId": "nao-pereciveis",
+    "priority": 90,
+    "weight": 0.9,
+    "pattern": "\\barroz\\b|\\bfeijao\\b|\\bacucar\\b|\\bamido de milho\\b|\\bacafrao\\b|\\balho\\b|\\bamendoim\\b|\\boleo\\b|\\boleo de soja\\b|\\bmacarrao\\b|\\bfarinha\\b|\\bcafe\\b|\\bcacau em po\\b|\\bachocolatado\\b|\\bchocolate em po\\b|\\benlatado\\b|\\bsardinha em lata\\b|\\bmilho em lata\\b|\\bmolho de tomate\\b|\\bextrato de tomate\\b|\\bconserva\\b|\\bsuco em po\\b|\\brefresco em po\\b|\\bsal\\b|\\bfuba\\b|\\baveia\\b|\\btrigo\\b|\\bmel\\b|\\bgeleia\\b|\\btempero\\b"
+  },
+  {
+    "id": "R12",
+    "name": "Panificação",
+    "categoryId": "panificacao",
+    "priority": 90,
+    "weight": 0.9,
+    "pattern": "\\bpao\\b|\\bpaes\\b|\\bpaozinho\\b|\\bpao de queijo\\b|\\bbolo\\b|\\bbiscoito\\b|\\bbolacha\\b|\\btorrada\\b|\\bbroa\\b|\\bcroissant\\b|\\bsalgado assado\\b|\\bpanificacao\\b|\\bpadaria\\b"
+  },
+  {
+    "id": "R18",
+    "name": "Material de construção",
+    "categoryId": "construcao",
+    "priority": 90,
+    "weight": 0.9,
+    "pattern": "\\bmaterial de construcao\\b|\\bconstrucao civil\\b|\\bcimento\\b|\\bareia\\b|\\bbrita\\b|\\btijolo\\b|\\btelha\\b|\\bceramica\\b|\\bporcelanato\\b|\\bargamassa\\b|\\bmassa corrida\\b|\\bgesso\\b|\\bverniz\\b|\\bthinner\\b|\\bsolvente\\b|\\btinta\\b|\\bimpermeabilizante\\b|\\bterraplanagem\\b|\\breforma\\b|\\balvenaria\\b|\\bbloco ceramico\\b|\\bporta\\b|\\bjanela\\b|\\bvidro\\b"
+  },
+  {
+    "id": "R18b",
+    "name": "Obras",
+    "categoryId": "construcao",
+    "priority": 74,
+    "weight": 0.75,
+    "pattern": "^obra$|^obras$"
+  },
+  {
+    "id": "R19",
+    "name": "Material elétrico",
+    "categoryId": "eletrica",
+    "priority": 90,
+    "weight": 0.9,
+    "pattern": "\\blampada\\b|\\bluminaria\\b|\\brefletor\\b|\\bdisjuntor\\b|\\binterruptor\\b|\\bfio eletrico\\b|\\bcabo eletrico\\b|\\beletroduto\\b|\\bcontator\\b|\\bquadro de distribuicao\\b|\\bfita led\\b|\\btransformador\\b|\\bfusivel\\b|\\blampada fluorescente\\b|\\blampada led\\b|\\bmaterial eletrico\\b"
+  },
+  {
+    "id": "R20",
+    "name": "Material hidráulico",
+    "categoryId": "hidraulica",
+    "priority": 90,
+    "weight": 0.9,
+    "pattern": "\\btorneira\\b|\\bvalvula\\b|\\bsifao\\b|\\btubo pvc\\b|\\btubos\\b|\\bcano\\b|\\bconexao hidraulica\\b|\\bcaixa dagua\\b|\\bbacia sanitaria\\b|\\bvaso sanitario\\b|\\bralo\\b|\\bmangueira\\b|\\bcisterna\\b|\\bvedante\\b|\\bflexivel\\b|\\bboia de nivel\\b|\\bmaterial hidraulico\\b"
+  },
+  {
+    "id": "R11",
+    "name": "Frutas, verduras e hortifrúti",
+    "categoryId": "frutas-e-verduras",
+    "priority": 88,
+    "weight": 0.9,
+    "pattern": "\\bgenero alimenticio perecivel\\b|\\balimento perecivel\\b|\\balimenticio perecivel\\b|\\bfruta\\b|\\bfrutas\\b|\\bverdura\\b|\\bverduras\\b|\\blegume\\b|\\blegumes\\b|\\bhortalica\\b|\\bhortalicas\\b|\\bhortifruti\\b|\\bfruta fresca\\b|\\bfrutas frescas\\b|\\bkit feira\\b"
+  },
+  {
+    "id": "R11d",
+    "name": "Perecíveis em geral",
+    "categoryId": "frutas-e-verduras",
+    "priority": 82,
+    "weight": 0.85,
+    "pattern": "\\bperecivel\\b|\\bpereciveis\\b"
+  },
+  {
+    "id": "R23b",
+    "name": "Combate a incêndio",
+    "categoryId": "seguranca",
+    "priority": 95,
+    "weight": 0.95,
+    "pattern": "\\bincendio\\b|\\bmangueira de incendio\\b|\\bbrigada de incendio\\b|\\bcombate a incendio\\b"
+  },
+  {
+    "id": "R23",
+    "name": "Segurança e vigilância",
+    "categoryId": "seguranca",
+    "priority": 80,
+    "weight": 0.92,
+    "pattern": "\\bvigilancia\\b|\\bseguranca patrimonial\\b|\\bvigia\\b|\\bseguranca armada\\b|\\balarme\\b|\\bcftv\\b|\\bcamera de seguranca\\b|\\bmonitoramento\\b|\\bextintor\\b|\\brecarga de extintor\\b|\\bepi\\b|\\bcapacete\\b|\\bbotina\\b|\\bbota de seguranca\\b|\\bluva de seguranca\\b|\\boculos de protecao\\b|\\bprotetor auricular\\b|\\bbrigadista\\b|\\bservico de portaria\\b|\\bcontrole de acesso\\b|\\bdetector de metal\\b"
+  },
+  {
+    "id": "R26b",
+    "name": "Serviços especiais (pragas, fossa)",
+    "categoryId": "servicos",
+    "priority": 78,
+    "weight": 0.85,
+    "pattern": "\\bdedetizacao\\b|\\bdesratizacao\\b|\\bdesinsetizacao\\b|\\blimpeza de fossa\\b"
+  },
+  {
+    "id": "R21",
+    "name": "Serviço de limpeza",
+    "categoryId": "limpeza-higiene",
+    "priority": 76,
+    "weight": 0.85,
+    "pattern": "\\bservico de limpeza\\b|\\bservicos de limpeza\\b|\\bempresa especializada em limpeza\\b|\\bempresa de limpeza\\b|\\blimpeza predial\\b|\\blimpeza escolar\\b"
+  },
+  {
+    "id": "R26",
+    "name": "Serviços em geral",
+    "categoryId": "servicos",
+    "priority": 75,
+    "weight": 0.7,
+    "pattern": "\\bjardinagem\\b|\\bpoda\\b|\\brocada\\b|\\bmao de obra\\b|\\bterceirizacao\\b|\\bassessoria\\b|\\bconsultoria\\b|\\borganizacao de eventos\\b|\\bprestacao de servicos\\b|\\bcontratacao de empresa especializada\\b|\\btranscricao\\b|\\bservicos operacionais continuos\\b|\\bservico operacional\\b|\\bservicos operacionais\\b"
+  },
+  {
+    "id": "R27",
+    "name": "Material de consumo geral",
+    "categoryId": "material-de-consumo-geral",
+    "priority": 68,
+    "weight": 0.65,
+    "pattern": "\\bmaterial de consumo geral\\b|\\bmaterial consumo geral\\b|\\bconsumo geral\\b"
+  },
+  {
+    "id": "R29",
+    "name": "Material pedagógico",
+    "categoryId": "material-pedagogico",
+    "priority": 67,
+    "weight": 0.7,
+    "pattern": "^material pedagogico$|^material didatico pedagogico$"
+  },
+  {
+    "id": "R04",
+    "name": "Material de escritório e escolar",
+    "categoryId": "material-de-escritorio",
+    "priority": 70,
+    "weight": 0.9,
+    "pattern": "\\bexpediente\\b|\\bescritorio\\b|\\bmaterial de escritorio\\b|\\bpapelaria\\b|\\bmaterial escolar\\b|\\bmaterial didatico\\b|\\bmaterial didatico-pedagogico\\b|\\bpapel sulfite\\b|\\bpapel a4\\b|\\bpapel almaco\\b|\\bpapel oficio\\b|\\bresma\\b|\\blivro\\b|\\blivros\\b|\\blivro didatico\\b|\\bcaderno\\b|\\blapis\\b|\\bcaneta\\b|\\bborracha\\b|\\bmochila\\b|\\bestojo\\b|\\bregua\\b|\\bapontador\\b|\\bgrampeador\\b|\\bperfurador\\b|\\bcarimbo\\b|\\bgiz\\b|\\bapagador\\b|\\bpincel para quadro\\b"
+  },
+  {
+    "id": "R02b",
+    "name": "Limpeza genérica",
+    "categoryId": "limpeza-higiene",
+    "priority": 65,
+    "weight": 0.7,
+    "pattern": "\\blimpeza\\b"
+  },
+  {
+    "id": "R28",
+    "name": "Gêneros alimentícios genéricos",
+    "categoryId": "alimentos",
+    "priority": 60,
+    "weight": 0.8,
+    "pattern": "\\bgenero alimenticio\\b|\\bgeneros alimenticios\\b|\\balimentacao escolar\\b|\\bmerenda escolar\\b|\\bmerenda\\b|\\brefeicao\\b|\\blanche escolar\\b|\\balimentacao\\b",
+    "negacoes": [
+      "\\bcarne\\b", "\\bfrango\\b", "\\bpeixe\\b", "\\bpresunto\\b", "\\bsalsicha\\b",
+      "\\bleite\\b", "\\bqueijo\\b", "\\bmanteiga\\b", "\\biogurte\\b",
+      "\\bpao\\b", "\\bbolo\\b", "\\bbiscoito\\b", "\\bsalgado\\b",
+      "\\bcongelado\\b", "\\bcongelada\\b", "\\bsorvete\\b",
+      "\\bfruta\\b", "\\bverdura\\b", "\\blegume\\b", "\\bhortalica\\b",
+      "\\bbanana\\b", "\\bmaca\\b", "\\blaranja\\b", "\\btomate\\b", "\\bcebola\\b",
+      "\\bbatata\\b", "\\bmelancia\\b", "\\bmamao\\b", "\\babacaxi\\b",
+      "\\btangerina\\b", "\\bbrocolis\\b", "\\babobora\\b",
+      "\\barroz\\b", "\\bfeijao\\b", "\\boleo\\b", "\\bacucar\\b",
+      "\\bmacarrao\\b", "\\bcafe\\b", "\\bachocolatado\\b"
+    ]
+  }
+]
