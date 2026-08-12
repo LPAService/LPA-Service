@@ -13,15 +13,20 @@ export default async function DetailPage({ params }: DetailPageProps) {
 
   if (!opportunity) notFound();
 
+  const topItems =
+    opportunity.topItems.length > 0
+      ? opportunity.topItems.map((item) => `· ${item}`).join(" ")
+      : "Itens não informados";
+
   return (
-    <main className="min-h-screen bg-slate-50">
+    <main className="min-h-screen overflow-x-hidden bg-slate-50">
       <section className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
           <Link className="text-sm font-semibold text-emerald-700" href="/">
             Voltar
           </Link>
-          <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_auto]">
-            <div>
+          <div className="mt-4 grid min-w-0 gap-4 lg:grid-cols-[1fr_auto]">
+            <div className="min-w-0">
               <p className="text-sm font-semibold uppercase tracking-normal text-slate-500">
                 Pedido {opportunity.orderId}
               </p>
@@ -32,7 +37,7 @@ export default async function DetailPage({ params }: DetailPageProps) {
                 {opportunity.summary}
               </p>
             </div>
-            <div className="grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-4 text-right">
+            <div className="grid min-w-0 gap-2 rounded-lg border border-slate-200 bg-slate-50 p-4 text-right">
               <p className="text-2xl font-bold text-emerald-700">
                 {formatCurrency(opportunity.totalValue)}
               </p>
@@ -44,8 +49,8 @@ export default async function DetailPage({ params }: DetailPageProps) {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-5 px-4 py-5 sm:px-6 lg:grid-cols-[2fr_1fr] lg:px-8">
-        <div className="grid gap-5">
+      <section className="mx-auto grid max-w-7xl min-w-0 gap-5 px-4 py-5 sm:px-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:px-8">
+        <div className="grid min-w-0 gap-5">
           <Panel title="Resumo comercial">
             <dl className="grid gap-3 text-sm sm:grid-cols-2">
               <Fact label="Escola" value={opportunity.school} />
@@ -60,56 +65,62 @@ export default async function DetailPage({ params }: DetailPageProps) {
             <div className="mt-5">
               <p className="font-bold text-slate-950">Principais itens:</p>
               <p className="mt-1 text-sm leading-6 text-slate-700">
-                {opportunity.topItems.map((item) => `· ${item}`).join(" ")}
+                {topItems}
               </p>
             </div>
           </Panel>
 
           <Panel title="Itens">
-            <div className="overflow-x-auto">
-              <table className="min-w-full border-separate border-spacing-0 text-left text-sm">
-                <thead>
-                  <tr className="text-xs uppercase tracking-normal text-slate-500">
-                    <th className="border-b border-slate-200 py-2 pr-3">Item</th>
-                    <th className="border-b border-slate-200 px-3">Descrição</th>
-                    <th className="border-b border-slate-200 px-3">Un.</th>
-                    <th className="border-b border-slate-200 px-3 text-right">Qtd</th>
-                    <th className="border-b border-slate-200 px-3 text-right">
-                      Valor unit.
-                    </th>
-                    <th className="border-b border-slate-200 pl-3 text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {opportunity.items.map((item) => (
-                    <tr key={item.order} className="align-top">
-                      <td className="border-b border-slate-100 py-3 pr-3 font-semibold text-slate-950">
-                        {item.name}
-                      </td>
-                      <td className="max-w-md border-b border-slate-100 px-3 py-3 text-slate-700">
-                        {item.description}
-                      </td>
-                      <td className="border-b border-slate-100 px-3 py-3 text-slate-700">
-                        {item.unit}
-                      </td>
-                      <td className="border-b border-slate-100 px-3 py-3 text-right text-slate-700">
-                        {item.quantity}
-                      </td>
-                      <td className="border-b border-slate-100 px-3 py-3 text-right text-slate-700">
-                        {formatCurrency(item.unitValue)}
-                      </td>
-                      <td className="border-b border-slate-100 py-3 pl-3 text-right font-semibold text-slate-950">
-                        {formatCurrency(item.totalValue)}
-                      </td>
+            {opportunity.items.length === 0 ? (
+              <p className="text-sm text-slate-600">Itens não informados.</p>
+            ) : (
+              <div className="min-w-0 max-w-full overflow-x-auto">
+                <table className="w-max min-w-full border-separate border-spacing-0 text-left text-sm">
+                  <thead>
+                    <tr className="text-xs uppercase tracking-normal text-slate-500">
+                      <th className="border-b border-slate-200 py-2 pr-3">Item</th>
+                      <th className="border-b border-slate-200 px-3">Descrição</th>
+                      <th className="border-b border-slate-200 px-3">Un.</th>
+                      <th className="border-b border-slate-200 px-3 text-right">Qtd</th>
+                      <th className="border-b border-slate-200 px-3 text-right">
+                        Valor unit.
+                      </th>
+                      <th className="border-b border-slate-200 pl-3 text-right">
+                        Total
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {opportunity.items.map((item) => (
+                      <tr key={item.order} className="align-top">
+                        <td className="border-b border-slate-100 py-3 pr-3 font-semibold text-slate-950">
+                          {item.name}
+                        </td>
+                        <td className="max-w-md border-b border-slate-100 px-3 py-3 text-slate-700">
+                          {item.description}
+                        </td>
+                        <td className="border-b border-slate-100 px-3 py-3 text-slate-700">
+                          {item.unit}
+                        </td>
+                        <td className="border-b border-slate-100 px-3 py-3 text-right text-slate-700">
+                          {item.quantity}
+                        </td>
+                        <td className="border-b border-slate-100 px-3 py-3 text-right text-slate-700">
+                          {formatCurrency(item.unitValue)}
+                        </td>
+                        <td className="border-b border-slate-100 py-3 pl-3 text-right font-semibold text-slate-950">
+                          {formatCurrency(item.totalValue)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </Panel>
         </div>
 
-        <aside className="grid content-start gap-5">
+        <aside className="grid min-w-0 content-start gap-5">
           <Panel title="Fornecedor vencedor">
             <dl className="grid gap-3 text-sm">
               <Fact
@@ -133,7 +144,7 @@ export default async function DetailPage({ params }: DetailPageProps) {
 
           <Panel title="Anexos">
             {opportunity.attachments.length === 0 ? (
-              <p className="text-sm text-slate-600">Nenhum anexo no mock.</p>
+              <p className="text-sm text-slate-600">Nenhum anexo informado.</p>
             ) : (
               <ul className="grid gap-2">
                 {opportunity.attachments.map((attachment) => (
@@ -175,7 +186,7 @@ function Panel({
   title: string;
 }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
       <h2 className="text-base font-bold text-slate-950">{title}</h2>
       <div className="mt-4">{children}</div>
     </section>

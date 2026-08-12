@@ -9,7 +9,7 @@ export default function NotFound() {
           Oportunidade não encontrada
         </h1>
         <p className="mt-2 text-sm text-slate-600">
-          Esse identificador não existe no seed mockado.
+          Esse identificador não foi encontrado na fonte de dados.
         </p>
         <Link
           className="mt-5 inline-flex h-10 items-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800"

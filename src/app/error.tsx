@@ -1,7 +1,6 @@
 "use client";
 
 export default function Error({
-  error,
   reset
 }: {
   error: Error & { digest?: string };
@@ -15,7 +14,7 @@ export default function Error({
           Dashboard não carregou
         </h1>
         <p className="mt-2 text-sm text-slate-600">
-          {error.message || "Falha inesperada ao montar oportunidades."}
+          Falha inesperada ao montar oportunidades.
         </p>
         <button
           className="mt-5 h-10 rounded-md bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800"

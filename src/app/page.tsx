@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { OpportunityCard } from "@/components/opportunity-card";
-import { mockOpportunities, opportunitySource } from "@/lib/data/source";
+import { opportunitySource } from "@/lib/data/source";
 
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -30,8 +30,6 @@ export default async function Home({ searchParams }: PageProps) {
     page,
     pageSize: PAGE_SIZE
   });
-  const categoryOptions = getCategoryOptions();
-
   return (
     <main className="min-h-screen bg-slate-50">
       <section className="border-b border-slate-200 bg-white">
@@ -46,7 +44,7 @@ export default async function Home({ searchParams }: PageProps) {
               </h1>
             </div>
             <div className="grid grid-cols-3 gap-2 text-right text-sm">
-              <Metric label="registros" value={mockOpportunities.length.toString()} />
+              <Metric label="registros" value={result.totalAvailable.toString()} />
               <Metric
                 label="resultado"
                 value={result.total.toString()}
@@ -79,7 +77,10 @@ export default async function Home({ searchParams }: PageProps) {
               className="lg:col-span-2"
               label="Categoria"
               name="category"
-              options={categoryOptions}
+              options={result.facets.categories.map((category) => [
+                category.slug,
+                category.name
+              ])}
               value={filters.category}
             />
             <Select
@@ -237,18 +238,5 @@ function Pagination({
         Próxima
       </a>
     </nav>
-  );
-}
-
-function getCategoryOptions() {
-  const categoryMap = new Map<string, string>();
-  for (const opportunity of mockOpportunities) {
-    if (opportunity.category) {
-      categoryMap.set(opportunity.category.slug, opportunity.category.name);
-    }
-  }
-
-  return [...categoryMap.entries()].sort((left, right) =>
-    left[1].localeCompare(right[1], "pt-BR")
   );
 }
