@@ -190,6 +190,10 @@ describe("collector", () => {
           counties: [
             { idCounty: 1, txCounty: "Cidade A" },
             { idCounty: 2, txCounty: "Cidade B" }
+          ],
+          regionals: [
+            { idNetwork: 10, txName: "SRE/A" },
+            { idNetwork: 20, txName: "SRE/B" }
           ]
         },
         "county:1": {
@@ -205,6 +209,12 @@ describe("collector", () => {
             txName: `SRE/${index + 1}`
           })),
           schools: [{ idSchool: 200, txName: "ESCOLA B" }]
+        },
+        "regional:10": {
+          schools: [{ idSchool: 100, txName: "ESCOLA A" }]
+        },
+        "regional:20": {
+          schools: [{ idSchool: 999, txName: "ESCOLA FORA DA DIMENSAO" }]
         }
       }
     });
@@ -213,9 +223,10 @@ describe("collector", () => {
     const count = await collectSchoolDimension(client, repository);
 
     expect(count).toBe(2);
-    expect(repository.schools.get(100)).toMatchObject({ city: "Cidade A", regional: null });
+    expect(repository.schools.get(100)).toMatchObject({ city: "Cidade A", regional: "SRE/A" });
     expect(repository.schools.get(200)).toMatchObject({ city: "Cidade B", regional: null });
-    expect(client.filterCalls).toEqual(["base", "county:1", "county:2"]);
+    expect(repository.schools.has(999)).toBe(false);
+    expect(client.filterCalls).toEqual(["base", "county:1", "county:2", "regional:10", "regional:20"]);
   });
 
   it("incremental atualiza conhecidos e para só após 3 páginas sem novo", async () => {
@@ -352,6 +363,10 @@ class FakeClient implements CollectorClient {
       this.filterCalls.push(`county:${query.county}:regional:${query.regional}`);
       return this.filters[`county:${query.county}:regional:${query.regional}`] ?? {};
     }
+    if (query.regional) {
+      this.filterCalls.push(`regional:${query.regional}`);
+      return this.filters[`regional:${query.regional}`] ?? {};
+    }
     if (query.county) {
       this.filterCalls.push(`county:${query.county}`);
       return this.filters[`county:${query.county}`] ?? {};
@@ -388,6 +403,18 @@ class FakeRepository implements CollectorRepository {
 
   async upsertSchool(school: SchoolRecord) {
     this.schools.set(school.idSchool, school);
+  }
+
+  async updateSchoolRegional(idSchool: number, regional: string, rawJson: unknown) {
+    const school = this.schools.get(idSchool);
+    if (!school) {
+      return;
+    }
+    this.schools.set(idSchool, {
+      ...school,
+      regional,
+      rawJson
+    });
   }
 
   async getSchool(idSchool: number) {

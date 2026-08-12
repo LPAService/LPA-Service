@@ -5,7 +5,12 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { collectOpportunities, DrizzleCollectorRepository } from "@/lib/collector/collect";
+import {
+  collectOpportunities,
+  DrizzleCollectorRepository,
+  refreshStale,
+  type OpportunityRecord
+} from "@/lib/collector/collect";
 import type {
   PaginatedResponse,
   PortalFilters,
@@ -49,6 +54,7 @@ const sourceItems = readFixture<PaginatedResponse<PurchaseOrderItem>>("items_3.j
 const sourceAttachments = readFixture<{ data: PurchaseOrderAttachment[] }>(
   "attachment_metadata.json"
 ).data;
+const dbTestLockKey = 941_445_001;
 
 describe("DrizzleCollectorRepository em Postgres real", () => {
   let pool: Pool;
@@ -62,6 +68,7 @@ describe("DrizzleCollectorRepository em Postgres real", () => {
       throw new Error(`Postgres real indisponível em ${databaseUrl}: ${errorMessage(error)}`);
     }
 
+    await pool.query("select pg_advisory_lock($1)", [dbTestLockKey]);
     database = drizzle(pool, { schema });
   }, 30_000);
 
@@ -70,6 +77,7 @@ describe("DrizzleCollectorRepository em Postgres real", () => {
   }, 30_000);
 
   afterAll(async () => {
+    await pool.query("select pg_advisory_unlock($1)", [dbTestLockKey]);
     await pool.end();
   });
 
@@ -112,8 +120,8 @@ describe("DrizzleCollectorRepository em Postgres real", () => {
       refreshSchools: false
     });
 
-    client.detail = { ...detail, purchaseOrderStatus: "APRO" };
-    client.images = [
+    client.details[buildExternalId(listing)] = { ...detail, purchaseOrderStatus: "APRO" };
+    client.images[buildExternalId(listing)] = [
       {
         id: 999999,
         filename: null,
@@ -136,11 +144,89 @@ describe("DrizzleCollectorRepository em Postgres real", () => {
     expect(opportunity?.purchaseOrderStatus).toBe("ENVD");
   });
 
+  it("listStaleOpportunityListings respeita cutoff exato", async () => {
+    const repository = new DrizzleCollectorRepository(database);
+    const cutoff = new Date("2026-08-05T12:00:00.000Z");
+    const oldRecord = cloneListing(listing, 900001);
+    const exactRecord = cloneListing(listing, 900002);
+    const freshRecord = cloneListing(listing, 900003);
+
+    await repository.upsertOpportunity(makeOpportunity(oldRecord));
+    await repository.upsertOpportunity(makeOpportunity(exactRecord));
+    await repository.upsertOpportunity(makeOpportunity(freshRecord));
+    await setCollectedAt(oldRecord, new Date(cutoff.getTime() - 1));
+    await setCollectedAt(exactRecord, cutoff);
+    await setCollectedAt(freshRecord, new Date(cutoff.getTime() + 1));
+
+    const stale = await repository.listStaleOpportunityListings(cutoff);
+
+    expect(stale.map(buildExternalId)).toEqual([buildExternalId(oldRecord)]);
+  });
+
+  it("refreshStale re-coleta só vencido pelo TTL e atualiza filhos", async () => {
+    const oldRecord = cloneListing(listing, 910001);
+    const freshRecord = cloneListing(listing, 910002);
+    const client = new DatabaseFakeClient([oldRecord, freshRecord]);
+    const repository = new DrizzleCollectorRepository(database);
+
+    await repository.upsertOpportunity(makeOpportunity(oldRecord));
+    await repository.upsertOpportunity(makeOpportunity(freshRecord));
+    await setCollectedAt(oldRecord, new Date(Date.now() - 8 * 24 * 60 * 60 * 1000));
+    await setCollectedAt(freshRecord, new Date(Date.now() - 6 * 24 * 60 * 60 * 1000));
+
+    client.details[buildExternalId(oldRecord)] = {
+      ...detail,
+      purchaseOrderStatus: "APRO",
+      dtDelivery: "2026-10-01T00:00:00.000Z"
+    };
+    client.items[buildExternalId(oldRecord)] = [sourceItems[0]!];
+    client.images[buildExternalId(oldRecord)] = [sourceAttachments[0]!];
+    client.details[buildExternalId(freshRecord)] = {
+      ...detail,
+      purchaseOrderStatus: "REPR"
+    };
+
+    const result = await refreshStale(client, repository, 7);
+
+    expect(result).toMatchObject({ found: 1, newCount: 0, updatedCount: 1, errorCount: 0 });
+    expect(client.detailCalls).toEqual([buildExternalId(oldRecord)]);
+
+    const [oldOpportunity] = await database
+      .select()
+      .from(schema.opportunities)
+      .where(sql`${schema.opportunities.externalId} = ${buildExternalId(oldRecord)}`)
+      .limit(1);
+    const [freshOpportunity] = await database
+      .select()
+      .from(schema.opportunities)
+      .where(sql`${schema.opportunities.externalId} = ${buildExternalId(freshRecord)}`)
+      .limit(1);
+
+    expect(oldOpportunity?.purchaseOrderStatus).toBe("APRO");
+    expect(freshOpportunity?.purchaseOrderStatus).toBe("ENVD");
+    await expectChildCount(oldOpportunity!.id, "items", 1);
+    await expectChildCount(oldOpportunity!.id, "attachments", 1);
+  });
+
   async function expectCount(table: string, expected: number) {
     const result = await database.execute<{ count: string }>(
       sql.raw(`select count(*)::text as count from "${table}"`)
     );
     expect(Number(result.rows[0]?.count)).toBe(expected);
+  }
+
+  async function expectChildCount(opportunityId: number, table: "items" | "attachments", expected: number) {
+    const result = await database.execute<{ count: string }>(
+      sql`select count(*)::text as count from ${sql.identifier(table)} where opportunity_id = ${opportunityId}`
+    );
+    expect(Number(result.rows[0]?.count)).toBe(expected);
+  }
+
+  async function setCollectedAt(record: PurchaseOrderListRecord, collectedAt: Date) {
+    await database
+      .update(schema.opportunities)
+      .set({ collectedAt })
+      .where(sql`${schema.opportunities.externalId} = ${buildExternalId(record)}`);
   }
 });
 
@@ -162,47 +248,124 @@ async function resetDatabase(pool: Pool) {
 }
 
 class DatabaseFakeClient {
-  detail = detail;
-  items = sourceItems;
-  images = sourceAttachments;
+  readonly details: Record<string, PurchaseOrderDetail> = {};
+  readonly items: Record<string, PurchaseOrderItem[]> = {};
+  readonly images: Record<string, PurchaseOrderAttachment[]> = {};
+  readonly detailCalls: string[] = [];
+  private readonly listings: PurchaseOrderListRecord[];
+
+  constructor(listings: PurchaseOrderListRecord[] = [listing]) {
+    this.listings = listings;
+    for (const record of listings) {
+      this.details[buildExternalId(record)] = detail;
+      this.items[buildExternalId(record)] = sourceItems;
+      this.images[buildExternalId(record)] = sourceAttachments;
+    }
+  }
 
   async listPurchaseOrders(query: PurchaseOrdersQuery) {
     const page = query.page ?? 1;
     return {
-      data: page === 1 ? [listing] : [],
+      data: page === 1 ? this.listings : [],
       meta: {
         page,
-        pageSize: 1,
-        total: 1,
+        pageSize: this.listings.length,
+        total: this.listings.length,
         totalPages: 1
       }
     };
   }
 
-  async getPurchaseOrderDetail() {
-    return this.detail;
+  async getPurchaseOrderDetail(key: PurchaseOrderKey) {
+    const externalId = buildExternalId(key);
+    this.detailCalls.push(externalId);
+    return this.details[externalId] ?? detail;
   }
 
   async listPurchaseOrderItems(query: PurchaseOrderItemsQuery) {
+    const items = this.items[buildExternalId(query)] ?? sourceItems;
     return {
-      data: query.page === 1 ? this.items : [],
+      data: query.page === 1 ? items : [],
       meta: {
         page: query.page ?? 1,
-        pageSize: this.items.length,
-        total: this.items.length,
+        pageSize: items.length,
+        total: items.length,
         totalPages: 1
       }
     };
   }
 
   async getPurchaseOrderImages(key: PurchaseOrderKey) {
-    expect(buildExternalId(key)).toBe(buildExternalId(listing));
-    return this.images;
+    return this.images[buildExternalId(key)] ?? sourceAttachments;
   }
 
   async getPortalFilters(): Promise<PortalFilters> {
     return {};
   }
+}
+
+function cloneListing(record: PurchaseOrderListRecord, idBudget: number): PurchaseOrderListRecord {
+  return {
+    ...record,
+    orderId: String(idBudget),
+    idBudget,
+    idSupplier: record.idSupplier
+  };
+}
+
+function makeOpportunity(record: PurchaseOrderListRecord): OpportunityRecord {
+  const item = sourceItems[0]!;
+  const attachment = sourceAttachments[0]!;
+  return {
+    externalId: buildExternalId(record),
+    orderId: record.orderId,
+    sourceUrl: "https://example.test/source",
+    idSubprogram: record.idSubprogram,
+    idSchool: record.idSchool,
+    idBudget: record.idBudget,
+    idSupplier: record.idSupplier,
+    school: record.school,
+    city: null,
+    regional: null,
+    expenseGroup: record.expenseGroup,
+    subprogram: record.subprogram,
+    year: record.year,
+    purchaseDate: record.purchaseDate ? new Date(record.purchaseDate) : null,
+    proposalDate: null,
+    deliveryDate: null,
+    purchaseOrderStatus: "ENVD",
+    accountabilityStatus: record.accountabilityStatus,
+    accountabilitySent: record.accountabilitySent,
+    supplierName: detail.supplierName,
+    supplierDocument: detail.supplierDocument,
+    initiativeDescription: detail.initiativeDescription,
+    totalValue: item.nuValueByItem === null ? null : item.nuQuantity * item.nuValueByItem,
+    itemCount: 1,
+    rawJson: { listing: record },
+    items: [
+      {
+        itemOrder: item.nuItemOrder,
+        name: item.txBudgetItemType ?? "",
+        description: item.txDescription ?? "",
+        unit: item.txBudgetItemUnit ?? "",
+        quantity: item.nuQuantity,
+        unitValue: item.nuValueByItem,
+        totalValue: item.nuValueByItem === null ? null : item.nuQuantity * item.nuValueByItem,
+        isPermanent: item.inPermanent,
+        expenseCategory: item.txExpenseCategory ?? "",
+        rawJson: item
+      }
+    ],
+    attachments: [
+      {
+        externalAttachmentId: attachment.id,
+        filename: attachment.filename,
+        thumbUrl: attachment.thumbUrl,
+        url: attachment.url === "" ? null : attachment.url,
+        rawJson: attachment
+      }
+    ]
+  };
 }
 
 function errorMessage(error: unknown) {

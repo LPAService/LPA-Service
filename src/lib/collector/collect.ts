@@ -127,6 +127,7 @@ export type CollectorRepository = {
   startRun(mode: CollectMode): Promise<number>;
   finishRun(runId: number, result: Omit<CollectionRunResult, "runId">): Promise<void>;
   upsertSchool(school: SchoolRecord): Promise<void>;
+  updateSchoolRegional(idSchool: number, regional: string, rawJson: unknown): Promise<void>;
   getSchool(idSchool: number): Promise<SchoolRecord | null>;
   existsExternalId(externalId: string): Promise<boolean>;
   upsertOpportunity(opportunity: OpportunityRecord): Promise<"new" | "updated">;
@@ -331,10 +332,11 @@ export async function refreshStale(
 
 export async function collectSchoolDimension(
   client: Pick<CollectorClient, "getPortalFilters">,
-  repository: Pick<CollectorRepository, "upsertSchool">
+  repository: Pick<CollectorRepository, "upsertSchool" | "updateSchoolRegional">
 ) {
   const baseFilters = await client.getPortalFilters({});
   const counties = baseFilters.counties ?? [];
+  const regionals = baseFilters.regionals ?? [];
   let count = 0;
 
   for (const county of counties) {
@@ -346,6 +348,16 @@ export async function collectSchoolDimension(
       county.txCounty,
       null
     );
+  }
+
+  for (const regional of regionals) {
+    const regionalFilters = await client.getPortalFilters({ regional: regional.idNetwork });
+    for (const school of regionalFilters.schools ?? []) {
+      await repository.updateSchoolRegional(school.idSchool, regional.txName, {
+        school,
+        regional
+      });
+    }
   }
 
   return count;
@@ -573,6 +585,17 @@ export class DrizzleCollectorRepository implements CollectorRepository {
           updatedAt: new Date()
         }
       });
+  }
+
+  async updateSchoolRegional(idSchool: number, regional: string, rawJson: unknown) {
+    await this.database
+      .update(schools)
+      .set({
+        regional,
+        rawJson,
+        updatedAt: new Date()
+      })
+      .where(eq(schools.idSchool, idSchool));
   }
 
   async getSchool(idSchool: number) {
