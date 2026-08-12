@@ -1,6 +1,7 @@
 import categoriesRaw from "@/lib/classification/categories.json";
 import { classify, normalizar } from "@/lib/classification/classify";
 import type { Classificacao } from "@/lib/classification/classify";
+import { classifyExpenseGroup } from "@/lib/classification/expense-groups";
 import type {
   NormalizedOpportunity,
   OpportunityAttachment,
@@ -211,14 +212,17 @@ function classifyOpportunity(input: {
     return initiativeResult;
   }
 
-  const expenseGroupResult = input.expenseGroup
-    ? demoteConfidence(classify(input.expenseGroup), 0.75)
+  const expenseGroupResult = classifyExpenseGroup(input.expenseGroup);
+  if (expenseGroupResult) return expenseGroupResult;
+
+  const semanticResult = input.expenseGroup
+    ? demoteConfidence(classify(input.expenseGroup), 0.45)
     : null;
-  if (expenseGroupResult && !expenseGroupResult.needsFallback) return expenseGroupResult;
+  if (semanticResult && !semanticResult.needsFallback) return semanticResult;
 
   if (initiativeResult && !initiativeResult.needsFallback) return initiativeResult;
 
-  return itemResult ?? expenseGroupResult ?? initiativeResult ?? classify("");
+  return itemResult ?? semanticResult ?? initiativeResult ?? classify("");
 }
 
 function classifyByIndividualItems(itemNames: string[]): Classificacao | null {

@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import expenseGroupMapRaw from "@/lib/classification/expense-group-map.json";
 import { NormalizeError, normalize } from "@/lib/parsing/normalize";
 
 type DataPayload<T> = {
@@ -16,12 +17,17 @@ function fixture<T = unknown>(name: string): T {
 
 const listings = fixture<DataPayload<JsonRecord>>("purchase_orders_page1.json").data;
 const sampleListings = fixture<DataPayload<JsonRecord>>("pagesize_1000.json").data;
+const sortDateListings = fixture<DataPayload<JsonRecord>>(
+  "purchase_orders_sort_date_desc.json"
+).data;
+const realListings = [...sampleListings, ...sortDateListings];
 const detail1 = fixture<JsonRecord>("detail_1.json");
 const detail2 = fixture<JsonRecord>("detail_2.json");
 const detail3 = fixture<JsonRecord>("detail_3.json");
 const items1 = fixture("items_1.json");
 const items2 = fixture("items_2.json");
 const items3 = fixture("items_3.json");
+const expenseGroupMap = expenseGroupMapRaw as Record<string, string>;
 
 describe("normalize", () => {
   it.each([
@@ -289,11 +295,17 @@ describe("normalize", () => {
       "transporte",
       "Transporte",
       "Fornecedor para serviços de transporte escolar."
+    ],
+    [
+      "2026163027",
+      "utensilios",
+      "Utensílios",
+      "Fornecedor para utensílios e equipamentos de cozinha da escola."
     ]
   ])(
     "classifica grupo de despesa real sem itens: %s",
     (orderId, categorySlug, headline, summary) => {
-      const listing = sampleListings.find((item) => item.orderId === orderId);
+      const listing = realListings.find((item) => item.orderId === orderId);
 
       expect(listing).toBeDefined();
 
@@ -305,6 +317,84 @@ describe("normalize", () => {
       expect(result.topItems).toEqual([]);
     }
   );
+
+  it.each(Object.entries(expenseGroupMap))(
+    "classifica todo txExpenseGroup da fonte por mapa: %s",
+    (expenseGroup, categorySlug) => {
+      const result = normalize(
+        {
+          idSubprogram: 1,
+          idSchool: 2,
+          idBudget: 3,
+          orderId: `map-${expenseGroup}`,
+          expenseGroup
+        },
+        {},
+        [],
+        []
+      );
+
+      expect(result.category).toMatchObject({
+        slug: categorySlug,
+        needsFallback: false
+      });
+      expect(result.headline).not.toBe("Outros");
+    }
+  );
+
+  it("itens reais vencem o mapa de expenseGroup generico", () => {
+    const result = normalize(
+      {
+        idSubprogram: 1,
+        idSchool: 2,
+        idBudget: 3,
+        orderId: "items-win-map",
+        expenseGroup: "Equipamentos de Cozinha"
+      },
+      {},
+      {
+        data: [
+          {
+            nuItemOrder: 1,
+            txBudgetItemType: "Notebook",
+            txDescription: "Notebook para secretaria",
+            txBudgetItemUnit: "Unidade",
+            nuQuantity: 1,
+            nuValueByItem: 3500,
+            inPermanent: true,
+            txExpenseCategory: "Capital"
+          }
+        ]
+      },
+      []
+    );
+
+    expect(result.category?.slug).toBe("informatica");
+    expect(result.headline).toBe("Informática");
+    expect(result.topItems).toEqual(["notebook"]);
+  });
+
+  it("grupo de despesa desconhecido vira fallback com Outros", () => {
+    const result = normalize(
+      {
+        idSubprogram: 1,
+        idSchool: 2,
+        idBudget: 3,
+        orderId: "unknown-expense-group",
+        expenseGroup: "Grupo Novo da Fonte"
+      },
+      {},
+      [],
+      []
+    );
+
+    expect(result.category).toMatchObject({
+      slug: "outros",
+      name: "Outros",
+      needsFallback: true
+    });
+    expect(result.headline).toBe("Outros");
+  });
 
   it("usa initiativeDescription especifica quando itens nao vieram", () => {
     const result = normalize(listings[0], detail1, [], []);

@@ -24,6 +24,7 @@ export interface Regra {
 export interface Classificacao {
   categoryId: string;
   candidateCategoryId?: string;
+  unknownExpenseGroup?: string;
   confidence: number;
   matchedRules: string[];
   needsFallback: boolean;
@@ -122,7 +123,7 @@ function vocabDe(cat: Categoria): Set<string> {
     });
   cat.keywords.forEach(add);
   cat.exemplos_itens.forEach(add);
-  add(cat.name);
+  if (cat.keywords.length > 0 || cat.exemplos_itens.length > 0) add(cat.name);
   vocabCache.set(cat.slug, v);
   return v;
 }

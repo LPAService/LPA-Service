@@ -119,6 +119,37 @@
     ]
   },
   {
+    "slug": "capacitacao-formacao",
+    "name": "Capacitação e Formação",
+    "parent": "servicos",
+    "prioridade": 5,
+    "keywords": [
+      "capacitacao", "formacao", "curso", "treinamento", "oficina"
+    ],
+    "keywords_negativas": [],
+    "exemplos_itens": [
+      "capacitacao e formacao para profissionais da educacao",
+      "curso de formacao continuada",
+      "treinamento para servidores"
+    ]
+  },
+  {
+    "slug": "climatizacao",
+    "name": "Climatização",
+    "parent": "servicos",
+    "prioridade": 6,
+    "keywords": [
+      "climatizacao", "ar condicionado", "ar-condicionado", "climatizador",
+      "instalacao de ar condicionado", "manutencao de ar condicionado"
+    ],
+    "keywords_negativas": [],
+    "exemplos_itens": [
+      "climatizacao de ambientes escolares",
+      "instalacao de ar condicionado",
+      "manutencao de ar condicionado"
+    ]
+  },
+  {
     "slug": "material-de-consumo-geral",
     "name": "Material de Consumo Geral",
     "parent": null,
@@ -249,6 +280,31 @@
       "faqueiro em aco inox com 24 pecas",
       "travessas e jarras de vidro para cozinha",
       "utensilios domesticos para a cozinha da escola"
+    ]
+  },
+  {
+    "slug": "gas-glp",
+    "name": "Gás / GLP",
+    "parent": null,
+    "prioridade": 6,
+    "keywords": [],
+    "keywords_negativas": [],
+    "exemplos_itens": []
+  },
+  {
+    "slug": "tratamento-de-agua",
+    "name": "Tratamento de Água",
+    "parent": "servicos",
+    "prioridade": 6,
+    "keywords": [
+      "potabilizacao", "tratamento de agua", "analise de agua", "filtro",
+      "purificador", "limpeza de caixa dagua"
+    ],
+    "keywords_negativas": [],
+    "exemplos_itens": [
+      "potabilizacao e tratamento de agua",
+      "servico de tratamento de agua",
+      "analise de qualidade da agua"
     ]
   },
   {
@@ -475,6 +531,50 @@
       "fardamento para servidores",
       "jaleco branco manga longa",
       "toalhas de banho e lencais para dormitorio"
+    ]
+  },
+  {
+    "slug": "projetos-pedagogicos",
+    "name": "Projetos Pedagógicos",
+    "parent": "material-pedagogico",
+    "prioridade": 5,
+    "keywords": [
+      "projeto pedagogico", "atividade educacional", "atividades educacionais",
+      "projetos pedagogicos"
+    ],
+    "keywords_negativas": [],
+    "exemplos_itens": [
+      "projetos pedagogicos e atividades educacionais",
+      "atividade educacional para alunos",
+      "projeto pedagogico escolar"
+    ]
+  },
+  {
+    "slug": "premio-saeb",
+    "name": "Prêmio SAEB",
+    "parent": "projetos-pedagogicos",
+    "prioridade": 5,
+    "keywords": [
+      "premio saeb", "premiacao saeb", "saeb"
+    ],
+    "keywords_negativas": [],
+    "exemplos_itens": [
+      "premio estudantes saeb",
+      "premiacao saeb"
+    ]
+  },
+  {
+    "slug": "regularizacao-conselho",
+    "name": "Regularização de Conselho",
+    "parent": "servicos",
+    "prioridade": 5,
+    "keywords": [
+      "regularizacao de conselho", "regularizacao conselho", "conselho escolar"
+    ],
+    "keywords_negativas": [],
+    "exemplos_itens": [
+      "regularizacao de conselho escolar",
+      "servico para regularizacao de conselho"
     ]
   },
   {

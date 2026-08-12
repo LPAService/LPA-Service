@@ -97,13 +97,20 @@ function buildSummary(
     informatica: "Fornecedor para equipamentos e serviços de informática da escola.",
     eletronicos: "Fornecedor para equipamentos eletrônicos da escola.",
     "material-pedagogico": "Fornecedor para materiais pedagógicos da escola.",
+    "projetos-pedagogicos": "Fornecedor para projetos pedagógicos e atividades educacionais da escola.",
+    "premio-saeb": "Fornecedor para itens e serviços do Prêmio SAEB.",
     moveis: "Fornecedor para mobiliário escolar.",
     utensilios: "Fornecedor para utensílios e equipamentos de cozinha da escola.",
+    "gas-glp": "Fornecedor para recarga de gás GLP da escola.",
+    "tratamento-de-agua": "Fornecedor para potabilização e tratamento de água da escola.",
     transporte: "Fornecedor para serviços de transporte escolar.",
     seguranca: "Fornecedor para itens e serviços de segurança da escola.",
     "uniformes-textil": "Fornecedor para uniformes e itens têxteis escolares.",
     "material-de-consumo-geral": "Fornecedor para materiais de consumo geral da escola.",
-    servicos: "Fornecedor para serviços operacionais da escola."
+    servicos: "Fornecedor para serviços operacionais da escola.",
+    "capacitacao-formacao": "Fornecedor para capacitação e formação de profissionais da educação.",
+    climatizacao: "Fornecedor para climatização da escola.",
+    "regularizacao-conselho": "Fornecedor para regularização de conselho escolar."
   };
 
   if (templates[categorySlug]) return templates[categorySlug];

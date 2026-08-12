@@ -8,6 +8,7 @@ SaaS Caixa Escolar MG: transforma o texto de cada processo de compra em uma cate
 |---|---|
 | `categories.json` | Árvore de categorias (slugs, keywords, itens exemplo, prioridade). |
 | `rules.json` | Regras determinísticas ORDENADAS por prioridade (regex sobre texto normalizado). |
+| `expense-group-map.json` | Mapa explícito de todos os `txExpenseGroup` da fonte para uma categoria interna. |
 | `classify.ts` | Função pura `classify(texto, itens?)` — ZERO dependência externa (só lê os dois JSON). |
 | `classify.test.ts` | Vitest, 85 casos de linguagem real de licitação. |
 | `README.md` | Guia de manutenção. |
@@ -20,6 +21,21 @@ SaaS Caixa Escolar MG: transforma o texto de cada processo de compra em uma cate
 4. **`needsFallback: true`** — nada confiável; sobra para IA no futuro.
 
 Retorno: `{ categoryId, confidence, matchedRules, needsFallback }`.
+
+## Mapa de grupos da fonte
+
+`expense-group-map.json` cobre todos os `txExpenseGroup` retornados por `/public/portal/filters`.
+Na normalização, esse mapa roda depois de itens reais e descrição específica, e antes do fallback semântico.
+Grupo novo da fonte deve ser resolvido editando um único JSON:
+
+```json
+{
+  "Novo Grupo da Fonte": "categoria-interna"
+}
+```
+
+Não crie regra regex para cobrir grupo de despesa novo quando o texto é exatamente um `txExpenseGroup`.
+Se a fonte criar um grupo desconhecido em runtime, a normalização cai em `Outros` com `needsFallback: true`.
 
 ## Normalização automática
 
