@@ -65,9 +65,11 @@ describe('regras determinísticas', () => {
     ['aquisição de material elétrico para manutenção', 'eletrica'],
     ['compra de material hidráulico', 'hidraulica'],
     ['aquisição de material de construção civil', 'construcao'],
+    ['Obras', 'construcao'],
     ['contratação de empresa especializada em instalação elétrica', 'eletrica'],
     ['serviço de manutenção hidráulica', 'hidraulica'],
     ['aquisição de computadores e notebooks', 'informatica'],
+    ['Equipamentos Tecnológicos', 'informatica'],
     ['compra de televisores para a escola', 'eletronicos'],
     ['aquisição de mobiliário escolar', 'moveis'],
     ['compra de panelas e talheres para a cozinha', 'utensilios'],
@@ -80,6 +82,7 @@ describe('regras determinísticas', () => {
     ['Manutenção e Reformas', 'manutencao'],
     ['fornecimento de sabão em pó para lavanderia', 'limpeza-higiene'],
     ['aquisição de material didático para os alunos', 'material-de-escritorio'],
+    ['Material Pedagógico', 'material-pedagogico'],
     ['compra de giz e apagador para lousa', 'material-de-escritorio'],
     ['aquisição de mochilas e estojos para os alunos', 'material-de-escritorio'],
     ['fornecimento de detergente e desinfetante', 'limpeza-higiene'],
@@ -104,6 +107,7 @@ describe('regras determinísticas', () => {
     ['aquisição de extintores e mangueiras de incêndio', 'seguranca'],
     ['fornecimento de papel sulfite e canetas', 'material-de-escritorio'],
     ['Serviços Operacionais Contínuos', 'servicos'],
+    ['Serviço de Transporte Contínuo', 'transporte'],
     ['Material de Consumo Geral', 'material-de-consumo-geral']
   ];
 
@@ -214,6 +218,22 @@ describe('casos ambíguos desempatados', () => {
   it('registro de preços não dispara hidráulica', () => {
     const r = classify('ata de registro de preços para aquisição de itens diversos');
     expect(r.categoryId).not.toBe('hidraulica');
+  });
+
+  it('grupos reais genericos nao roubam material eletrico especifico', () => {
+    expect(classify('Obras material elétrico').categoryId).toBe('eletrica');
+  });
+
+  it('grupo tecnologico nao rouba seguranca especifica', () => {
+    expect(classify('Equipamentos Tecnológicos câmera de segurança').categoryId).toBe('seguranca');
+  });
+
+  it('grupo pedagogico nao rouba papelaria especifica', () => {
+    expect(classify('Material Pedagógico papel sulfite').categoryId).toBe('material-de-escritorio');
+  });
+
+  it('grupo transporte continuo nao rouba informatica especifica', () => {
+    expect(classify('Serviço de Transporte Contínuo manutenção de computadores').categoryId).toBe('informatica');
   });
 });
 

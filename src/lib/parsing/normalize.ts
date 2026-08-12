@@ -202,16 +202,20 @@ function classifyOpportunity(input: {
     realItems.length > 0 ? classifyByIndividualItems(realItems) ?? classify("", realItems) : null;
   if (itemResult && !itemResult.needsFallback) return itemResult;
 
-  const expenseGroupResult = input.expenseGroup
-    ? demoteConfidence(classify(input.expenseGroup), 0.75)
-    : null;
-  if (expenseGroupResult && !expenseGroupResult.needsFallback) return expenseGroupResult;
-
   const canUseInitiative =
     input.initiativeDescription && !looksLikeProgramCatalog(input.initiativeDescription);
   const initiativeResult = canUseInitiative
     ? demoteConfidence(classify(input.initiativeDescription ?? ""), 0.35)
     : null;
+  if (realItems.length === 0 && initiativeResult && !initiativeResult.needsFallback) {
+    return initiativeResult;
+  }
+
+  const expenseGroupResult = input.expenseGroup
+    ? demoteConfidence(classify(input.expenseGroup), 0.75)
+    : null;
+  if (expenseGroupResult && !expenseGroupResult.needsFallback) return expenseGroupResult;
+
   if (initiativeResult && !initiativeResult.needsFallback) return initiativeResult;
 
   return itemResult ?? expenseGroupResult ?? initiativeResult ?? classify("");

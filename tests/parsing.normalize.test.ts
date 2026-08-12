@@ -270,6 +270,25 @@ describe("normalize", () => {
       "material-de-consumo-geral",
       "Material de Consumo Geral",
       "Fornecedor para materiais de consumo geral da escola."
+    ],
+    ["2026168124", "construcao", "Construção", "Fornecedor para materiais de construção e pequenos reparos da escola."],
+    [
+      "2026166988",
+      "informatica",
+      "Informática",
+      "Fornecedor para equipamentos e serviços de informática da escola."
+    ],
+    [
+      "2026166885",
+      "material-pedagogico",
+      "Material Pedagógico",
+      "Fornecedor para materiais pedagógicos da escola."
+    ],
+    [
+      "2026166386",
+      "transporte",
+      "Transporte",
+      "Fornecedor para serviços de transporte escolar."
     ]
   ])(
     "classifica grupo de despesa real sem itens: %s",
@@ -286,6 +305,28 @@ describe("normalize", () => {
       expect(result.topItems).toEqual([]);
     }
   );
+
+  it("usa initiativeDescription especifica quando itens nao vieram", () => {
+    const result = normalize(listings[0], detail1, [], []);
+
+    expect(result.category?.slug).toBe("panificacao");
+    expect(result.headline).toBe("Panificação");
+    expect(result.summary).toBe(
+      "Fornecedor para pães e produtos de panificação destinados à alimentação escolar."
+    );
+    expect(result.topItems).toEqual([]);
+  });
+
+  it("ignora initiativeDescription boilerplate sem itens", () => {
+    const result = normalize(listings[2], detail3, [], []);
+
+    expect(result.category?.slug).toBe("alimentos");
+    expect(result.headline).toBe("Alimentos");
+    expect(result.summary).toBe(
+      "Fornecedor para gêneros alimentícios destinados à alimentação escolar."
+    );
+    expect(result.topItems).toEqual([]);
+  });
 
   it("aceita enriquecimento opcional de escola com cidade e regional", () => {
     const result = normalize(listings[0], detail1, items1, [], {

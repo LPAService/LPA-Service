@@ -96,6 +96,7 @@ function buildSummary(
     "impressao-toner": "Fornecedor para toners, cartuchos e suprimentos de impressão da escola.",
     informatica: "Fornecedor para equipamentos e serviços de informática da escola.",
     eletronicos: "Fornecedor para equipamentos eletrônicos da escola.",
+    "material-pedagogico": "Fornecedor para materiais pedagógicos da escola.",
     moveis: "Fornecedor para mobiliário escolar.",
     utensilios: "Fornecedor para utensílios e equipamentos de cozinha da escola.",
     transporte: "Fornecedor para serviços de transporte escolar.",

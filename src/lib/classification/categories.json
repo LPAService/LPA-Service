@@ -29,7 +29,8 @@
       "impressora", "scanner", "roteador", "switch", "nobreak", "estabilizador",
       "pen drive", "projetor", "datashow", "cabo de rede", "microcomputador",
       "fone de ouvido", "webcam", "headset", "software", "licenca de software",
-      "memoria ram", "processador", "placa de video", "ssd", "hd externo"
+      "memoria ram", "processador", "placa de video", "ssd", "hd externo",
+      "equipamento tecnologico", "equipamentos tecnologicos"
     ],
     "keywords_negativas": ["toner", "cartucho", "tinta"],
     "exemplos_itens": [
@@ -37,7 +38,8 @@
       "computador desktop com monitor led 21 polegadas",
       "fones de ouvido e webcams para laboratorio",
       "roteador wireless empresarial",
-      "projetor multimedia com tela de projecao"
+      "projetor multimedia com tela de projecao",
+      "equipamentos tecnologicos para escola"
     ]
   },
   {
@@ -60,6 +62,22 @@
       "resma de papel sulfite a4 75g",
       "mochila escolar infantil",
       "estojo com material escolar completo"
+    ]
+  },
+  {
+    "slug": "material-pedagogico",
+    "name": "Material Pedagógico",
+    "parent": null,
+    "prioridade": 6,
+    "keywords": [
+      "material pedagogico", "material didatico pedagogico", "material didatico",
+      "recurso pedagogico"
+    ],
+    "keywords_negativas": [],
+    "exemplos_itens": [
+      "material pedagogico para sala de aula",
+      "recursos pedagogicos",
+      "material didatico pedagogico"
     ]
   },
   {
@@ -124,7 +142,8 @@
       "argamassa", "massa corrida", "gesso", "verniz", "thinner", "solvente",
       "tinta", "impermeabilizante", "terraplanagem", "reforma", "alvenaria",
       "bloco ceramico", "porta", "janela", "vidro", "parafuso", "prego",
-      "madeira", "mdf", "lixa", "material de construcao", "construcao civil", "piso"
+      "madeira", "mdf", "lixa", "material de construcao", "construcao civil",
+      "piso", "obra", "obras"
     ],
     "keywords_negativas": ["impressora", "toner", "cartucho"],
     "exemplos_itens": [
@@ -132,7 +151,8 @@
       "tinta latex acrilica para paredes internas",
       "revestimento ceramico para banheiros",
       "telha de fibrocimento 6mm",
-      "material basico de construcao civil"
+      "material basico de construcao civil",
+      "obras escolares"
     ]
   },
   {
@@ -404,6 +424,7 @@
     "prioridade": 8,
     "keywords": [
       "transporte", "transporte escolar", "fretamento", "locacao de veiculo",
+      "servico de transporte continuo", "servico transporte continuo",
       "aluguel de veiculo", "veiculo", "onibus", "van", "micro-onibus",
       "combustivel", "gasolina", "diesel", "etanol", "motorista", "logistica",
       "entrega", "caminhao", "pneu"
@@ -413,7 +434,8 @@
       "transporte escolar de alunos da rede municipal",
       "fretamento de onibus para passeio pedagogico",
       "locacao de veiculo para a secretaria",
-      "combustivel para a frota escolar"
+      "combustivel para a frota escolar",
+      "servico de transporte continuo"
     ]
   },
   {
