@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 import expenseGroupMapRaw from "@/lib/classification/expense-group-map.json";
 import { NormalizeError, normalize } from "@/lib/parsing/normalize";
@@ -9,7 +10,7 @@ type DataPayload<T> = {
 
 type JsonRecord = Record<string, unknown>;
 
-const FIXTURES_URL = new URL("../../../research/portal/fixtures/", import.meta.url);
+const FIXTURES_URL = new URL("research/portal/fixtures/", pathToFileURL(`${process.cwd()}/`));
 
 function fixture<T = unknown>(name: string): T {
   return JSON.parse(readFileSync(new URL(name, FIXTURES_URL), "utf8")) as T;

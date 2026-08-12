@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import categoriesRaw from './categories.json';
 import { classifyExpenseGroup } from './expense-groups';
@@ -21,7 +22,7 @@ type FiltersFixture = {
 
 const filters = JSON.parse(
   readFileSync(
-    new URL('../../../../../research/portal/fixtures/filters_base.json', import.meta.url),
+    new URL('research/portal/fixtures/filters_base.json', pathToFileURL(`${process.cwd()}/`)),
     'utf8'
   )
 ) as FiltersFixture;

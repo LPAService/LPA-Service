@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 import expenseGroupMapRaw from "@/lib/classification/expense-group-map.json";
 import { normalize } from "@/lib/parsing/normalize";
@@ -10,7 +10,7 @@ type DataPayload<T> = {
 
 type JsonRecord = Record<string, unknown>;
 
-const FIXTURES_URL = new URL("../../../research/portal/fixtures/", import.meta.url);
+const FIXTURES_URL = new URL("research/portal/fixtures/", pathToFileURL(`${process.cwd()}/`));
 const FIXTURES_DIR = fileURLToPath(FIXTURES_URL);
 
 const expenseGroupMap = expenseGroupMapRaw as Record<string, string>;
