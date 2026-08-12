@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { opportunitySource } from "@/lib/data/source";
+import { opportunitySource, sanitizePageParam } from "@/lib/data/source";
 
 describe("opportunitySource pagination", () => {
   it("falls back to the last valid page when filtered page is beyond the end", async () => {
@@ -51,5 +51,58 @@ describe("opportunitySource pagination", () => {
     expect(result.totalPages).toBe(1);
     expect(result.page).toBe(1);
     expect(result.data).toHaveLength(0);
+  });
+});
+
+describe("page sanitization", () => {
+  it.each([
+    ["abc", 1],
+    ["", 1],
+    ["   ", 1],
+    ["0", 1],
+    ["-2", 1],
+    ["1.5", 1],
+    ["999999", 999999],
+    [["1", "2"], 1],
+    [" 2 ", 2]
+  ] as const)("sanitizes page value %j", (value, expected) => {
+    expect(sanitizePageParam(value)).toBe(expected);
+  });
+
+  it.each([
+    [Number.NaN, 1],
+    [0, 1],
+    [-1, 1],
+    [1.5, 1],
+    [999999, 4]
+  ])("keeps source pagination numeric-safe for %j", async (page, expectedPage) => {
+    const result = await opportunitySource.listOpportunities({}, { page, pageSize: 12 });
+
+    expect(result.page).toBe(expectedPage);
+    expect(Number.isNaN(result.page)).toBe(false);
+    expect(Number.isNaN(result.totalPages)).toBe(false);
+    expect(result.data.length).toBeGreaterThan(0);
+  });
+
+  it("degrades garbage filters to empty state without numeric leaks", async () => {
+    const result = await opportunitySource.listOpportunities(
+      {
+        category: "does-not-exist",
+        city: "does-not-exist",
+        query: "     no-match     ",
+        expenseGroup: "does-not-exist",
+        school: "does-not-exist",
+        periodStart: "not-a-date",
+        periodEnd: "also-not-a-date"
+      },
+      { page: Number.NaN, pageSize: Number.NaN }
+    );
+
+    expect(result.total).toBe(0);
+    expect(result.page).toBe(1);
+    expect(result.totalPages).toBe(1);
+    expect(result.data).toHaveLength(0);
+    expect(Number.isNaN(result.page)).toBe(false);
+    expect(Number.isNaN(result.totalPages)).toBe(false);
   });
 });

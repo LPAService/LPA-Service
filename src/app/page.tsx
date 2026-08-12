@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { OpportunityCard } from "@/components/opportunity-card";
-import { opportunitySource } from "@/lib/data/source";
+import { opportunitySource, sanitizePageParam } from "@/lib/data/source";
 
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -11,20 +11,33 @@ const PAGE_SIZE = 12;
 export default async function Home({ searchParams }: PageProps) {
   const params = await searchParams;
   const currentParams = new URLSearchParams();
+  const cleanParams: Record<string, string | string[] | undefined> = {};
 
   for (const [key, value] of Object.entries(params ?? {})) {
-    if (typeof value === "string" && value) currentParams.set(key, value);
+    const cleanKey = key.trim();
+    if (!cleanKey) continue;
+
+    if (Array.isArray(value)) {
+      cleanParams[cleanKey] = value;
+      continue;
+    }
+
+    const cleanValue = value?.trim();
+    if (cleanValue) {
+      cleanParams[cleanKey] = cleanValue;
+      currentParams.set(cleanKey, cleanValue);
+    }
   }
 
-  const page = Number(currentParams.get("page") ?? "1");
+  const page = sanitizePageParam(cleanParams.page);
   const filters = {
-    city: currentParams.get("city") ?? undefined,
-    category: currentParams.get("category") ?? undefined,
-    expenseGroup: currentParams.get("expenseGroup") ?? undefined,
-    school: currentParams.get("school") ?? undefined,
-    periodStart: currentParams.get("periodStart") ?? undefined,
-    periodEnd: currentParams.get("periodEnd") ?? undefined,
-    query: currentParams.get("query") ?? undefined
+    city: getStringParam(cleanParams.city),
+    category: getStringParam(cleanParams.category),
+    expenseGroup: getStringParam(cleanParams.expenseGroup),
+    school: getStringParam(cleanParams.school),
+    periodStart: getStringParam(cleanParams.periodStart),
+    periodEnd: getStringParam(cleanParams.periodEnd),
+    query: getStringParam(cleanParams.query)
   };
   const result = await opportunitySource.listOpportunities(filters, {
     page,
@@ -159,6 +172,10 @@ export default async function Home({ searchParams }: PageProps) {
       </section>
     </main>
   );
+}
+
+function getStringParam(value: string | string[] | undefined) {
+  return typeof value === "string" ? value : undefined;
 }
 
 function Metric({ label, value }: { label: string; value: string }) {

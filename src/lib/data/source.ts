@@ -116,8 +116,8 @@ const opportunities = listingOrders.map(normalizeOrder);
 
 export const opportunitySource: OpportunitySource = {
   async listOpportunities(filters = {}, page = {}) {
-    const pageNumber = Math.max(1, page.page ?? 1);
-    const pageSize = Math.min(48, Math.max(1, page.pageSize ?? 12));
+    const pageNumber = sanitizePositiveInteger(page.page, 1);
+    const pageSize = Math.min(48, sanitizePositiveInteger(page.pageSize, 12));
     const filtered = opportunities.filter((opportunity) =>
       matchesFilters(opportunity, filters)
     );
@@ -142,6 +142,11 @@ export const opportunitySource: OpportunitySource = {
     );
   }
 };
+
+export function sanitizePageParam(value: string | readonly string[] | undefined) {
+  if (Array.isArray(value)) return 1;
+  return sanitizePositiveInteger(value, 1);
+}
 
 function normalizeOrder(order: ListingOrder): NormalizedOpportunity {
   const fixture = fixtureDetails.get(order.orderId);
@@ -345,4 +350,21 @@ function isFiniteNumber(value: unknown): value is number {
 
 function roundMoney(value: number) {
   return Math.round(value * 100) / 100;
+}
+
+function sanitizePositiveInteger(value: unknown, fallback: number) {
+  const numericValue =
+    typeof value === "string" && value.trim() !== ""
+      ? Number(value.trim())
+      : value;
+
+  if (
+    typeof numericValue !== "number" ||
+    !Number.isInteger(numericValue) ||
+    numericValue < 1
+  ) {
+    return fallback;
+  }
+
+  return numericValue;
 }
