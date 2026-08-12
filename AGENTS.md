@@ -35,6 +35,29 @@ git checkout -b <tipo>/<descricao-curta>
 
 Não fazer commit direto em `main`.
 
+## Postgres Local
+
+Nesta máquina não há runtime de container. Use PostgreSQL local via Homebrew.
+
+Setup:
+
+```bash
+psql -d postgres -c "CREATE ROLE lpa LOGIN PASSWORD 'lpa' CREATEDB;"
+createdb -O lpa lpa_leo
+createdb -O lpa lpa_leo_test
+```
+
+Se a role ou bancos já existirem, siga em frente.
+
+URLs padrão:
+
+```bash
+DATABASE_URL=postgres://lpa:lpa@localhost:5432/lpa_leo
+TEST_DATABASE_URL=postgres://lpa:lpa@localhost:5432/lpa_leo_test
+```
+
+Testes de banco usam `lpa_leo_test` e podem dropar/truncar somente esse banco.
+
 ## Mapa de Pastas por Domínio
 
 - `src/app`: App Router e dashboard.
@@ -47,4 +70,3 @@ Não fazer commit direto em `main`.
 ## Áreas Bloqueadas
 
 Não mexer em `.grok/`, `.overclock-app/` ou `research/` sem pedido explícito.
-
