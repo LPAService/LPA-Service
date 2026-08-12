@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "LPA Leo | Caixa Escolar MG",
-  description: "Compras escolares de MG em cards comerciais para fornecedores"
+  title: "Oportunidades para fornecedores - Caixa Escolar MG",
+  description: "Oportunidades da Caixa Escolar MG organizadas para fornecedores."
 };
 
 export default function RootLayout({
@@ -13,7 +13,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body>{children}</body>
+      <body className="bg-[var(--color-bg)] text-[var(--color-fg)] font-sans antialiased">
+        {children}
+      </body>
     </html>
   );
 }
