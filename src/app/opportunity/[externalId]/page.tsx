@@ -164,13 +164,22 @@ export default async function DetailPage({ params }: DetailPageProps) {
             )}
           </Panel>
 
+          <Panel title="Identificadores no portal">
+            <dl className="grid gap-3 text-sm">
+              <Fact label="Pedido" value={opportunity.orderId} />
+              <Fact label="ID escola" value={String(opportunity.idSchool)} />
+              <Fact label="ID subprograma" value={String(opportunity.idSubprogram)} />
+              <Fact label="ID orçamento" value={String(opportunity.idBudget)} />
+            </dl>
+          </Panel>
+
           <a
             className="inline-flex min-h-11 items-center justify-center rounded-md bg-[var(--color-primary)] px-4 text-sm font-semibold text-[var(--color-primary-fg)] hover:opacity-90"
             href={opportunity.sourceUrl}
             rel="noreferrer"
             target="_blank"
           >
-            Abrir processo na fonte
+            Ver no portal da transparência
           </a>
         </aside>
       </section>

@@ -21,10 +21,10 @@ import type {
   PurchaseOrdersQuery,
   PortalFiltersQuery
 } from "./client";
-import { CAIXA_ESCOLAR_API_BASE_URL } from "./client";
 import categoriesRaw from "@/lib/classification/categories.json";
 import { classifyOpportunity } from "@/lib/parsing/normalize";
 import { summarize } from "@/lib/parsing/summarize";
+import { buildPortalSourceUrl, buildPurchaseOrderDetailApiUrl } from "@/lib/source-url";
 
 export type CollectMode = "full" | "incremental" | "refresh_stale";
 
@@ -435,7 +435,7 @@ async function buildOpportunityRecord(
   return {
     externalId: buildExternalId(listing),
     orderId: detail.budgetOrder ?? listing.orderId,
-    sourceUrl: buildDetailSourceUrl(key),
+    sourceUrl: buildPortalSourceUrl(),
     idSubprogram: listing.idSubprogram,
     idSchool: listing.idSchool,
     idBudget: listing.idBudget,
@@ -458,6 +458,7 @@ async function buildOpportunityRecord(
     totalValue,
     itemCount: mappedItems.length,
     rawJson: {
+      sourceApiUrl: buildDetailSourceUrl(key),
       listing,
       detail,
       items: sourceItems,
@@ -560,12 +561,7 @@ async function upsertFilterSchools(
 }
 
 function buildDetailSourceUrl(key: PurchaseOrderKey) {
-  const url = new URL(
-    `/public/purchase-orders/by-subprogram/${key.idSubprogram}/by-school/${key.idSchool}/by-budget/${key.idBudget}/detail`,
-    CAIXA_ESCOLAR_API_BASE_URL
-  );
-  url.searchParams.set("portalSlug", "mg");
-  return url.toString();
+  return buildPurchaseOrderDetailApiUrl(key);
 }
 
 function parseDate(value: string | null | undefined) {

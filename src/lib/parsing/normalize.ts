@@ -9,6 +9,7 @@ import type {
   OpportunityItem
 } from "@/lib/contracts/opportunity";
 import { summarize } from "@/lib/parsing/summarize";
+import { buildPortalSourceUrl, buildPurchaseOrderDetailApiUrl } from "@/lib/source-url";
 
 type JsonObject = Record<string, unknown>;
 
@@ -41,9 +42,6 @@ type SchoolInput =
       network?: unknown;
       txNetwork?: unknown;
     };
-
-const SOURCE_BASE_URL =
-  "https://transparencia-api.caixaescolar.educacao.mg.gov.br/public/purchase-orders";
 
 const categories = categoriesRaw as CategoryRecord[];
 const categoriesBySlug = new Map(categories.map((category) => [category.slug, category]));
@@ -104,7 +102,7 @@ export function normalize(
   return {
     externalId: `${idSubprogram}-${idSchool}-${idBudget}`,
     orderId,
-    sourceUrl: buildSourceUrl(idSubprogram, idSchool, idBudget),
+    sourceUrl: buildPortalSourceUrl(),
     idSubprogram,
     idSchool,
     idBudget,
@@ -153,6 +151,7 @@ export function normalize(
     summary: summary.summary,
     topItems: summary.topItems,
     rawJson: {
+      sourceApiUrl: buildSourceUrl(idSubprogram, idSchool, idBudget),
       listing,
       detail,
       items,
@@ -376,7 +375,7 @@ function schoolName(
 }
 
 function buildSourceUrl(idSubprogram: number, idSchool: number, idBudget: number): string {
-  return `${SOURCE_BASE_URL}/by-subprogram/${idSubprogram}/by-school/${idSchool}/by-budget/${idBudget}?portalSlug=mg`;
+  return buildPurchaseOrderDetailApiUrl({ idSubprogram, idSchool, idBudget });
 }
 
 function asRecord(value: unknown): JsonObject {

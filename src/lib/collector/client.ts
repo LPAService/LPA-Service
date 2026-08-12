@@ -1,5 +1,6 @@
-export const CAIXA_ESCOLAR_API_BASE_URL =
-  "https://transparencia-api.caixaescolar.educacao.mg.gov.br";
+import { CAIXA_ESCOLAR_API_BASE_URL } from "@/lib/source-url";
+
+export { CAIXA_ESCOLAR_API_BASE_URL };
 
 const DEFAULT_USER_AGENT = "lpa-leo-collector/0.1 contato:fornecedores";
 

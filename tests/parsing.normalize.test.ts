@@ -3,6 +3,10 @@ import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 import expenseGroupMapRaw from "@/lib/classification/expense-group-map.json";
 import { NormalizeError, normalize } from "@/lib/parsing/normalize";
+import {
+  CAIXA_ESCOLAR_PORTAL_URL,
+  buildPurchaseOrderDetailApiUrl
+} from "@/lib/source-url";
 
 type DataPayload<T> = {
   data: T[];
@@ -91,9 +95,10 @@ describe("normalize", () => {
     expect(result.itemCount).toBe(expected.itemCount);
     expect(result.totalValue).toBe(expected.totalValue);
     expect(result.rawJson).toMatchObject({ listing, detail, items, attachments: [] });
-    expect(result.sourceUrl).toContain(
-      `/by-subprogram/${result.idSubprogram}/by-school/${result.idSchool}/by-budget/${result.idBudget}`
-    );
+    expect(result.sourceUrl).toBe(CAIXA_ESCOLAR_PORTAL_URL);
+    expect(result.rawJson).toMatchObject({
+      sourceApiUrl: buildPurchaseOrderDetailApiUrl(result)
+    });
     expect(result.category?.slug).toBe(expected.categorySlug);
     expect(result.headline).toBe(expected.headline);
     expect(result.summary).toBe(expected.summary);

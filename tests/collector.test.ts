@@ -24,6 +24,10 @@ import type {
   PurchaseOrderListRecord,
   PurchaseOrdersQuery
 } from "@/lib/collector/client";
+import {
+  CAIXA_ESCOLAR_PORTAL_URL,
+  buildPurchaseOrderDetailApiUrl
+} from "@/lib/source-url";
 
 const fixturesRoot = findFixturesRoot();
 
@@ -153,6 +157,10 @@ describe("collector", () => {
       initiativeDescription: null,
       idSupplier: null,
       totalValue: null
+    });
+    expect(saved?.sourceUrl).toBe(CAIXA_ESCOLAR_PORTAL_URL);
+    expect(saved?.rawJson).toMatchObject({
+      sourceApiUrl: buildPurchaseOrderDetailApiUrl(source)
     });
     expect(saved?.items[0]).toMatchObject({ unitValue: null, totalValue: null });
     expect(saved?.attachments[0]).toMatchObject({ url: null });
