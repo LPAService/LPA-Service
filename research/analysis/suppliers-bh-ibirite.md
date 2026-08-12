@@ -10,9 +10,9 @@ Fonte: tabelas locais `opportunities`, `items` e `categories`. Sem consulta exte
 | Fornecedores (CNPJ) | 1.300 |
 | Pares fornecedor-produto normalizados | 17.113 |
 | Fornecedor-categoria | 2.717 |
-| Nomes de produto brutos | 17.446 |
-| Nomes colapsados | 333 |
-| Produtos normalizados únicos | 17.113 |
+| Nomes de produto brutos distintos | 1.892 |
+| Nomes colapsados | 6 |
+| Produtos normalizados únicos | 1.886 |
 
 ## Fornecedores por cidade
 
