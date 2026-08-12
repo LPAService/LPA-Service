@@ -122,13 +122,14 @@ export const opportunitySource: OpportunitySource = {
       matchesFilters(opportunity, filters)
     );
     const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-    const offset = (pageNumber - 1) * pageSize;
+    const currentPage = Math.min(pageNumber, totalPages);
+    const offset = (currentPage - 1) * pageSize;
 
     return {
       data: filtered.slice(offset, offset + pageSize),
       total: filtered.length,
       totalAvailable: opportunities.length,
-      page: Math.min(pageNumber, totalPages),
+      page: currentPage,
       pageSize,
       totalPages,
       facets: buildFacets(opportunities)
