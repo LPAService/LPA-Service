@@ -4,7 +4,7 @@ import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { collectOpportunities, DrizzleCollectorRepository } from "@/lib/collector/collect";
 import type {
   PaginatedResponse,
@@ -19,7 +19,8 @@ import type {
 } from "@/lib/collector/client";
 import * as schema from "@/lib/db/schema";
 
-const databaseUrl = process.env.DATABASE_URL ?? "postgres://lpa:lpa@localhost:5432/lpa_leo";
+const databaseUrl =
+  process.env.TEST_DATABASE_URL ?? "postgres://lpa:lpa@localhost:5432/lpa_leo_test";
 const fixturesRoot = resolve(process.cwd(), "../../research/portal/fixtures");
 const migrationFiles = [
   "drizzle/0000_exotic_hedge_knight.sql",
@@ -61,8 +62,11 @@ describe("DrizzleCollectorRepository em Postgres real", () => {
       throw new Error(`Postgres real indisponível em ${databaseUrl}: ${errorMessage(error)}`);
     }
 
-    await resetDatabase(pool);
     database = drizzle(pool, { schema });
+  }, 30_000);
+
+  beforeEach(async () => {
+    await resetDatabase(pool);
   }, 30_000);
 
   afterAll(async () => {
@@ -99,6 +103,39 @@ describe("DrizzleCollectorRepository em Postgres real", () => {
     });
   });
 
+  it("falha de insert de filhos faz rollback real de parent e filhos", async () => {
+    const client = new DatabaseFakeClient();
+    const repository = new DrizzleCollectorRepository(database);
+
+    await collectOpportunities(client, repository, {
+      mode: "full",
+      refreshSchools: false
+    });
+
+    client.detail = { ...detail, purchaseOrderStatus: "APRO" };
+    client.images = [
+      {
+        id: 999999,
+        filename: null,
+        thumbUrl: "/broken",
+        url: ""
+      } as unknown as PurchaseOrderAttachment
+    ];
+
+    const failed = await collectOpportunities(client, repository, {
+      mode: "full",
+      refreshSchools: false
+    });
+
+    expect(failed).toMatchObject({ found: 1, newCount: 0, updatedCount: 0, errorCount: 1 });
+    await expectCount("opportunities", 1);
+    await expectCount("items", 2);
+    await expectCount("attachments", 2);
+
+    const [opportunity] = await database.select().from(schema.opportunities).limit(1);
+    expect(opportunity?.purchaseOrderStatus).toBe("ENVD");
+  });
+
   async function expectCount(table: string, expected: number) {
     const result = await database.execute<{ count: string }>(
       sql.raw(`select count(*)::text as count from "${table}"`)
@@ -125,6 +162,10 @@ async function resetDatabase(pool: Pool) {
 }
 
 class DatabaseFakeClient {
+  detail = detail;
+  items = sourceItems;
+  images = sourceAttachments;
+
   async listPurchaseOrders(query: PurchaseOrdersQuery) {
     const page = query.page ?? 1;
     return {
@@ -139,16 +180,16 @@ class DatabaseFakeClient {
   }
 
   async getPurchaseOrderDetail() {
-    return detail;
+    return this.detail;
   }
 
   async listPurchaseOrderItems(query: PurchaseOrderItemsQuery) {
     return {
-      data: query.page === 1 ? sourceItems : [],
+      data: query.page === 1 ? this.items : [],
       meta: {
         page: query.page ?? 1,
-        pageSize: sourceItems.length,
-        total: sourceItems.length,
+        pageSize: this.items.length,
+        total: this.items.length,
         totalPages: 1
       }
     };
@@ -156,7 +197,7 @@ class DatabaseFakeClient {
 
   async getPurchaseOrderImages(key: PurchaseOrderKey) {
     expect(buildExternalId(key)).toBe(buildExternalId(listing));
-    return sourceAttachments;
+    return this.images;
   }
 
   async getPortalFilters(): Promise<PortalFilters> {
