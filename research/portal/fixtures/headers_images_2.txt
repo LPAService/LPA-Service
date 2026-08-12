@@ -1,0 +1,17 @@
+HTTP/2 200 
+server: openresty
+date: Wed, 12 Aug 2026 14:29:10 GMT
+content-type: application/json; charset=utf-8
+content-length: 2
+x-powered-by: Express
+access-control-allow-origin: https://transparencia.caixaescolar.educacao.mg.gov.br
+vary: Origin
+access-control-allow-credentials: true
+access-control-expose-headers: Retry-After
+x-ratelimit-limit: 200
+x-ratelimit-remaining: 196
+x-ratelimit-reset: 1
+etag: W/"2-l9Fw4VUO7kr8CvBlt4zaMCqXZ0w"
+strict-transport-security: max-age=63072000;includeSubDomains; preload
+x-served-by: transparencia-api.caixaescolar.educacao.mg.gov.br
+

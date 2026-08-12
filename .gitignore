@@ -8,3 +8,5 @@ tsconfig.tsbuildinfo
 .worktrees/
 .overclock-app
 .grok
+.codex/
+research/taxonomy/node_modules/

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8"/>
+    <title>Caixa Escolar - Portal da Transparência - SGD</title>
+    <base href="/"/>
+
+    <meta name="description" content="Portal da Transparência - SGD"/>
+    <meta name="author" content="Caixa Escolar"/>
+
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <meta http-equiv="Pragma" content="no-cache"/>
+    <meta http-equiv="Expires" content="0"/>
+
+    <link rel="icon" type="image/x-icon" href="favicon.ico"/>
+  <link rel="stylesheet" href="styles-KALLQXDA.css"></head>
+
+  <body>
+    <app-root></app-root>
+  <script src="polyfills-MH2GNY63.js" type="module"></script><script src="scripts-NNUGP5V2.js" defer></script><script src="main-XIP6QOXY.js" type="module"></script></body>
+</html>

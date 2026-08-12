@@ -1,0 +1,33 @@
+{
+  "sourceOrder": {
+    "orderId": "2027075575",
+    "year": "2027",
+    "school": "EE PROFESSORA ELISA TEIXEIRA DE CARVALHO",
+    "subprogram": "Subprograma - Manutenção Escolar e Desenvolvimento do Ensino 2026",
+    "expenseGroup": "Serviços Operacionais Contínuos",
+    "accountabilityStatus": "NENV",
+    "accountabilitySent": false,
+    "purchaseDate": "2026-07-08T13:20:27.606Z",
+    "idSubprogram": 712,
+    "idSchool": 9413,
+    "idBudget": 317743,
+    "idSupplier": 45438
+  },
+  "endpoint": "https://transparencia-api.caixaescolar.educacao.mg.gov.br/public/purchase-orders/by-subprogram/712/by-school/9413/by-budget/317743/images?portalSlug=mg",
+  "status": 200,
+  "count": 2,
+  "data": [
+    {
+      "id": 413227,
+      "filename": "1170dbf5-a6fc-4a96-ae87-0d2387663471.pdf",
+      "url": "",
+      "thumbUrl": "/public/files/thumb?key=1170dbf5-a6fc-4a96-ae87-0d2387663471.pdf"
+    },
+    {
+      "id": 413228,
+      "filename": "2e219991-cd22-4a92-a840-c569c2edd82a.pdf",
+      "url": "",
+      "thumbUrl": "/public/files/thumb?key=2e219991-cd22-4a92-a840-c569c2edd82a.pdf"
+    }
+  ]
+}

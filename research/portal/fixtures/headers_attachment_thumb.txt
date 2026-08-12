@@ -1,0 +1,13 @@
+HTTP/2 404 
+server: openresty
+date: Wed, 12 Aug 2026 14:29:38 GMT
+content-type: application/json; charset=utf-8
+content-length: 126
+x-powered-by: Express
+access-control-allow-origin: https://transparencia.caixaescolar.educacao.mg.gov.br
+vary: Origin
+access-control-allow-credentials: true
+access-control-expose-headers: Retry-After
+etag: W/"7e-eS5fK4CyGSPOgoYyVWMYbG8LWwQ"
+strict-transport-security: max-age=63072000;includeSubDomains; preload
+
