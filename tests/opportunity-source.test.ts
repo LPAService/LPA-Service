@@ -47,15 +47,14 @@ describe("PostgresOpportunitySource", () => {
     );
 
     expect(result).toMatchObject({
-      total: 2,
-      totalAvailable: 3,
+      total: 1,
+      totalAvailable: 2,
       totalPages: 1,
       page: 1,
       pageSize: 12
     });
     expect(result.data.map((opportunity) => opportunity.externalId)).toEqual([
-      "opp-food-1",
-      "opp-food-2"
+      "opp-food-1"
     ]);
   });
 
@@ -127,10 +126,24 @@ describe("PostgresOpportunitySource", () => {
     const unfiltered = await source.listOpportunities();
     const filtered = await source.listOpportunities({ category: "alimentos" });
 
-    expect(unfiltered.total).toBe(3);
+    expect(unfiltered.total).toBe(2);
     expect(unfiltered.facets.categories).toEqual([]);
     expect(unfiltered.data.every((opportunity) => opportunity.category === null)).toBe(true);
     expect(filtered).toMatchObject({ total: 0, data: [] });
+  });
+
+  it("restringe escopo padrão RMBH e bloqueia cidade fora da região", async () => {
+    const source = createPostgresOpportunitySource(database);
+
+    await expect(source.listOpportunities()).resolves.toMatchObject({
+      totalAvailable: 2,
+      facets: { cities: ["Belo Horizonte", "Contagem"] }
+    });
+    await expect(source.listOpportunities({ city: "Manhuaçu" })).resolves.toMatchObject({
+      total: 0,
+      data: []
+    });
+    await expect(source.getOpportunity("opp-food-2")).resolves.toBeNull();
   });
 });
 
@@ -180,7 +193,7 @@ async function seedDatabase(database: NodePgDatabase<typeof schema>) {
     {
       idSchool: 101,
       name: "EE Centro",
-      idCounty: 1,
+      idCounty: 2546,
       city: "Belo Horizonte",
       regional: "SRE/METROPOLITANA A",
       rawJson: { source: "test" }
@@ -188,7 +201,7 @@ async function seedDatabase(database: NodePgDatabase<typeof schema>) {
     {
       idSchool: 102,
       name: "EE Reforma",
-      idCounty: 2,
+      idCounty: 2340,
       city: "Contagem",
       regional: "SRE/METROPOLITANA B",
       rawJson: { source: "test" }

@@ -32,6 +32,7 @@ export type CollectOptions = {
   maxPages?: number;
   maxRecords?: number;
   refreshSchools?: boolean;
+  schoolCounty?: { idCounty: number; city: string };
   stopAfterPagesWithoutNew?: number;
   filters?: Omit<PurchaseOrdersQuery, "page" | "pageSize" | "sortBy" | "sortDir">;
 };
@@ -155,7 +156,11 @@ export async function collectOpportunities(
 
   try {
     if (options.refreshSchools ?? true) {
-      await collectSchoolDimension(client, activeRepository);
+      if (options.schoolCounty) {
+        await collectCountySchoolDimension(client, activeRepository, options.schoolCounty);
+      } else {
+        await collectSchoolDimension(client, activeRepository);
+      }
     }
 
     let shouldStop = false;
@@ -361,6 +366,21 @@ export async function collectSchoolDimension(
   }
 
   return count;
+}
+
+export async function collectCountySchoolDimension(
+  client: Pick<CollectorClient, "getPortalFilters">,
+  repository: Pick<CollectorRepository, "upsertSchool">,
+  county: { idCounty: number; city: string }
+) {
+  const filters = await client.getPortalFilters({ county: county.idCounty });
+  return upsertFilterSchools(
+    repository,
+    filters.schools ?? [],
+    county.idCounty,
+    county.city,
+    null
+  );
 }
 
 export function buildExternalId(record: Pick<PurchaseOrderListRecord, "idSubprogram" | "idSchool" | "idBudget">) {

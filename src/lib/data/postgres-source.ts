@@ -17,6 +17,7 @@ import type {
   OpportunitySource
 } from "@/lib/data/source";
 import type * as schema from "@/lib/db/schema";
+import rmbhCounties from "@/lib/collector/rmbh-counties.json";
 
 type OpportunityDatabase = NodePgDatabase<typeof schema>;
 
@@ -87,6 +88,11 @@ type FacetRow = {
 
 const cityExpression = sql`coalesce(nullif(${opportunities.city}, ''), nullif(${schools.city}, ''))`;
 const schoolExpression = sql`coalesce(nullif(${opportunities.school}, ''), nullif(${schools.name}, ''))`;
+const rmbhCountyIds = rmbhCounties.counties.map((county) => county.idCounty);
+const rmbhCityNamesForQuery = rmbhCounties.counties.map((county) => county.name);
+const rmbhCityNames = new Set(
+  rmbhCounties.counties.map((county) => normalizeScopeCity(county.name))
+);
 
 export function createPostgresOpportunitySource(
   database: OpportunityDatabase
@@ -95,7 +101,9 @@ export function createPostgresOpportunitySource(
     async listOpportunities(filters = {}, page = {}) {
       const pageNumber = sanitizePositiveInteger(page.page, 1);
       const pageSize = Math.min(48, sanitizePositiveInteger(page.pageSize, 12));
-      const where = buildWhere(filters);
+      const scope = getScopeRegion();
+      const where = buildWhere(filters, scope);
+      const scopeWhere = buildScopeWhere(scope);
 
       const [filteredCountResult, availableCountResult] = await Promise.all([
         database.execute<{ total: number }>(sql`
@@ -111,6 +119,8 @@ export function createPostgresOpportunitySource(
         database.execute<{ total: number }>(sql`
           select count(*)::integer as total
           from ${opportunities}
+          left join ${schools} on ${schools.idSchool} = ${opportunities.idSchool}
+          where ${scopeWhere}
         `)
       ]);
 
@@ -198,6 +208,7 @@ export function createPostgresOpportunitySource(
           on ${categories.id} = ${opportunities.categoryId}
          and ${categories.active} = true
         where ${opportunities.externalId} = ${cleanExternalId}
+          and ${buildScopeWhere(getScopeRegion())}
         limit 1
       `);
       const row = result.rows[0];
@@ -218,7 +229,7 @@ export function sanitizePageParam(value: string | readonly string[] | undefined)
   return sanitizePositiveInteger(value, 1);
 }
 
-function buildWhere(filters: OpportunityFilters) {
+function buildWhere(filters: OpportunityFilters, scope: ScopeRegion) {
   const conditions: SQL[] = [sql`true`];
   const city = cleanFilter(filters.city);
   const category = cleanFilter(filters.category);
@@ -226,7 +237,14 @@ function buildWhere(filters: OpportunityFilters) {
   const school = cleanFilter(filters.school);
   const query = cleanFilter(filters.query);
 
-  if (city) conditions.push(sql`lower(${cityExpression}) = lower(${city})`);
+  conditions.push(buildScopeWhere(scope));
+  if (city) {
+    if (scope === "rmbh" && !rmbhCityNames.has(normalizeScopeCity(city))) {
+      conditions.push(sql`false`);
+    } else {
+      conditions.push(sql`lower(${cityExpression}) = lower(${city})`);
+    }
+  }
   if (category) conditions.push(sql`lower(${categories.slug}) = lower(${category})`);
   if (expenseGroup) {
     conditions.push(
@@ -265,6 +283,34 @@ function buildWhere(filters: OpportunityFilters) {
   }
 
   return sql.join(conditions, sql` and `);
+}
+
+type ScopeRegion = "all" | "rmbh";
+
+function getScopeRegion(): ScopeRegion {
+  return process.env.SCOPE_REGION?.trim().toLowerCase() === "all" ? "all" : "rmbh";
+}
+
+function buildScopeWhere(scope: ScopeRegion): SQL {
+  if (scope === "all") return sql`true`;
+
+  const countyIds = sql.join(rmbhCountyIds.map((id) => sql`${id}`), sql`, `);
+  const cityNames = sql.join(
+    rmbhCityNamesForQuery.map((name) => sql`lower(${name})`),
+    sql`, `
+  );
+  return sql`(
+    ${schools.idCounty} in (${countyIds})
+    or lower(${cityExpression}) in (${cityNames})
+  )`;
+}
+
+function normalizeScopeCity(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .trim()
+    .toLowerCase();
 }
 
 function addPeriodCondition(
