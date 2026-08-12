@@ -1,7 +1,20 @@
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { Pool } from "pg";
 import { classifyOpportunity } from "@/lib/parsing/normalize";
 import { summarize } from "@/lib/parsing/summarize";
 import categories from "@/lib/classification/categories.json";
+
+const envFile = resolve(process.cwd(), ".env");
+if (existsSync(envFile) && typeof process.loadEnvFile === "function") {
+  process.loadEnvFile(envFile);
+}
+
+if (!process.env.DATABASE_URL) {
+  throw new Error(
+    "DATABASE_URL não definida. Crie um .env (veja .env.example) ou exporte a variável antes de rodar."
+  );
+}
 
 const args = new Map(process.argv.slice(2).map((arg) => {
   const [key, value] = arg.replace(/^--/, "").split("=");
