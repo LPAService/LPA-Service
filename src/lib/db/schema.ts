@@ -162,3 +162,62 @@ export const collectionRuns = pgTable(
     index("collection_runs_status_idx").on(table.status)
   ]
 );
+
+export const suppliers = pgTable(
+  "suppliers",
+  {
+    id: serial("id").primaryKey(),
+    document: text("document").notNull(),
+    name: text("name").notNull(),
+    normalizedName: text("normalized_name").notNull(),
+    city: text("city"),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+    totalOrders: integer("total_orders").notNull().default(0),
+    totalValue: doublePrecision("total_value").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    uniqueIndex("suppliers_document_unique").on(table.document),
+    index("suppliers_city_idx").on(table.city),
+    index("suppliers_normalized_name_idx").on(table.normalizedName)
+  ]
+);
+
+export const supplierProducts = pgTable(
+  "supplier_products",
+  {
+    id: serial("id").primaryKey(),
+    supplierId: integer("supplier_id").notNull().references(() => suppliers.id, { onDelete: "cascade" }),
+    productName: text("product_name").notNull(),
+    normalizedProductName: text("normalized_product_name").notNull(),
+    categoryId: integer("category_id").references(() => categories.id),
+    timesSupplied: integer("times_supplied").notNull().default(0),
+    totalQuantity: doublePrecision("total_quantity").notNull().default(0),
+    avgUnitValue: doublePrecision("avg_unit_value"),
+    minUnitValue: doublePrecision("min_unit_value"),
+    maxUnitValue: doublePrecision("max_unit_value"),
+    lastSuppliedAt: timestamp("last_supplied_at", { withTimezone: true })
+  },
+  (table) => [
+    uniqueIndex("supplier_products_supplier_product_unique").on(table.supplierId, table.normalizedProductName),
+    index("supplier_products_category_id_idx").on(table.categoryId),
+    index("supplier_products_product_name_idx").on(table.normalizedProductName)
+  ]
+);
+
+export const supplierCategories = pgTable(
+  "supplier_categories",
+  {
+    id: serial("id").primaryKey(),
+    supplierId: integer("supplier_id").notNull().references(() => suppliers.id, { onDelete: "cascade" }),
+    categoryId: integer("category_id").notNull().references(() => categories.id),
+    orderCount: integer("order_count").notNull().default(0),
+    totalValue: doublePrecision("total_value").notNull().default(0)
+  },
+  (table) => [
+    uniqueIndex("supplier_categories_supplier_category_unique").on(table.supplierId, table.categoryId),
+    index("supplier_categories_category_id_idx").on(table.categoryId)
+  ]
+);
