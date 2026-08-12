@@ -23,6 +23,7 @@ export interface Regra {
 
 export interface Classificacao {
   categoryId: string;
+  candidateCategoryId?: string;
   confidence: number;
   matchedRules: string[];
   needsFallback: boolean;
@@ -212,7 +213,8 @@ export function classify(texto: string, itens: string[] = []): Classificacao {
   }
   if (melhorSem && melhorOv >= 1) {
     return {
-      categoryId: melhorSem.slug,
+      categoryId: 'outros',
+      candidateCategoryId: melhorSem.slug,
       confidence: 0.1,
       matchedRules: ['fallback'],
       needsFallback: true

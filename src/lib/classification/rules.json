@@ -48,6 +48,14 @@
     "pattern": "\\b(manutencao|instalacao|limpeza|higienizacao) de ar condicionado\\b|\\bar condicionado\\b.*\\b(manutencao|instalacao|limpeza|higienizacao)\\b"
   },
   {
+    "id": "R05d",
+    "name": "Conservação e pequenos reparos",
+    "categoryId": "manutencao",
+    "priority": 91,
+    "weight": 0.85,
+    "pattern": "\\bconservacao e pequeno reparo\\b|\\bconservacao e pequenos reparos\\b|\\bmanutencao e reforma\\b|\\bmanutencao e reformas\\b"
+  },
+  {
     "id": "R24",
     "name": "Transporte e combustível",
     "categoryId": "transporte",
@@ -141,7 +149,7 @@
     "categoryId": "nao-pereciveis",
     "priority": 90,
     "weight": 0.9,
-    "pattern": "\\barroz\\b|\\bfeijao\\b|\\bacucar\\b|\\boleo\\b|\\boleo de soja\\b|\\bmacarrao\\b|\\bfarinha\\b|\\bcafe\\b|\\bachocolatado\\b|\\bchocolate em po\\b|\\benlatado\\b|\\bsardinha em lata\\b|\\bmilho em lata\\b|\\bmolho de tomate\\b|\\bextrato de tomate\\b|\\bconserva\\b|\\bsuco em po\\b|\\brefresco em po\\b|\\bsal\\b|\\bfuba\\b|\\baveia\\b|\\btrigo\\b|\\bmel\\b|\\bgeleia\\b|\\btempero\\b"
+    "pattern": "\\barroz\\b|\\bfeijao\\b|\\bacucar\\b|\\bamido de milho\\b|\\bacafrao\\b|\\balho\\b|\\bamendoim\\b|\\boleo\\b|\\boleo de soja\\b|\\bmacarrao\\b|\\bfarinha\\b|\\bcafe\\b|\\bcacau em po\\b|\\bachocolatado\\b|\\bchocolate em po\\b|\\benlatado\\b|\\bsardinha em lata\\b|\\bmilho em lata\\b|\\bmolho de tomate\\b|\\bextrato de tomate\\b|\\bconserva\\b|\\bsuco em po\\b|\\brefresco em po\\b|\\bsal\\b|\\bfuba\\b|\\baveia\\b|\\btrigo\\b|\\bmel\\b|\\bgeleia\\b|\\btempero\\b"
   },
   {
     "id": "R12",
@@ -229,7 +237,15 @@
     "categoryId": "servicos",
     "priority": 75,
     "weight": 0.7,
-    "pattern": "\\bjardinagem\\b|\\bpoda\\b|\\brocada\\b|\\bmao de obra\\b|\\bterceirizacao\\b|\\bassessoria\\b|\\bconsultoria\\b|\\borganizacao de eventos\\b|\\bprestacao de servicos\\b|\\bcontratacao de empresa especializada\\b|\\btranscricao\\b"
+    "pattern": "\\bjardinagem\\b|\\bpoda\\b|\\brocada\\b|\\bmao de obra\\b|\\bterceirizacao\\b|\\bassessoria\\b|\\bconsultoria\\b|\\borganizacao de eventos\\b|\\bprestacao de servicos\\b|\\bcontratacao de empresa especializada\\b|\\btranscricao\\b|\\bservicos operacionais continuos\\b|\\bservico operacional\\b|\\bservicos operacionais\\b"
+  },
+  {
+    "id": "R27",
+    "name": "Material de consumo geral",
+    "categoryId": "material-de-consumo-geral",
+    "priority": 68,
+    "weight": 0.65,
+    "pattern": "\\bmaterial de consumo geral\\b|\\bmaterial consumo geral\\b|\\bconsumo geral\\b"
   },
   {
     "id": "R04",

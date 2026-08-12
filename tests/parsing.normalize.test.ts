@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { normalize } from "@/lib/parsing/normalize";
+import { NormalizeError, normalize } from "@/lib/parsing/normalize";
 
 type DataPayload<T> = {
   data: T[];
@@ -15,6 +15,7 @@ function fixture<T = unknown>(name: string): T {
 }
 
 const listings = fixture<DataPayload<JsonRecord>>("purchase_orders_page1.json").data;
+const sampleListings = fixture<DataPayload<JsonRecord>>("pagesize_1000.json").data;
 const detail1 = fixture<JsonRecord>("detail_1.json");
 const detail2 = fixture<JsonRecord>("detail_2.json");
 const detail3 = fixture<JsonRecord>("detail_3.json");
@@ -32,7 +33,11 @@ describe("normalize", () => {
         externalId: "1396-9458-338067",
         orderId: "2027075592",
         itemCount: 1,
-        totalValue: 5000
+        totalValue: 5000,
+        categorySlug: "panificacao",
+        headline: "Panificação",
+        summary: "Fornecedor para pães e produtos de panificação destinados à alimentação escolar.",
+        topItems: ["pão de sal"]
       }
     },
     {
@@ -43,7 +48,11 @@ describe("normalize", () => {
         externalId: "717-9926-335900",
         orderId: "2027075587",
         itemCount: 1,
-        totalValue: 695
+        totalValue: 695,
+        categorySlug: "construcao",
+        headline: "Construção",
+        summary: "Fornecedor para materiais de construção e pequenos reparos da escola.",
+        topItems: ["telha cerâmica tipo romana"]
       }
     },
     {
@@ -54,10 +63,20 @@ describe("normalize", () => {
         externalId: "635-10415-333464",
         orderId: "2027075586",
         itemCount: 10,
-        totalValue: 25835.11
+        totalValue: 25835.11,
+        categorySlug: "nao-pereciveis",
+        headline: "Não Perecíveis",
+        summary: "Fornecedor para alimentos não perecíveis destinados à alimentação escolar.",
+        topItems: [
+          "amido de milho",
+          "açafrão pó",
+          "açúcar cristal",
+          "alho",
+          "amendoim"
+        ]
       }
     }
-  ])("normaliza fixture real $expected.orderId", ({ listing, detail, items, expected }) => {
+  ])("normaliza card completo do fixture real $expected.orderId", ({ listing, detail, items, expected }) => {
     const result = normalize(listing, detail, items, []);
 
     expect(result.externalId).toBe(expected.externalId);
@@ -68,6 +87,10 @@ describe("normalize", () => {
     expect(result.sourceUrl).toContain(
       `/by-subprogram/${result.idSubprogram}/by-school/${result.idSchool}/by-budget/${result.idBudget}`
     );
+    expect(result.category?.slug).toBe(expected.categorySlug);
+    expect(result.headline).toBe(expected.headline);
+    expect(result.summary).toBe(expected.summary);
+    expect(result.topItems).toEqual(expected.topItems);
   });
 
   it("trata nulos e vazios em campos opcionais", () => {
@@ -170,6 +193,39 @@ describe("normalize", () => {
     expect(result.topItems).toEqual(["pão de sal"]);
   });
 
+  it("mapeia campos reais do item contra payload cru", () => {
+    const result = normalize(listings[2], detail3, items3, []);
+
+    expect(result.items[0]).toEqual({
+      order: 1,
+      name: "Amido de milho",
+      description:
+        "Amido de milho: produto amiláceo extraído do milho, branco, textura fina, isento de mofo e sujidades. Embalagem plástica atóxica, transparente, com identificação, procedência, lote, gramatura, fabricação e vencimento. Validade mínima de 6 meses da entrega. Pacote com 500 gramas. \nPREÇO MÉDIO: R$ 3,99. \nMARCAS EXIGIDAS: Maizena, Apti, Yoki. \nLOCAL DE ENTREGA: Av. Tiradentes, 135 - Centro - Araguari/MG. \nPERÍODO DE ENTREGA: de 05/08/2026 até 07/12/2026. \nVALIDADE DA PROPOSTA: 05 meses.",
+      unit: "Pacote",
+      quantity: 25,
+      unitValue: 3.58,
+      totalValue: 89.5,
+      isPermanent: false,
+      expenseCategory: "Custeio"
+    });
+  });
+
+  it("lança erro tipado quando ids obrigatorios faltam", () => {
+    expect(() => normalize({}, {}, [], [])).toThrow(NormalizeError);
+
+    try {
+      normalize({}, {}, [], []);
+    } catch (error) {
+      expect(error).toBeInstanceOf(NormalizeError);
+      expect((error as NormalizeError).code).toBe("MISSING_REQUIRED_IDS");
+      expect((error as NormalizeError).context.missing).toEqual([
+        "idSubprogram",
+        "idSchool",
+        "idBudget"
+      ]);
+    }
+  });
+
   it("gera topItems curtos, limpos e deduplicados por txBudgetItemType", () => {
     const result = normalize(listings[2], detail3, items3, []);
 
@@ -206,6 +262,30 @@ describe("normalize", () => {
     });
     expect(result.headline).toBe("Outros");
   });
+
+  it.each([
+    ["2027075575", "servicos", "Serviços", "Fornecedor para serviços operacionais da escola."],
+    [
+      "2027075568",
+      "material-de-consumo-geral",
+      "Material de Consumo Geral",
+      "Fornecedor para materiais de consumo geral da escola."
+    ]
+  ])(
+    "classifica grupo de despesa real sem itens: %s",
+    (orderId, categorySlug, headline, summary) => {
+      const listing = sampleListings.find((item) => item.orderId === orderId);
+
+      expect(listing).toBeDefined();
+
+      const result = normalize(listing, {}, [], []);
+
+      expect(result.category?.slug).toBe(categorySlug);
+      expect(result.headline).toBe(headline);
+      expect(result.summary).toBe(summary);
+      expect(result.topItems).toEqual([]);
+    }
+  );
 
   it("aceita enriquecimento opcional de escola com cidade e regional", () => {
     const result = normalize(listings[0], detail1, items1, [], {

@@ -88,14 +88,30 @@
       "jardinagem", "poda", "rocada", "mao de obra", "terceirizacao",
       "assessoria", "consultoria", "organizacao de eventos", "prestacao de servicos",
       "servico tecnico", "limpeza de fossa", "transcricao", "dedetizacao",
-      "desratizacao", "desinsetizacao"
+      "desratizacao", "desinsetizacao", "servico operacional",
+      "servicos operacionais continuos"
     ],
     "keywords_negativas": [],
     "exemplos_itens": [
       "contratacao de empresa para jardinagem e poda de arvores",
       "servico de limpeza de fossa septica",
       "dedetizacao e desratizacao das dependencias",
-      "servicos de consultoria tecnica especializada"
+      "servicos de consultoria tecnica especializada",
+      "servicos operacionais continuos"
+    ]
+  },
+  {
+    "slug": "material-de-consumo-geral",
+    "name": "Material de Consumo Geral",
+    "parent": null,
+    "prioridade": 4,
+    "keywords": [
+      "material de consumo geral", "consumo geral", "material de consumo"
+    ],
+    "keywords_negativas": [],
+    "exemplos_itens": [
+      "material de consumo geral para escola",
+      "aquisicao de materiais de consumo geral"
     ]
   },
   {
@@ -126,14 +142,16 @@
     "prioridade": 7,
     "keywords": [
       "manutencao", "reparo", "conserto", "revisao", "bebedouro", "elevador",
-      "ar condicionado", "instalacao e manutencao", "portao eletronico"
+      "ar condicionado", "instalacao e manutencao", "portao eletronico",
+      "conservacao", "pequenos reparos", "manutencao e reformas"
     ],
     "keywords_negativas": [],
     "exemplos_itens": [
       "manutencao predial preventiva e corretiva",
       "manutencao e reparo de bebedouros",
       "manutencao de elevadores",
-      "higienizacao e manutencao de ar condicionado"
+      "higienizacao e manutencao de ar condicionado",
+      "conservacao e pequenos reparos"
     ]
   },
   {
@@ -342,8 +360,9 @@
     "parent": "alimentos",
     "prioridade": 7,
     "keywords": [
-      "arroz", "feijao", "acucar", "oleo", "oleo de soja", "macarrao",
-      "farinha", "cafe", "achocolatado", "chocolate em po", "enlatado",
+      "arroz", "feijao", "acucar", "amido de milho", "acafrao", "alho",
+      "amendoim", "oleo", "oleo de soja", "macarrao", "farinha", "cafe",
+      "cacau em po", "achocolatado", "chocolate em po", "enlatado",
       "sardinha em lata", "milho em lata", "molho de tomate", "extrato de tomate",
       "conserva", "suco em po", "refresco em po", "sal", "fuba", "aveia",
       "trigo", "mel", "geleia", "tempero"
@@ -354,7 +373,10 @@
       "feijao carioca 5kg",
       "oleo de soja 900ml",
       "acucar cristal 5kg",
-      "molho de tomate 340g"
+      "molho de tomate 340g",
+      "amido de milho 500g",
+      "acafrao em po 500g",
+      "cacau em po 100%"
     ]
   },
   {

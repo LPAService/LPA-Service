@@ -76,6 +76,8 @@ describe('regras determinísticas', () => {
     ['aquisição de material de expediente e papelaria', 'material-de-escritorio'],
     ['compra de lâmpadas LED para iluminação', 'eletrica'],
     ['aquisição de extintores e recarga', 'seguranca'],
+    ['Conservação e pequenos reparos', 'manutencao'],
+    ['Manutenção e Reformas', 'manutencao'],
     ['fornecimento de sabão em pó para lavanderia', 'limpeza-higiene'],
     ['aquisição de material didático para os alunos', 'material-de-escritorio'],
     ['compra de giz e apagador para lousa', 'material-de-escritorio'],
@@ -100,7 +102,9 @@ describe('regras determinísticas', () => {
     ['serviço de limpeza de fossa séptica da escola', 'servicos'],
     ['álcool 70% e água sanitária', 'limpeza-higiene'],
     ['aquisição de extintores e mangueiras de incêndio', 'seguranca'],
-    ['fornecimento de papel sulfite e canetas', 'material-de-escritorio']
+    ['fornecimento de papel sulfite e canetas', 'material-de-escritorio'],
+    ['Serviços Operacionais Contínuos', 'servicos'],
+    ['Material de Consumo Geral', 'material-de-consumo-geral']
   ];
 
   for (const [texto, esperado] of casos) {
@@ -229,6 +233,7 @@ describe('needsFallback = true (fora do alcance determinístico)', () => {
     it(`fallback: "${texto}"`, () => {
       const r = classify(texto);
       expect(r.needsFallback).toBe(true);
+      expect(r.categoryId).toBe('outros');
       expect(r.confidence).toBeLessThan(0.5);
       expect(r.matchedRules).toContain('fallback');
     });

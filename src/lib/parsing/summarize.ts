@@ -101,6 +101,7 @@ function buildSummary(
     transporte: "Fornecedor para serviços de transporte escolar.",
     seguranca: "Fornecedor para itens e serviços de segurança da escola.",
     "uniformes-textil": "Fornecedor para uniformes e itens têxteis escolares.",
+    "material-de-consumo-geral": "Fornecedor para materiais de consumo geral da escola.",
     servicos: "Fornecedor para serviços operacionais da escola."
   };
 
