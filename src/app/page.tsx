@@ -43,6 +43,10 @@ export default async function Home({ searchParams }: PageProps) {
     page,
     pageSize: PAGE_SIZE
   });
+  const exportParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value) exportParams.set(key, value);
+  }
   return (
     <main className="min-h-screen bg-[var(--color-bg-subtle)]">
       <section className="border-b border-[var(--color-border)] bg-[var(--color-bg)]">
@@ -145,6 +149,17 @@ export default async function Home({ searchParams }: PageProps) {
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-[var(--color-fg-muted)]">
+            {result.total.toLocaleString("pt-BR")} resultados encontrados
+          </p>
+          <a
+            className="inline-flex h-10 items-center rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-4 text-sm font-semibold text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)]"
+            href={`/api/export?${exportParams.toString()}`}
+          >
+            Exportar {result.total.toLocaleString("pt-BR")} resultados
+          </a>
+        </div>
         {result.data.length === 0 ? (
           <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--color-border)] bg-[var(--color-bg)] p-8 text-center shadow-[var(--shadow-card)]">
             <h2 className="text-lg font-bold text-[var(--color-fg)]">
