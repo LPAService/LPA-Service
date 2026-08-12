@@ -8,7 +8,7 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
 
   return (
     <article className="opportunity-card group relative grid min-w-0 gap-5 overflow-hidden border-l-4 border-l-[var(--color-accent)] bg-[var(--color-bg)] p-5">
-      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-start md:gap-4">
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start lg:gap-4">
         <div className="min-w-0">
           <p className="eyebrow">{opportunity.expenseGroup || "Categoria não informada"}</p>
           <h2 className="mt-2 text-xl font-bold leading-[1.12] text-[var(--color-fg)]">{opportunity.headline}</h2>
