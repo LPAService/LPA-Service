@@ -5,6 +5,7 @@ import {
   buildExternalId,
   collectOpportunities,
   collectSchoolDimension,
+  refreshStale,
   type CollectionRunResult,
   type CollectorClient,
   type CollectorRepository,
@@ -182,7 +183,7 @@ describe("collector", () => {
     expect(repository.opportunities.size).toBe(0);
   });
 
-  it("monta dimensão schools por county e refina regional quando há mais de uma", async () => {
+  it("monta dimensão schools usando só consulta por county, sem refino regional", async () => {
     const client = new FakeClient({
       filters: {
         base: {
@@ -192,21 +193,18 @@ describe("collector", () => {
           ]
         },
         "county:1": {
-          regionals: [{ idNetwork: 10, txName: "SRE/A" }],
+          regionals: Array.from({ length: 48 }, (_, index) => ({
+            idNetwork: index + 1,
+            txName: `SRE/${index + 1}`
+          })),
           schools: [{ idSchool: 100, txName: "ESCOLA A" }]
         },
         "county:2": {
-          regionals: [
-            { idNetwork: 20, txName: "SRE/B1" },
-            { idNetwork: 21, txName: "SRE/B2" }
-          ],
-          schools: []
-        },
-        "county:2:regional:20": {
-          schools: [{ idSchool: 200, txName: "ESCOLA B1" }]
-        },
-        "county:2:regional:21": {
-          schools: [{ idSchool: 201, txName: "ESCOLA B2" }]
+          regionals: Array.from({ length: 48 }, (_, index) => ({
+            idNetwork: index + 1,
+            txName: `SRE/${index + 1}`
+          })),
+          schools: [{ idSchool: 200, txName: "ESCOLA B" }]
         }
       }
     });
@@ -214,10 +212,60 @@ describe("collector", () => {
 
     const count = await collectSchoolDimension(client, repository);
 
-    expect(count).toBe(3);
-    expect(repository.schools.get(100)).toMatchObject({ city: "Cidade A", regional: "SRE/A" });
-    expect(repository.schools.get(200)).toMatchObject({ city: "Cidade B", regional: "SRE/B1" });
-    expect(repository.schools.get(201)).toMatchObject({ city: "Cidade B", regional: "SRE/B2" });
+    expect(count).toBe(2);
+    expect(repository.schools.get(100)).toMatchObject({ city: "Cidade A", regional: null });
+    expect(repository.schools.get(200)).toMatchObject({ city: "Cidade B", regional: null });
+    expect(client.filterCalls).toEqual(["base", "county:1", "county:2"]);
+  });
+
+  it("incremental atualiza conhecidos e para só após 3 páginas sem novo", async () => {
+    const knownRecords = purchasePage1.data.slice(0, 3);
+    const newRecord = purchasePage1.data[3]!;
+    const client = new FakeClient({
+      purchasePages: [
+        page([knownRecords[0]!], 1, 4),
+        page([knownRecords[1]!], 2, 4),
+        page([knownRecords[2]!], 3, 4),
+        page([newRecord], 4, 4)
+      ],
+      details: Object.fromEntries(
+        knownRecords.map((record) => [buildExternalId(record), detail1])
+      ),
+      itemPages: Object.fromEntries(
+        knownRecords.map((record) => [buildExternalId(record), [items1]])
+      )
+    });
+    const repository = new FakeRepository(
+      knownRecords.map(schoolFor),
+      knownRecords.map(buildExternalId)
+    );
+
+    const result = await collectOpportunities(client, repository, {
+      mode: "incremental",
+      refreshSchools: false,
+      pageSize: 1
+    });
+
+    expect(result).toMatchObject({ found: 3, newCount: 0, updatedCount: 3, errorCount: 0 });
+    expect(client.purchasePageCalls).toEqual([1, 2, 3]);
+    expect(client.detailCalls).toBe(3);
+    expect(repository.opportunities.has(buildExternalId(newRecord))).toBe(false);
+  });
+
+  it("refreshStale re-coleta registros vencidos pelo TTL", async () => {
+    const source = purchasePage1.data[0]!;
+    const client = new FakeClient({
+      details: { [buildExternalId(source)]: detail1 },
+      itemPages: { [buildExternalId(source)]: [items1] },
+      images: { [buildExternalId(source)]: attachmentMetadata.data }
+    });
+    const repository = new FakeRepository([schoolFor(source)], [buildExternalId(source)]);
+    repository.staleListings = [source];
+
+    const result = await refreshStale(client, repository);
+
+    expect(result).toMatchObject({ found: 1, newCount: 0, updatedCount: 1, errorCount: 0 });
+    expect(repository.opportunities.get(buildExternalId(source))?.attachments).toHaveLength(2);
   });
 });
 
@@ -247,6 +295,7 @@ function schoolFor(record: PurchaseOrderListRecord): SchoolRecord {
 class FakeClient implements CollectorClient {
   purchasePageCalls: number[] = [];
   itemPageCalls: { externalId: string; page: number }[] = [];
+  filterCalls: string[] = [];
   detailCalls = 0;
   private readonly purchasePages: PaginatedResponse<PurchaseOrderListRecord>[];
   private readonly details: Record<string, PurchaseOrderDetail>;
@@ -300,11 +349,14 @@ class FakeClient implements CollectorClient {
 
   async getPortalFilters(query: PortalFiltersQuery = {}) {
     if (query.county && query.regional) {
+      this.filterCalls.push(`county:${query.county}:regional:${query.regional}`);
       return this.filters[`county:${query.county}:regional:${query.regional}`] ?? {};
     }
     if (query.county) {
+      this.filterCalls.push(`county:${query.county}`);
       return this.filters[`county:${query.county}`] ?? {};
     }
+    this.filterCalls.push("base");
     return this.filters.base ?? {};
   }
 }
@@ -312,12 +364,17 @@ class FakeClient implements CollectorClient {
 class FakeRepository implements CollectorRepository {
   schools = new Map<number, SchoolRecord>();
   opportunities = new Map<string, OpportunityRecord>();
+  staleListings: PurchaseOrderListRecord[] = [];
+  private readonly existingExternalIds = new Set<string>();
   runs = new Map<number, Omit<CollectionRunResult, "runId">>();
   private nextRunId = 1;
 
-  constructor(schools: SchoolRecord[] = []) {
+  constructor(schools: SchoolRecord[] = [], existingExternalIds: string[] = []) {
     for (const school of schools) {
       this.schools.set(school.idSchool, school);
+    }
+    for (const externalId of existingExternalIds) {
+      this.existingExternalIds.add(externalId);
     }
   }
 
@@ -338,12 +395,17 @@ class FakeRepository implements CollectorRepository {
   }
 
   async existsExternalId(externalId: string) {
-    return this.opportunities.has(externalId);
+    return this.opportunities.has(externalId) || this.existingExternalIds.has(externalId);
   }
 
   async upsertOpportunity(opportunity: OpportunityRecord) {
-    const existed = this.opportunities.has(opportunity.externalId);
+    const existed = await this.existsExternalId(opportunity.externalId);
     this.opportunities.set(opportunity.externalId, opportunity);
+    this.existingExternalIds.add(opportunity.externalId);
     return existed ? "updated" : "new";
+  }
+
+  async listStaleOpportunityListings() {
+    return this.staleListings;
   }
 }

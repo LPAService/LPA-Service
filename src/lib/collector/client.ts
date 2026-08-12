@@ -138,6 +138,7 @@ type ClientOptions = {
   fetchFn?: FetchLike;
   maxRetries?: number;
   initialBackoffMs?: number;
+  sleepFn?: (ms: number) => Promise<void>;
 };
 
 export class SourceHttpError extends Error {
@@ -158,6 +159,7 @@ export class CaixaEscolarClient {
   private readonly fetchFn: FetchLike;
   private readonly maxRetries: number;
   private readonly initialBackoffMs: number;
+  private readonly sleepFn: (ms: number) => Promise<void>;
   private blockedUntil = 0;
   private queue: Promise<void> = Promise.resolve();
 
@@ -168,6 +170,7 @@ export class CaixaEscolarClient {
     this.fetchFn = options.fetchFn ?? fetch;
     this.maxRetries = options.maxRetries ?? 3;
     this.initialBackoffMs = options.initialBackoffMs ?? 500;
+    this.sleepFn = options.sleepFn ?? delay;
   }
 
   listPurchaseOrders(query: PurchaseOrdersQuery = {}) {
@@ -270,7 +273,7 @@ export class CaixaEscolarClient {
     try {
       const waitMs = Math.max(0, this.blockedUntil - Date.now());
       if (waitMs > 0) {
-        await delay(waitMs);
+        await this.sleepFn(waitMs);
       }
 
       const response = await this.fetchWithTimeout(url);
@@ -299,8 +302,17 @@ export class CaixaEscolarClient {
   }
 
   private updateRateLimit(headers: Headers) {
+    const limit = Number(headers.get("x-ratelimit-limit"));
     const remaining = Number(headers.get("x-ratelimit-remaining"));
     const resetSeconds = Number(headers.get("x-ratelimit-reset"));
+
+    if (Number.isFinite(limit) && limit > 0) {
+      const pacedWaitMs =
+        Number.isFinite(resetSeconds) && resetSeconds > 0
+          ? (resetSeconds * 1000) / limit
+          : 1000 / limit;
+      this.blockedUntil = Math.max(this.blockedUntil, Date.now() + pacedWaitMs);
+    }
 
     if (Number.isFinite(remaining) && remaining <= 0 && Number.isFinite(resetSeconds)) {
       this.blockedUntil = Math.max(this.blockedUntil, Date.now() + resetSeconds * 1000);
@@ -308,11 +320,26 @@ export class CaixaEscolarClient {
   }
 
   private async waitForRetry(attempt: number, headers?: Headers) {
+    const retryAfterMs = headers ? parseRetryAfter(headers.get("retry-after")) : 0;
     const resetSeconds = headers ? Number(headers.get("x-ratelimit-reset")) : NaN;
     const rateLimitWaitMs = Number.isFinite(resetSeconds) ? resetSeconds * 1000 : 0;
     const backoffMs = this.initialBackoffMs * 2 ** attempt;
-    await delay(Math.max(rateLimitWaitMs, backoffMs));
+    await this.sleepFn(Math.max(retryAfterMs, rateLimitWaitMs, backoffMs));
   }
 }
 
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+function parseRetryAfter(value: string | null) {
+  if (!value) {
+    return 0;
+  }
+
+  const seconds = Number(value);
+  if (Number.isFinite(seconds)) {
+    return Math.max(0, seconds * 1000);
+  }
+
+  const date = Date.parse(value);
+  return Number.isNaN(date) ? 0 : Math.max(0, date - Date.now());
+}
+
+const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));

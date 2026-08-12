@@ -30,8 +30,8 @@ export const schools = pgTable(
   {
     idSchool: integer("id_school").primaryKey(),
     name: text("name").notNull(),
-    idCounty: integer("id_county").notNull(),
-    city: text("city").notNull(),
+    idCounty: integer("id_county"),
+    city: text("city"),
     regional: text("regional"),
     rawJson: jsonb("raw_json").notNull().default({}),
     collectedAt: timestamp("collected_at", { withTimezone: true }).notNull().defaultNow(),
@@ -74,6 +74,9 @@ export const opportunities = pgTable(
     totalValue: doublePrecision("total_value"),
     itemCount: integer("item_count").notNull().default(0),
     categoryId: integer("category_id").references(() => categories.id),
+    headline: text("headline"),
+    summary: text("summary"),
+    topItems: jsonb("top_items"),
     rawJson: jsonb("raw_json").notNull().default({}),
     collectedAt: timestamp("collected_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
@@ -88,6 +91,7 @@ export const opportunities = pgTable(
     index("opportunities_expense_group_idx").on(table.expenseGroup),
     index("opportunities_category_id_idx").on(table.categoryId),
     index("opportunities_purchase_date_idx").on(table.purchaseDate),
+    index("opportunities_delivery_date_idx").on(table.deliveryDate),
     index("opportunities_purchase_status_idx").on(table.purchaseOrderStatus),
     index("opportunities_accountability_status_idx").on(table.accountabilityStatus)
   ]

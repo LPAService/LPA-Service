@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, lt } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import {
   attachments,
@@ -23,7 +23,7 @@ import type {
 } from "./client";
 import { CAIXA_ESCOLAR_API_BASE_URL } from "./client";
 
-export type CollectMode = "full" | "incremental";
+export type CollectMode = "full" | "incremental" | "refresh_stale";
 
 export type CollectOptions = {
   mode?: CollectMode;
@@ -32,6 +32,7 @@ export type CollectOptions = {
   maxPages?: number;
   maxRecords?: number;
   refreshSchools?: boolean;
+  stopAfterPagesWithoutNew?: number;
   filters?: Omit<PurchaseOrdersQuery, "page" | "pageSize" | "sortBy" | "sortDir">;
 };
 
@@ -53,8 +54,8 @@ export type CollectionError = {
 export type SchoolRecord = {
   idSchool: number;
   name: string;
-  idCounty: number;
-  city: string;
+  idCounty: number | null;
+  city: string | null;
   regional: string | null;
   rawJson: unknown;
 };
@@ -129,6 +130,7 @@ export type CollectorRepository = {
   getSchool(idSchool: number): Promise<SchoolRecord | null>;
   existsExternalId(externalId: string): Promise<boolean>;
   upsertOpportunity(opportunity: OpportunityRecord): Promise<"new" | "updated">;
+  listStaleOpportunityListings(cutoff: Date, limit?: number): Promise<PurchaseOrderListRecord[]>;
 };
 
 export async function collectOpportunities(
@@ -157,6 +159,8 @@ export async function collectOpportunities(
 
     let shouldStop = false;
     let processed = 0;
+    let pagesWithoutNew = 0;
+    const stopAfterPagesWithoutNew = options.stopAfterPagesWithoutNew ?? 3;
 
     for (let page = 1; !shouldStop; page += 1) {
       if (options.maxPages && page > options.maxPages) {
@@ -176,6 +180,8 @@ export async function collectOpportunities(
         break;
       }
 
+      let pageHadNew = false;
+
       for (const record of listing.data) {
         if (options.maxRecords && processed >= options.maxRecords) {
           shouldStop = true;
@@ -183,9 +189,9 @@ export async function collectOpportunities(
         }
 
         const externalId = buildExternalId(record);
-        if (mode === "incremental" && (await activeRepository.existsExternalId(externalId))) {
-          shouldStop = true;
-          break;
+        const existedBeforeCollect = await activeRepository.existsExternalId(externalId);
+        if (!existedBeforeCollect) {
+          pageHadNew = true;
         }
 
         result.found += 1;
@@ -213,8 +219,88 @@ export async function collectOpportunities(
         }
       }
 
+      if (mode === "incremental") {
+        pagesWithoutNew = pageHadNew ? 0 : pagesWithoutNew + 1;
+        if (pagesWithoutNew >= stopAfterPagesWithoutNew) {
+          break;
+        }
+      }
+
       if (page >= listing.meta.totalPages) {
         break;
+      }
+    }
+
+    await activeRepository.finishRun(runId, {
+      status: result.status,
+      found: result.found,
+      newCount: result.newCount,
+      updatedCount: result.updatedCount,
+      errorCount: result.errorCount,
+      errors: result.errors
+    });
+    return result;
+  } catch (error) {
+    result.status = "failed";
+    result.errorCount += 1;
+    result.errors.push({ message: errorMessage(error) });
+    await activeRepository.finishRun(runId, {
+      status: result.status,
+      found: result.found,
+      newCount: result.newCount,
+      updatedCount: result.updatedCount,
+      errorCount: result.errorCount,
+      errors: result.errors
+    });
+    throw error;
+  }
+}
+
+export async function refreshStale(
+  client: CollectorClient,
+  repository?: CollectorRepository,
+  olderThanDays = 7,
+  options: Pick<CollectOptions, "itemPageSize" | "maxRecords"> = {}
+): Promise<CollectionRunResult> {
+  const activeRepository = repository ?? (await createDefaultRepository());
+  const runId = await activeRepository.startRun("refresh_stale");
+  const result: CollectionRunResult = {
+    runId,
+    status: "completed",
+    found: 0,
+    newCount: 0,
+    updatedCount: 0,
+    errorCount: 0,
+    errors: []
+  };
+
+  try {
+    const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
+    const staleRecords = await activeRepository.listStaleOpportunityListings(
+      cutoff,
+      options.maxRecords
+    );
+
+    for (const record of staleRecords) {
+      const externalId = buildExternalId(record);
+      result.found += 1;
+
+      try {
+        const opportunity = await buildOpportunityRecord(
+          client,
+          activeRepository,
+          record,
+          options.itemPageSize ?? 100
+        );
+        const upsertResult = await activeRepository.upsertOpportunity(opportunity);
+        if (upsertResult === "new") {
+          result.newCount += 1;
+        } else {
+          result.updatedCount += 1;
+        }
+      } catch (error) {
+        result.errorCount += 1;
+        result.errors.push({ externalId, message: errorMessage(error) });
       }
     }
 
@@ -253,31 +339,12 @@ export async function collectSchoolDimension(
 
   for (const county of counties) {
     const countyFilters = await client.getPortalFilters({ county: county.idCounty });
-    const regionals = countyFilters.regionals ?? [];
-
-    if (regionals.length > 1) {
-      for (const regional of regionals) {
-        const regionalFilters = await client.getPortalFilters({
-          county: county.idCounty,
-          regional: regional.idNetwork
-        });
-        count += await upsertFilterSchools(
-          repository,
-          regionalFilters.schools ?? [],
-          county.idCounty,
-          county.txCounty,
-          regional.txName
-        );
-      }
-      continue;
-    }
-
     count += await upsertFilterSchools(
       repository,
       countyFilters.schools ?? [],
       county.idCounty,
       county.txCounty,
-      regionals[0]?.txName ?? null
+      null
     );
   }
 
@@ -536,39 +603,30 @@ export class DrizzleCollectorRepository implements CollectorRepository {
   }
 
   async upsertOpportunity(opportunity: OpportunityRecord) {
-    const existed = await this.existsExternalId(opportunity.externalId);
-    const [savedOpportunity] = await this.database
-      .insert(opportunities)
-      .values({
-        externalId: opportunity.externalId,
-        orderId: opportunity.orderId,
-        sourceUrl: opportunity.sourceUrl,
-        idSubprogram: opportunity.idSubprogram,
-        idSchool: opportunity.idSchool,
-        idBudget: opportunity.idBudget,
-        idSupplier: opportunity.idSupplier,
-        school: opportunity.school,
-        city: opportunity.city,
-        regional: opportunity.regional,
-        expenseGroup: opportunity.expenseGroup,
-        subprogram: opportunity.subprogram,
-        year: opportunity.year,
-        purchaseDate: opportunity.purchaseDate,
-        proposalDate: opportunity.proposalDate,
-        deliveryDate: opportunity.deliveryDate,
-        purchaseOrderStatus: opportunity.purchaseOrderStatus,
-        accountabilityStatus: opportunity.accountabilityStatus,
-        accountabilitySent: opportunity.accountabilitySent,
-        supplierName: opportunity.supplierName,
-        supplierDocument: opportunity.supplierDocument,
-        initiativeDescription: opportunity.initiativeDescription,
-        totalValue: opportunity.totalValue,
-        itemCount: opportunity.itemCount,
-        rawJson: opportunity.rawJson
-      })
-      .onConflictDoUpdate({
-        target: opportunities.externalId,
-        set: {
+    return this.database.transaction(async (tx) => {
+      const [existing] = await tx
+        .select({ id: opportunities.id })
+        .from(opportunities)
+        .where(eq(opportunities.externalId, opportunity.externalId))
+        .limit(1);
+
+      await tx
+        .insert(schools)
+        .values({
+          idSchool: opportunity.idSchool,
+          name: opportunity.school,
+          idCounty: null,
+          city: null,
+          regional: null,
+          rawJson: { stub: true, source: "purchase_orders", school: opportunity.school }
+        })
+        .onConflictDoNothing({ target: schools.idSchool });
+
+      const collectedAt = new Date();
+      const [savedOpportunity] = await tx
+        .insert(opportunities)
+        .values({
+          externalId: opportunity.externalId,
           orderId: opportunity.orderId,
           sourceUrl: opportunity.sourceUrl,
           idSubprogram: opportunity.idSubprogram,
@@ -593,48 +651,108 @@ export class DrizzleCollectorRepository implements CollectorRepository {
           totalValue: opportunity.totalValue,
           itemCount: opportunity.itemCount,
           rawJson: opportunity.rawJson,
-          updatedAt: new Date()
-        }
+          collectedAt
+        })
+        .onConflictDoUpdate({
+          target: opportunities.externalId,
+          set: {
+            orderId: opportunity.orderId,
+            sourceUrl: opportunity.sourceUrl,
+            idSubprogram: opportunity.idSubprogram,
+            idSchool: opportunity.idSchool,
+            idBudget: opportunity.idBudget,
+            idSupplier: opportunity.idSupplier,
+            school: opportunity.school,
+            city: opportunity.city,
+            regional: opportunity.regional,
+            expenseGroup: opportunity.expenseGroup,
+            subprogram: opportunity.subprogram,
+            year: opportunity.year,
+            purchaseDate: opportunity.purchaseDate,
+            proposalDate: opportunity.proposalDate,
+            deliveryDate: opportunity.deliveryDate,
+            purchaseOrderStatus: opportunity.purchaseOrderStatus,
+            accountabilityStatus: opportunity.accountabilityStatus,
+            accountabilitySent: opportunity.accountabilitySent,
+            supplierName: opportunity.supplierName,
+            supplierDocument: opportunity.supplierDocument,
+            initiativeDescription: opportunity.initiativeDescription,
+            totalValue: opportunity.totalValue,
+            itemCount: opportunity.itemCount,
+            rawJson: opportunity.rawJson,
+            collectedAt,
+            updatedAt: collectedAt
+          }
+        })
+        .returning({ id: opportunities.id });
+
+      await tx.delete(items).where(eq(items.opportunityId, savedOpportunity.id));
+      await tx.delete(attachments).where(eq(attachments.opportunityId, savedOpportunity.id));
+
+      if (opportunity.items.length > 0) {
+        await tx.insert(items).values(
+          opportunity.items.map((item) => ({
+            opportunityId: savedOpportunity.id,
+            itemOrder: item.itemOrder,
+            name: item.name,
+            description: item.description,
+            unit: item.unit,
+            quantity: item.quantity,
+            unitValue: item.unitValue,
+            totalValue: item.totalValue,
+            isPermanent: item.isPermanent,
+            expenseCategory: item.expenseCategory,
+            rawJson: item.rawJson
+          }))
+        );
+      }
+
+      if (opportunity.attachments.length > 0) {
+        await tx.insert(attachments).values(
+          opportunity.attachments.map((attachment) => ({
+            opportunityId: savedOpportunity.id,
+            externalAttachmentId: attachment.externalAttachmentId,
+            filename: attachment.filename,
+            thumbUrl: attachment.thumbUrl,
+            url: attachment.url,
+            rawJson: attachment.rawJson
+          }))
+        );
+      }
+
+      return existing ? "updated" : "new";
+    });
+  }
+
+  async listStaleOpportunityListings(cutoff: Date, limit?: number) {
+    let query = this.database
+      .select({
+        orderId: opportunities.orderId,
+        year: opportunities.year,
+        school: opportunities.school,
+        subprogram: opportunities.subprogram,
+        expenseGroup: opportunities.expenseGroup,
+        accountabilityStatus: opportunities.accountabilityStatus,
+        accountabilitySent: opportunities.accountabilitySent,
+        purchaseDate: opportunities.purchaseDate,
+        idSubprogram: opportunities.idSubprogram,
+        idSchool: opportunities.idSchool,
+        idBudget: opportunities.idBudget,
+        idSupplier: opportunities.idSupplier
       })
-      .returning({ id: opportunities.id });
+      .from(opportunities)
+      .where(lt(opportunities.collectedAt, cutoff))
+      .$dynamic();
 
-    await this.database.delete(items).where(eq(items.opportunityId, savedOpportunity.id));
-    await this.database
-      .delete(attachments)
-      .where(eq(attachments.opportunityId, savedOpportunity.id));
-
-    if (opportunity.items.length > 0) {
-      await this.database.insert(items).values(
-        opportunity.items.map((item) => ({
-          opportunityId: savedOpportunity.id,
-          itemOrder: item.itemOrder,
-          name: item.name,
-          description: item.description,
-          unit: item.unit,
-          quantity: item.quantity,
-          unitValue: item.unitValue,
-          totalValue: item.totalValue,
-          isPermanent: item.isPermanent,
-          expenseCategory: item.expenseCategory,
-          rawJson: item.rawJson
-        }))
-      );
+    if (limit) {
+      query = query.limit(limit);
     }
 
-    if (opportunity.attachments.length > 0) {
-      await this.database.insert(attachments).values(
-        opportunity.attachments.map((attachment) => ({
-          opportunityId: savedOpportunity.id,
-          externalAttachmentId: attachment.externalAttachmentId,
-          filename: attachment.filename,
-          thumbUrl: attachment.thumbUrl,
-          url: attachment.url,
-          rawJson: attachment.rawJson
-        }))
-      );
-    }
-
-    return existed ? "updated" : "new";
+    const rows = await query;
+    return rows.map((row) => ({
+      ...row,
+      purchaseDate: row.purchaseDate?.toISOString() ?? null
+    }));
   }
 }
 

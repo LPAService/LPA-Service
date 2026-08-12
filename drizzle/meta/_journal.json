@@ -15,6 +15,13 @@
       "when": 1786546600732,
       "tag": "0001_curly_lady_deathstrike",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786549253590,
+      "tag": "0002_ordinary_proemial_gods",
+      "breakpoints": true
     }
   ]
 }
