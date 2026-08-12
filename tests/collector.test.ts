@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -25,10 +25,26 @@ import type {
   PurchaseOrdersQuery
 } from "@/lib/collector/client";
 
-const fixturesRoot = resolve(process.cwd(), "../../research/portal/fixtures");
+const fixturesRoot = findFixturesRoot();
 
 function readFixture<T>(name: string): T {
   return JSON.parse(readFileSync(resolve(fixturesRoot, name), "utf8")) as T;
+}
+
+function findFixturesRoot() {
+  const candidates = [
+    resolve(process.cwd(), "research/portal/fixtures"),
+    resolve(process.cwd(), "../../research/portal/fixtures")
+  ];
+  const found = candidates.find((candidate) =>
+    existsSync(resolve(candidate, "purchase_orders_page1.json"))
+  );
+
+  if (!found) {
+    throw new Error("research/portal/fixtures not found");
+  }
+
+  return found;
 }
 
 const purchasePage1 =

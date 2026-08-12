@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
@@ -26,7 +26,7 @@ import * as schema from "@/lib/db/schema";
 
 const databaseUrl =
   process.env.TEST_DATABASE_URL ?? "postgres://lpa:lpa@localhost:5432/lpa_leo_test";
-const fixturesRoot = resolve(process.cwd(), "../../research/portal/fixtures");
+const fixturesRoot = findFixturesRoot();
 const migrationFiles = [
   "drizzle/0000_exotic_hedge_knight.sql",
   "drizzle/0001_curly_lady_deathstrike.sql",
@@ -35,6 +35,22 @@ const migrationFiles = [
 
 function readFixture<T>(name: string): T {
   return JSON.parse(readFileSync(resolve(fixturesRoot, name), "utf8")) as T;
+}
+
+function findFixturesRoot() {
+  const candidates = [
+    resolve(process.cwd(), "research/portal/fixtures"),
+    resolve(process.cwd(), "../../research/portal/fixtures")
+  ];
+  const found = candidates.find((candidate) =>
+    existsSync(resolve(candidate, "purchase_orders_page1.json"))
+  );
+
+  if (!found) {
+    throw new Error("research/portal/fixtures not found");
+  }
+
+  return found;
 }
 
 function buildExternalId(

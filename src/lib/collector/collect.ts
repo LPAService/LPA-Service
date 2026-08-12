@@ -1,4 +1,4 @@
-import { eq, lt } from "drizzle-orm";
+import { eq, lt, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import {
   attachments,
@@ -592,7 +592,7 @@ export class DrizzleCollectorRepository implements CollectorRepository {
       .update(schools)
       .set({
         regional,
-        rawJson,
+        rawJson: sql`${schools.rawJson} || ${JSON.stringify({ regionalMapping: rawJson })}::jsonb`,
         updatedAt: new Date()
       })
       .where(eq(schools.idSchool, idSchool));
