@@ -8,6 +8,13 @@
       "when": 1786545125132,
       "tag": "0000_exotic_hedge_knight",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786546600732,
+      "tag": "0001_curly_lady_deathstrike",
+      "breakpoints": true
     }
   ]
 }
