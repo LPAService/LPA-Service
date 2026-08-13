@@ -16,6 +16,7 @@ const eslintConfig = [
       ".next/**",
       "dist/**",
       "coverage/**",
+      ".worktree/**",
       ".worktrees/**",
       ".overclock-app/**",
       ".grok/**",

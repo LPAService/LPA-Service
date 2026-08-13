@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { Pool } from "pg";
-import { extractReferencePrice } from "@/lib/parsing/reference-price";
+import { parseReferencePrice } from "@/lib/parsing/reference-price";
 
 const envFile = resolve(process.cwd(), ".env");
 if (existsSync(envFile) && typeof process.loadEnvFile === "function") {
@@ -29,18 +29,25 @@ try {
 
   let gainedPrice = 0;
   let withoutPrice = 0;
+  let deliberateNullAmbiguous = 0;
+  let deliberateNullDifferentBasis = 0;
   const quotationIds = new Set<number>();
 
   for (const item of items.rows) {
-    const parsed = extractReferencePrice(item.description);
-    if (parsed === null) {
+    const parsed = parseReferencePrice(item.description);
+    if (parsed.value === null) {
+      if (item.reference_value !== null && (parsed.reason === "ambiguous" || parsed.reason === "different-basis")) {
+        await pool.query("update quotation_items set reference_value = null where id = $1", [item.id]);
+      }
+      if (parsed.reason === "ambiguous") deliberateNullAmbiguous += 1;
+      if (parsed.reason === "different-basis") deliberateNullDifferentBasis += 1;
       if (item.reference_value === null) withoutPrice += 1;
       quotationIds.add(item.quotation_id);
       continue;
     }
 
-    if (item.reference_value !== parsed) {
-      await pool.query("update quotation_items set reference_value = $1 where id = $2", [parsed, item.id]);
+    if (item.reference_value !== parsed.value) {
+      await pool.query("update quotation_items set reference_value = $1 where id = $2", [parsed.value, item.id]);
       if (item.reference_value === null) gainedPrice += 1;
     }
     quotationIds.add(item.quotation_id);
@@ -78,7 +85,10 @@ try {
     itemsWithoutPrice: withoutPrice,
     quotationsWithTotalBefore: before.rows[0]?.total ?? 0,
     quotationsWithTotalAfter: after.rows[0]?.total ?? 0,
-    quotationsGainedTotal: (after.rows[0]?.total ?? 0) - (before.rows[0]?.total ?? 0)
+    quotationsGainedTotal: (after.rows[0]?.total ?? 0) - (before.rows[0]?.total ?? 0),
+    deliberateNullAmbiguous,
+    deliberateNullDifferentBasis,
+    deliberateNullTotal: deliberateNullAmbiguous + deliberateNullDifferentBasis
   }, null, 2));
 } catch (error) {
   await pool.query("rollback");
