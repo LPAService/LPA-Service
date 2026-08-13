@@ -6,6 +6,7 @@ import { summarize } from "@/lib/parsing/summarize";
 import { collectionRuns, quotationItems, quotations } from "@/lib/db/schema";
 import * as dbSchema from "@/lib/db/schema";
 import rmbhCounties from "@/lib/collector/rmbh-counties.json";
+import { analyzeProposalBlock } from "@/lib/collector/proposal-block";
 import { extractReferencePrice } from "@/lib/parsing/reference-price";
 
 const API_BASE = "https://api.caixaescolar.educacao.mg.gov.br";
@@ -337,6 +338,7 @@ export function buildQuotationRecord(listing: SummaryRecord, detail: DetailRecor
     }))
   });
   const itemTotals = mappedItems.filter((item) => item.referenceValue !== null);
+  const proposalBlock = analyzeProposalBlock(mappedItems);
   const totalReferenceValue =
     parseNumber(detail.estimatedValue) ??
     (itemTotals.length === 0 ? null : itemTotals.reduce((total, item) => total + ((item.referenceValue ?? 0) * item.quantity), 0));
@@ -362,6 +364,11 @@ export function buildQuotationRecord(listing: SummaryRecord, detail: DetailRecor
     budgetStatus: listing.budgetStatus ?? detail.status ?? null,
     supplierStatus: listing.supplierStatus ?? null,
     proposalUrl: buildProposalUrl(listing),
+    proposalBlocked: proposalBlock.blocked,
+    proposalBlockedReason: proposalBlock.reason,
+    proposalBlockedItemCount: proposalBlock.blockedItemCount,
+    proposalSuspect: proposalBlock.suspect,
+    proposalSuspectItemCount: proposalBlock.suspectItemCount,
     rawJson: { listing, detail, items: sourceItems },
     items: mappedItems
   };
@@ -430,6 +437,11 @@ export class DrizzleQuotationRepository implements QuotationRepository {
       budgetStatus: record.budgetStatus,
       supplierStatus: record.supplierStatus,
       proposalUrl: record.proposalUrl,
+      proposalBlocked: record.proposalBlocked,
+      proposalBlockedReason: record.proposalBlockedReason,
+      proposalBlockedItemCount: record.proposalBlockedItemCount,
+      proposalSuspect: record.proposalSuspect,
+      proposalSuspectItemCount: record.proposalSuspectItemCount,
       rawJson: record.rawJson,
       updatedAt: new Date()
     };

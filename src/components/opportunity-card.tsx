@@ -10,7 +10,7 @@ import { canSubmitQuotationProposal } from "@/lib/quotation-ui";
 type OpportunityCardProps = { opportunity: NormalizedOpportunity };
 
 export function OpportunityCard({ opportunity }: OpportunityCardProps) {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("modal") === opportunity.externalId);
   const topItems = opportunity.topItems.length > 0 ? opportunity.topItems.slice(0, 3).join(" · ") : "Itens não informados";
   const isQuotation = opportunity.kind === "quotation";
   const href = `/opportunity/${opportunity.externalId}`;
@@ -88,6 +88,10 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
       <div className="mt-auto pt-6 border-t border-[var(--color-border)]">
         {canSubmitProposal ? (
           <ProposalActionButton className="card-link w-full items-center justify-between text-left text-sm font-bold text-[var(--color-primary)]" orderId={opportunity.orderId} />
+        ) : isQuotation && opportunity.proposalBlocked ? (
+          <div className="rounded-md border border-[var(--color-warning)] bg-[var(--color-bg-subtle)] p-3 text-sm font-bold text-[var(--color-fg)]">
+            A escola indicou que não é para enviar proposta{blockedCountText(opportunity)}.
+          </div>
         ) : isQuotation ? (
           <a className="card-link inline-flex w-full items-center justify-between border-t border-[var(--color-border)] pt-4 text-sm font-bold text-[var(--color-fg-muted)]" href={`/opportunity/${opportunity.externalId}`} onClick={(event) => event.stopPropagation()}>
             Consultar cotação encerrada <span aria-hidden="true" className="ml-1">→</span>
@@ -190,6 +194,11 @@ function QuotationModal({ onClose, open, seed }: { onClose: () => void; open: bo
             <p className="eyebrow">Resumo</p>
             <p className="mt-2 text-sm font-semibold leading-6 text-[var(--color-fg)]">{data.summary || "Resumo não informado."}</p>
           </div>
+          {data.proposalBlocked && <div className="mt-5 rounded-md border border-[var(--color-warning)] bg-[var(--color-bg-subtle)] p-4 text-sm text-[var(--color-fg)]">
+            <p className="font-bold">A escola indicou que não é para enviar proposta{blockedCountText(data)}.</p>
+            <p className="mt-2 font-semibold text-[var(--color-fg-muted)]">Trecho original:</p>
+            <p className="mt-1 whitespace-pre-wrap break-words">{data.proposalBlockedReason || "Trecho não informado."}</p>
+          </div>}
           <section className="mt-6 min-w-0">
             <h3 className="text-xl font-bold text-[var(--color-fg)]">Lista completa de itens · {pluralize(data.itemCount, "item", "itens")}</h3>
             {status === "loading" && <p className="mt-4 text-sm font-semibold text-[var(--color-fg-muted)]">Carregando itens...</p>}
@@ -199,7 +208,7 @@ function QuotationModal({ onClose, open, seed }: { onClose: () => void; open: bo
         </div>
         <div className="flex shrink-0 flex-col gap-3 border-t border-[var(--color-border)] p-4 sm:flex-row sm:items-center sm:justify-end sm:p-5">
           {data.proposalUrl && <a className="action-secondary inline-flex min-h-11 items-center justify-center" href={data.proposalUrl} rel="noreferrer" target="_blank">Abrir processo direto</a>}
-          {canSubmitProposal && <ProposalActionButton className="action-primary inline-flex min-h-11 items-center justify-center gap-2" orderId={data.orderId} />}
+          {canSubmitProposal ? <ProposalActionButton className="action-primary inline-flex min-h-11 items-center justify-center gap-2" orderId={data.orderId} /> : data.proposalBlocked ? <span className="inline-flex min-h-11 items-center justify-center rounded-md border border-[var(--color-warning)] px-4 text-sm font-bold text-[var(--color-fg)]">Não enviar proposta</span> : null}
         </div>
       </div>
     </div>
@@ -219,6 +228,14 @@ function firstQuantitySummary(opportunity: NormalizedOpportunity) {
   const item = opportunity.items[0];
   if (!item) return null;
   return `${formatQuantityWithUnit(item.quantity, item.unit)} · ${item.name}`;
+}
+
+function blockedCountText(opportunity: NormalizedOpportunity) {
+  const blocked = opportunity.proposalBlockedItemCount ?? 0;
+  const total = opportunity.itemCount;
+  if (blocked > 0 && total > 0 && blocked < total) return ` (${blocked} de ${total} itens marcados)`;
+  if (blocked > 0 && total > 0) return ` (${blocked} de ${total} itens marcados)`;
+  return "";
 }
 
 function isInteractiveCardClick(target: EventTarget | null) {

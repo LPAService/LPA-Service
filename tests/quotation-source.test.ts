@@ -15,7 +15,8 @@ const migrationFiles = [
   "drizzle/0001_curly_lady_deathstrike.sql",
   "drizzle/0002_ordinary_proemial_gods.sql",
   "drizzle/0003_suppliers_base.sql",
-  "drizzle/0004_parallel_princess_powerful.sql"
+  "drizzle/0004_parallel_princess_powerful.sql",
+  "drizzle/0006_faulty_nocturne.sql"
 ];
 const dbTestLockKey = 941_445_002;
 

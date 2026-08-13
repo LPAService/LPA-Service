@@ -36,6 +36,13 @@
       "when": 1786619853193,
       "tag": "0004_parallel_princess_powerful",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786628730766,
+      "tag": "0006_faulty_nocturne",
+      "breakpoints": true
     }
   ]
 }

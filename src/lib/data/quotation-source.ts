@@ -30,6 +30,11 @@ type QuotationRow = {
   budget_status: string | null;
   supplier_status: string | null;
   proposal_url: string;
+  proposal_blocked: boolean;
+  proposal_blocked_reason: string | null;
+  proposal_blocked_item_count: number;
+  proposal_suspect: boolean;
+  proposal_suspect_item_count: number;
   raw_json: unknown;
   collected_at: Date | string | null;
   category_slug: string | null;
@@ -138,7 +143,7 @@ function buildWhere(filters: OpportunityFilters) {
   const expenseGroup = clean(filters.expenseGroup);
   const school = clean(filters.school);
   const query = clean(filters.query);
-  const situation = filters.situation === "closed" || filters.situation === "all" ? filters.situation : "open";
+  const situation = ["actionable", "blocked", "closed", "all"].includes(filters.situation ?? "") ? filters.situation : "open";
   if (city) {
     if (!rmbhCityNames.has(normalizeScopeCity(city))) conditions.push(sql`false`);
     else conditions.push(sql`lower(${quotations.countyName}) = lower(${city})`);
@@ -147,6 +152,8 @@ function buildWhere(filters: OpportunityFilters) {
   if (expenseGroup) conditions.push(sql`lower(${quotations.expenseGroup}) = lower(${expenseGroup})`);
   if (school) conditions.push(sql`lower(${quotations.schoolName}) = lower(${school})`);
   if (situation === "open") conditions.push(sql`${quotations.proposalDeadline} >= now()`);
+  if (situation === "actionable") conditions.push(sql`${quotations.proposalDeadline} >= now() and ${quotations.proposalBlocked} = false`);
+  if (situation === "blocked") conditions.push(sql`${quotations.proposalBlocked} = true`);
   if (situation === "closed") conditions.push(sql`(${quotations.proposalDeadline} is null or ${quotations.proposalDeadline} < now())`);
   addPeriodCondition(conditions, filters.periodStart, quotations.proposalDeadline, false, "after");
   addPeriodCondition(conditions, filters.periodEnd, quotations.proposalDeadline, true, "before");
@@ -206,7 +213,7 @@ async function loadQuotationItems(database: QuotationDatabase, ids: number[]) {
 
 function normalizeQuotation(row: QuotationRow, items: OpportunityItem[]): NormalizedOpportunity {
   const proposalDeadline = toIso(row.proposal_deadline);
-  const canSubmitProposal = proposalDeadline ? new Date(proposalDeadline).getTime() >= Date.now() : false;
+  const canSubmitProposal = proposalDeadline ? new Date(proposalDeadline).getTime() >= Date.now() && !row.proposal_blocked : false;
   const hasReferenceValue = items.some((item) => item.unitValue !== null);
   const pricedItemCount = items.filter((item) => item.unitValue !== null).length;
   return {
@@ -216,6 +223,11 @@ function normalizeQuotation(row: QuotationRow, items: OpportunityItem[]): Normal
     sourceUrl: row.proposal_url,
     proposalUrl: row.proposal_url,
     canSubmitProposal,
+    proposalBlocked: row.proposal_blocked,
+    proposalBlockedReason: row.proposal_blocked_reason,
+    proposalBlockedItemCount: row.proposal_blocked_item_count,
+    proposalSuspect: row.proposal_suspect,
+    proposalSuspectItemCount: row.proposal_suspect_item_count,
     idSubprogram: row.id_subprogram,
     idSchool: row.id_school,
     idBudget: row.id_budget,

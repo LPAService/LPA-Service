@@ -79,6 +79,30 @@ describe("OpportunityCard modal", () => {
     expect(writeText).toHaveBeenCalledWith("2026166001");
   });
 
+  it("não oferece proposta quando cotação está bloqueada pela escola", async () => {
+    const blocked = {
+      ...detailOpportunity(),
+      canSubmitProposal: false,
+      proposalBlocked: true,
+      proposalBlockedReason: "PROCESSO DE REGULARIZAÇÃO NO SISTEMA, NÃO ENVIAR PROPOSTA.",
+      proposalBlockedItemCount: 1,
+      itemCount: 2
+    };
+    mockFetch(blocked);
+    render(React.createElement(OpportunityCard, { opportunity: { ...blocked, items: [] } }));
+
+    expect(document.body.textContent).not.toContain("Enviar proposta");
+    expect(document.body.textContent).toContain("A escola indicou que não é para enviar proposta (1 de 2 itens marcados).");
+
+    await act(async () => {
+      card().click();
+    });
+    await text("Trecho original:");
+
+    expect(document.body.textContent).toContain("PROCESSO DE REGULARIZAÇÃO NO SISTEMA, NÃO ENVIAR PROPOSTA.");
+    expect(document.body.textContent).not.toContain("Enviar proposta");
+  });
+
   function render(element: React.ReactNode) {
     container = document.createElement("div");
     document.body.appendChild(container);

@@ -121,6 +121,11 @@ export const quotations = pgTable(
     budgetStatus: text("budget_status"),
     supplierStatus: text("supplier_status"),
     proposalUrl: text("proposal_url").notNull(),
+    proposalBlocked: boolean("proposal_blocked").notNull().default(false),
+    proposalBlockedReason: text("proposal_blocked_reason"),
+    proposalBlockedItemCount: integer("proposal_blocked_item_count").notNull().default(0),
+    proposalSuspect: boolean("proposal_suspect").notNull().default(false),
+    proposalSuspectItemCount: integer("proposal_suspect_item_count").notNull().default(0),
     rawJson: jsonb("raw_json").notNull().default({}),
     collectedAt: timestamp("collected_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()

@@ -7,6 +7,7 @@ import {
   getQuotationStatus,
   type QuotationRepository
 } from "@/lib/collector/quotations";
+import { analyzeProposalBlock } from "@/lib/collector/proposal-block";
 
 const listing = {
   idSubprogram: 12,
@@ -91,6 +92,55 @@ describe("cotações abertas", () => {
 
     expect(record.totalReferenceValue).toBeNull();
     expect(record.items[0]).toMatchObject({ quantity: 5, referenceValue: null });
+  });
+
+  it("detecta instrução real de não enviar proposta", () => {
+    const record = buildQuotationRecord(
+      { ...listing, nuBudgetOrder: "2026168340", idCounty: 2017, countyName: "Contagem", expenseGroupDescription: "Limpeza e Higiene" },
+      {
+        schoolName: "EE Teste",
+        countyName: "Contagem",
+        expenseGroupDescription: "Limpeza e Higiene",
+        initiativeDescription: "Aditivo de contrato"
+      },
+      [
+        {
+          nuItemOrder: 1,
+          txBudgetItemType: "Álcool líquido 70%",
+          txDescription: "Álcool líquido 70%, embalagem de 01 litro. Aditivo referente ao contrato nº 02/2026 (PAS nº 04/2026) PAF Manutenção Operacional e Custeio Escolar. PROCESSO DE REGULARIZAÇÃO NO SISTEMA, NÃO ENVIAR PROPOSTA.",
+          txBudgetItemUnit: "UN",
+          nuQuantity: 1
+        }
+      ]
+    );
+
+    expect(record.proposalBlocked).toBe(true);
+    expect(record.proposalBlockedItemCount).toBe(1);
+    expect(record.proposalBlockedReason).toContain("NÃO ENVIAR PROPOSTA");
+  });
+
+  it("não marca descrição normal e trata regularização sem não enviar como suspeita", () => {
+    expect(analyzeProposalBlock([{ description: "Detergente neutro para limpeza da escola." }])).toMatchObject({
+      blocked: false,
+      suspect: false
+    });
+    expect(analyzeProposalBlock([{ description: "Processo de regularização no sistema para ajuste administrativo." }])).toMatchObject({
+      blocked: false,
+      suspect: true,
+      suspectItemCount: 1
+    });
+  });
+
+  it("conta bloqueio parcial quando só alguns itens pedem para não enviar", () => {
+    expect(analyzeProposalBlock([
+      { description: "Caderno universitário comum." },
+      { description: "Não é necessário enviar proposta para este item." },
+      { description: "Caneta azul." }
+    ])).toMatchObject({
+      blocked: true,
+      blockedItemCount: 1,
+      itemCount: 3
+    });
   });
 
   it("upsert idempotente não duplica e continua após erro", async () => {
