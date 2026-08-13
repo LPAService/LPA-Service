@@ -1,6 +1,7 @@
 import { and, desc, eq, gt, sql } from "drizzle-orm";
 import { CaixaEscolarClient } from "@/lib/collector/client";
 import { collectOpportunities, type CollectionError } from "@/lib/collector/collect";
+import { collectOpenQuotations } from "@/lib/collector/quotations";
 import rmbhCounties from "@/lib/collector/rmbh-counties.json";
 import { collectionRuns } from "@/lib/db/schema";
 
@@ -16,6 +17,12 @@ export type DailySyncSummary = {
   errors: CollectionError[];
   durationMs: number;
   countiesProcessed: number;
+  quotationRun?: {
+    found: number;
+    new: number;
+    updated: number;
+    errors: CollectionError[];
+  };
 };
 
 export class DailySyncAlreadyRunningError extends Error {
@@ -29,6 +36,12 @@ type DailySyncDependencies = {
   startRun: () => Promise<number>;
   finishRun: (runId: number, summary: DailySyncSummary, status: "completed" | "failed") => Promise<void>;
   collectCounty: (county: { idCounty: number; name: string }) => Promise<{
+    found: number;
+    newCount: number;
+    updatedCount: number;
+    errors: CollectionError[];
+  }>;
+  collectQuotations?: () => Promise<{
     found: number;
     newCount: number;
     updatedCount: number;
@@ -57,6 +70,29 @@ export async function runDailySync(
   };
 
   try {
+    if (activeDependencies.collectQuotations) {
+      try {
+        const quotations = await activeDependencies.collectQuotations();
+        summary.quotationRun = {
+          found: quotations.found,
+          new: quotations.newCount,
+          updated: quotations.updatedCount,
+          errors: quotations.errors
+        };
+        summary.found += quotations.found;
+        summary.new += quotations.newCount;
+        summary.updated += quotations.updatedCount;
+        summary.errors.push(
+          ...quotations.errors.map((error) => ({
+            ...error,
+            message: `[Cotações abertas] ${error.message}`
+          }))
+        );
+      } catch (error) {
+        summary.errors.push({ message: `[Cotações abertas] ${errorMessage(error)}` });
+      }
+    }
+
     for (const county of rmbhCounties.counties) {
       if (now() - startedAt >= timeoutMs) {
         summary.errors.push({
@@ -173,6 +209,9 @@ async function createDefaultDependencies(): Promise<DailySyncDependencies> {
         filters: { county: county.idCounty },
         schoolCounty: { idCounty: county.idCounty, city: county.name }
       });
+    },
+    async collectQuotations() {
+      return collectOpenQuotations();
     }
   };
 }

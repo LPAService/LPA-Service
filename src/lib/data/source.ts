@@ -3,6 +3,7 @@ import {
   createPostgresOpportunitySource,
   sanitizePageParam
 } from "@/lib/data/postgres-source";
+import { createPostgresQuotationSource } from "@/lib/data/quotation-source";
 import type { NormalizedOpportunity } from "@/lib/contracts/opportunity";
 
 export type OpportunityFilters = {
@@ -60,3 +61,5 @@ export function normalize(value: string) {
 
 export const opportunitySource: OpportunitySource =
   createPostgresOpportunitySource(db);
+export const quotationSource: OpportunitySource =
+  createPostgresQuotationSource(db);

@@ -29,6 +29,13 @@
       "when": 1786550000000,
       "tag": "0003_suppliers_base",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786619853193,
+      "tag": "0004_parallel_princess_powerful",
+      "breakpoints": true
     }
   ]
 }

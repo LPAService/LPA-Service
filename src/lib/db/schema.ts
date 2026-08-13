@@ -97,6 +97,67 @@ export const opportunities = pgTable(
   ]
 );
 
+export const quotations = pgTable(
+  "quotations",
+  {
+    id: serial("id").primaryKey(),
+    externalId: text("external_id").notNull(),
+    nuBudgetOrder: text("nu_budget_order"),
+    idSubprogram: integer("id_subprogram").notNull(),
+    idSchool: integer("id_school").notNull(),
+    idBudget: integer("id_budget").notNull(),
+    idCounty: integer("id_county"),
+    countyName: text("county_name"),
+    schoolName: text("school_name").notNull(),
+    expenseGroup: text("expense_group").notNull(),
+    categoryId: integer("category_id").references(() => categories.id),
+    headline: text("headline").notNull(),
+    summary: text("summary").notNull(),
+    topItems: jsonb("top_items").notNull().default([]),
+    proposalDeadline: timestamp("proposal_deadline", { withTimezone: true }),
+    deliveryDate: timestamp("delivery_date", { withTimezone: true }),
+    itemCount: integer("item_count").notNull().default(0),
+    totalReferenceValue: doublePrecision("total_reference_value"),
+    budgetStatus: text("budget_status"),
+    supplierStatus: text("supplier_status"),
+    proposalUrl: text("proposal_url").notNull(),
+    rawJson: jsonb("raw_json").notNull().default({}),
+    collectedAt: timestamp("collected_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    uniqueIndex("quotations_external_id_unique").on(table.externalId),
+    index("quotations_natural_key_idx").on(table.idSubprogram, table.idSchool, table.idBudget),
+    index("quotations_county_idx").on(table.idCounty),
+    index("quotations_school_idx").on(table.idSchool),
+    index("quotations_expense_group_idx").on(table.expenseGroup),
+    index("quotations_category_id_idx").on(table.categoryId),
+    index("quotations_proposal_deadline_idx").on(table.proposalDeadline),
+    index("quotations_supplier_status_idx").on(table.supplierStatus)
+  ]
+);
+
+export const quotationItems = pgTable(
+  "quotation_items",
+  {
+    id: serial("id").primaryKey(),
+    quotationId: integer("quotation_id")
+      .notNull()
+      .references(() => quotations.id, { onDelete: "cascade" }),
+    itemOrder: integer("item_order").notNull(),
+    name: text("name").notNull(),
+    description: text("description").notNull(),
+    unit: text("unit").notNull(),
+    quantity: doublePrecision("quantity").notNull(),
+    referenceValue: doublePrecision("reference_value"),
+    rawJson: jsonb("raw_json").notNull().default({})
+  },
+  (table) => [
+    uniqueIndex("quotation_items_quotation_order_unique").on(table.quotationId, table.itemOrder),
+    index("quotation_items_quotation_id_idx").on(table.quotationId)
+  ]
+);
+
 export const items = pgTable(
   "items",
   {

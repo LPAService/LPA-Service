@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { formatCurrency, formatDate, pluralize } from "@/components/opportunity-card";
-import { opportunitySource } from "@/lib/data/source";
+import { opportunitySource, quotationSource } from "@/lib/data/source";
 
 type DetailPageProps = {
   params: Promise<{ externalId: string }>;
@@ -9,9 +9,12 @@ type DetailPageProps = {
 
 export default async function DetailPage({ params }: DetailPageProps) {
   const { externalId } = await params;
-  const opportunity = await opportunitySource.getOpportunity(externalId);
+  const opportunity =
+    (await quotationSource.getOpportunity(externalId)) ??
+    (await opportunitySource.getOpportunity(externalId));
 
   if (!opportunity) notFound();
+  const isQuotation = opportunity.kind === "quotation";
 
   const topItems =
     opportunity.topItems.length > 0
@@ -22,13 +25,13 @@ export default async function DetailPage({ params }: DetailPageProps) {
     <main className="min-h-screen overflow-x-hidden bg-[var(--color-bg-subtle)]">
       <section className="border-b border-[var(--color-border)] bg-[var(--color-bg)]">
         <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
-          <Link className="inline-flex min-h-11 items-center text-sm font-semibold text-[var(--color-primary)]" href="/">
-            ← Todas as oportunidades
+          <Link className="inline-flex min-h-11 items-center text-sm font-semibold text-[var(--color-primary)]" href={isQuotation ? "/" : "/?view=history"}>
+            ← {isQuotation ? "Cotações abertas" : "Histórico de compras"}
           </Link>
           <div className="mt-4 grid min-w-0 gap-4 lg:grid-cols-[1fr_auto]">
             <div className="min-w-0">
               <p className="eyebrow">
-                Pedido {opportunity.orderId}
+                {isQuotation ? "Cotação" : "Pedido"} {opportunity.orderId}
               </p>
               <h1 className="mt-2 text-3xl font-bold leading-none tracking-normal text-[var(--color-fg)] sm:text-5xl">
                 {opportunity.headline}
@@ -47,6 +50,7 @@ export default async function DetailPage({ params }: DetailPageProps) {
               <p className="text-sm text-[var(--color-fg-muted)]">
                 {pluralize(opportunity.itemCount, "item", "itens")} · {opportunity.expenseGroup}
               </p>
+              {opportunity.statusLabel && <p className="text-sm font-bold text-[var(--color-primary)]">{opportunity.statusLabel}</p>}
             </div>
           </div>
         </div>
@@ -59,9 +63,10 @@ export default async function DetailPage({ params }: DetailPageProps) {
               <Fact label="Escola" value={opportunity.school} />
               <Fact label="Cidade" value={opportunity.city ?? "Não informado"} />
               <Fact label="Regional" value={opportunity.regional ?? "Não informado"} />
+              {isQuotation && <Fact label="Prazo da proposta" value={formatDate(opportunity.proposalDeadline ?? opportunity.proposalDate)} />}
               <Fact label="Entrega" value={formatDate(opportunity.deliveryDate)} />
-              <Fact label="Compra" value={formatDate(opportunity.purchaseDate)} />
-              <Fact label="Proposta" value={formatDate(opportunity.proposalDate)} />
+              {!isQuotation && <Fact label="Compra" value={formatDate(opportunity.purchaseDate)} />}
+              {!isQuotation && <Fact label="Proposta" value={formatDate(opportunity.proposalDate)} />}
               <Fact label="Grupo de despesa" value={opportunity.expenseGroup} />
               <Fact label="Subprograma" value={opportunity.subprogram} />
             </dl>
@@ -124,7 +129,7 @@ export default async function DetailPage({ params }: DetailPageProps) {
         </div>
 
         <aside className="grid min-w-0 content-start gap-5">
-          <Panel title="Fornecedor vencedor">
+          {!isQuotation && <Panel title="Fornecedor vencedor">
             <dl className="grid gap-3 text-sm">
               <Fact
                 label="Nome"
@@ -143,7 +148,7 @@ export default async function DetailPage({ params }: DetailPageProps) {
                 value={opportunity.accountabilityStatus ?? "Não informado"}
               />
             </dl>
-          </Panel>
+          </Panel>}
 
           <Panel title="Anexos">
             {opportunity.attachments.length === 0 ? (
@@ -176,13 +181,8 @@ export default async function DetailPage({ params }: DetailPageProps) {
             </dl>
           </Panel>
 
-          <a
-            className="action-primary"
-            href={opportunity.sourceUrl}
-            rel="noreferrer"
-            target="_blank"
-          >
-            Ver no portal da transparência
+          <a className="action-primary" href={isQuotation ? opportunity.proposalUrl ?? opportunity.sourceUrl : opportunity.sourceUrl} rel="noreferrer" target="_blank">
+            {isQuotation ? "Enviar proposta" : "Ver no portal da transparência"}
           </a>
         </aside>
       </section>

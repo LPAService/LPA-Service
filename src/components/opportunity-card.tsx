@@ -5,6 +5,8 @@ type OpportunityCardProps = { opportunity: NormalizedOpportunity };
 
 export function OpportunityCard({ opportunity }: OpportunityCardProps) {
   const topItems = opportunity.topItems.length > 0 ? opportunity.topItems.slice(0, 3).join(" · ") : "Itens não informados";
+  const isQuotation = opportunity.kind === "quotation";
+  const href = isQuotation ? opportunity.proposalUrl ?? opportunity.sourceUrl : `/opportunity/${opportunity.externalId}`;
 
   return (
     <article className="opportunity-card group relative grid min-w-0 gap-5 overflow-hidden border-l-4 border-l-[var(--color-accent)] bg-[var(--color-bg)] p-5">
@@ -16,6 +18,7 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
         <div className="shrink-0 text-right">
           <p className="text-xl font-bold tabular-nums text-[var(--color-success)]">{formatCurrency(opportunity.totalValue)}</p>
           <p className="mt-1 text-xs font-medium text-[var(--color-fg-muted)]">{pluralize(opportunity.itemCount, "item", "itens")}</p>
+          {opportunity.statusLabel && <p className="mt-2 text-xs font-bold text-[var(--color-primary)]">{opportunity.statusLabel}</p>}
         </div>
       </div>
 
@@ -27,12 +30,19 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
       <dl className="grid grid-cols-2 gap-x-5 gap-y-3 text-sm sm:grid-cols-3">
         <Fact className="sm:col-span-3" label="Escola" value={opportunity.school} />
         <Fact label="Cidade" value={opportunity.city ?? "Não informado"} />
+        {isQuotation && <Fact label="Prazo" value={formatDate(opportunity.proposalDeadline ?? opportunity.proposalDate)} />}
         <Fact label="Entrega" value={formatDate(opportunity.deliveryDate)} />
       </dl>
       <p className="line-clamp-2 text-sm leading-5 text-[var(--color-fg-muted)]"><span className="font-semibold text-[var(--color-fg)]">Principais itens: </span>{topItems}</p>
-      <Link className="card-link inline-flex min-h-11 items-center justify-between border-t border-[var(--color-border)] pt-4 text-sm font-bold text-[var(--color-primary)]" href={`/opportunity/${opportunity.externalId}`}>
-        Ver oportunidade <span aria-hidden="true">→</span>
-      </Link>
+      {isQuotation ? (
+        <a className="card-link inline-flex min-h-11 items-center justify-between border-t border-[var(--color-border)] pt-4 text-sm font-bold text-[var(--color-primary)]" href={href} rel="noreferrer" target="_blank">
+          Enviar proposta <span aria-hidden="true">→</span>
+        </a>
+      ) : (
+        <Link className="card-link inline-flex min-h-11 items-center justify-between border-t border-[var(--color-border)] pt-4 text-sm font-bold text-[var(--color-primary)]" href={href}>
+          Ver oportunidade <span aria-hidden="true">→</span>
+        </Link>
+      )}
     </article>
   );
 }

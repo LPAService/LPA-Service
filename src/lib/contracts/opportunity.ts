@@ -25,9 +25,11 @@ export type OpportunityCategory = {
 };
 
 export type NormalizedOpportunity = {
+  kind?: "quotation" | "history";
   externalId: string;
   orderId: string;
   sourceUrl: string;
+  proposalUrl?: string | null;
   idSubprogram: number;
   idSchool: number;
   idBudget: number;
@@ -40,6 +42,7 @@ export type NormalizedOpportunity = {
   year: string;
   purchaseDate: string | null;
   proposalDate: string | null;
+  proposalDeadline?: string | null;
   deliveryDate: string | null;
   purchaseOrderStatus: string | null;
   accountabilityStatus: string | null;
@@ -55,4 +58,5 @@ export type NormalizedOpportunity = {
   summary: string;
   topItems: string[];
   rawJson: unknown;
+  statusLabel?: string;
 };
