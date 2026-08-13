@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { NormalizedOpportunity } from "@/lib/contracts/opportunity";
+import { canSubmitQuotationProposal } from "@/lib/quotation-ui";
 
 type OpportunityCardProps = { opportunity: NormalizedOpportunity };
 
@@ -7,6 +8,7 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
   const topItems = opportunity.topItems.length > 0 ? opportunity.topItems.slice(0, 3).join(" · ") : "Itens não informados";
   const isQuotation = opportunity.kind === "quotation";
   const href = isQuotation ? opportunity.proposalUrl ?? opportunity.sourceUrl : `/opportunity/${opportunity.externalId}`;
+  const canSubmitProposal = canSubmitQuotationProposal(opportunity);
 
   return (
     <article className="opportunity-card group relative grid min-w-0 gap-5 overflow-hidden border-l-4 border-l-[var(--color-accent)] bg-[var(--color-bg)] p-5">
@@ -14,6 +16,7 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
         <div className="min-w-0">
           <p className="eyebrow">{opportunity.expenseGroup || "Categoria não informada"}</p>
           <h2 className="mt-2 text-xl font-bold leading-[1.12] text-[var(--color-fg)]">{opportunity.headline}</h2>
+          {isQuotation && <p className="mt-3 inline-flex select-all border border-[var(--color-border)] bg-[var(--color-bg-subtle)] px-2 py-1 text-xs font-bold tabular-nums text-[var(--color-fg)]">Orçamento nº {opportunity.orderId}</p>}
         </div>
         <div className="shrink-0 text-right">
           <p className="text-xl font-bold tabular-nums text-[var(--color-success)]">{formatCurrency(opportunity.totalValue)}</p>
@@ -34,9 +37,13 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
         <Fact label="Entrega" value={formatDate(opportunity.deliveryDate)} />
       </dl>
       <p className="line-clamp-2 text-sm leading-5 text-[var(--color-fg-muted)]"><span className="font-semibold text-[var(--color-fg)]">Principais itens: </span>{topItems}</p>
-      {isQuotation ? (
+      {canSubmitProposal ? (
         <a className="card-link inline-flex min-h-11 items-center justify-between border-t border-[var(--color-border)] pt-4 text-sm font-bold text-[var(--color-primary)]" href={href} rel="noreferrer" target="_blank">
           Enviar proposta <span aria-hidden="true">→</span>
+        </a>
+      ) : isQuotation ? (
+        <a className="card-link inline-flex min-h-11 items-center justify-between border-t border-[var(--color-border)] pt-4 text-sm font-bold text-[var(--color-fg-muted)]" href={`/opportunity/${opportunity.externalId}`}>
+          Consultar cotação encerrada <span aria-hidden="true">→</span>
         </a>
       ) : (
         <Link className="card-link inline-flex min-h-11 items-center justify-between border-t border-[var(--color-border)] pt-4 text-sm font-bold text-[var(--color-primary)]" href={href}>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { formatCurrency, formatDate, pluralize } from "@/components/opportunity-card";
 import { opportunitySource, quotationSource } from "@/lib/data/source";
+import { canSubmitQuotationProposal } from "@/lib/quotation-ui";
 
 type DetailPageProps = {
   params: Promise<{ externalId: string }>;
@@ -15,6 +16,7 @@ export default async function DetailPage({ params }: DetailPageProps) {
 
   if (!opportunity) notFound();
   const isQuotation = opportunity.kind === "quotation";
+  const canSubmitProposal = canSubmitQuotationProposal(opportunity);
 
   const topItems =
     opportunity.topItems.length > 0
@@ -31,7 +33,7 @@ export default async function DetailPage({ params }: DetailPageProps) {
           <div className="mt-4 grid min-w-0 gap-4 lg:grid-cols-[1fr_auto]">
             <div className="min-w-0">
               <p className="eyebrow">
-                {isQuotation ? "Cotação" : "Pedido"} {opportunity.orderId}
+                {isQuotation ? "Orçamento nº" : "Pedido"} <span className="select-all tabular-nums">{opportunity.orderId}</span>
               </p>
               <h1 className="mt-2 text-3xl font-bold leading-none tracking-normal text-[var(--color-fg)] sm:text-5xl">
                 {opportunity.headline}
@@ -174,16 +176,14 @@ export default async function DetailPage({ params }: DetailPageProps) {
 
           <Panel title="Identificadores no portal">
             <dl className="grid gap-3 text-sm">
-              <Fact label="Pedido" value={opportunity.orderId} />
+              <Fact label={isQuotation ? "Orçamento nº" : "Pedido"} value={opportunity.orderId} selectable />
               <Fact label="ID escola" value={String(opportunity.idSchool)} />
               <Fact label="ID subprograma" value={String(opportunity.idSubprogram)} />
               <Fact label="ID orçamento" value={String(opportunity.idBudget)} />
             </dl>
           </Panel>
 
-          <a className="action-primary" href={isQuotation ? opportunity.proposalUrl ?? opportunity.sourceUrl : opportunity.sourceUrl} rel="noreferrer" target="_blank">
-            {isQuotation ? "Enviar proposta" : "Ver no portal da transparência"}
-          </a>
+          {canSubmitProposal ? <a className="action-primary" href={opportunity.proposalUrl ?? opportunity.sourceUrl} rel="noreferrer" target="_blank">Enviar proposta</a> : <a className="action-primary" href={opportunity.sourceUrl} rel="noreferrer" target="_blank">{isQuotation ? "Consultar cotação no portal" : "Ver no portal da transparência"}</a>}
         </aside>
       </section>
     </main>
@@ -205,13 +205,13 @@ function Panel({
   );
 }
 
-function Fact({ label, value }: { label: string; value: string }) {
+function Fact({ label, value, selectable = false }: { label: string; value: string; selectable?: boolean }) {
   return (
     <div>
       <dt className="eyebrow">
         {label}
       </dt>
-      <dd className="mt-1 font-semibold text-[var(--color-fg)]">{value}</dd>
+      <dd className={`mt-1 font-semibold text-[var(--color-fg)] ${selectable ? "select-all tabular-nums" : ""}`}>{value}</dd>
     </div>
   );
 }

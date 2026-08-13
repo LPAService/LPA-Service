@@ -14,6 +14,7 @@ export type OpportunityFilters = {
   periodStart?: string;
   periodEnd?: string;
   query?: string;
+  situation?: "open" | "closed" | "all";
 };
 
 export type OpportunityPage = {

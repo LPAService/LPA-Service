@@ -139,6 +139,7 @@ function buildWhere(filters: OpportunityFilters) {
   const expenseGroup = clean(filters.expenseGroup);
   const school = clean(filters.school);
   const query = clean(filters.query);
+  const situation = filters.situation === "closed" || filters.situation === "all" ? filters.situation : "open";
   if (city) {
     if (!rmbhCityNames.has(normalizeScopeCity(city))) conditions.push(sql`false`);
     else conditions.push(sql`lower(${quotations.countyName}) = lower(${city})`);
@@ -146,6 +147,8 @@ function buildWhere(filters: OpportunityFilters) {
   if (category) conditions.push(sql`lower(${categories.slug}) = lower(${category})`);
   if (expenseGroup) conditions.push(sql`lower(${quotations.expenseGroup}) = lower(${expenseGroup})`);
   if (school) conditions.push(sql`lower(${quotations.schoolName}) = lower(${school})`);
+  if (situation === "open") conditions.push(sql`${quotations.proposalDeadline} >= now()`);
+  if (situation === "closed") conditions.push(sql`(${quotations.proposalDeadline} is null or ${quotations.proposalDeadline} < now())`);
   addPeriodCondition(conditions, filters.periodStart, quotations.proposalDeadline, false, "after");
   addPeriodCondition(conditions, filters.periodEnd, quotations.proposalDeadline, true, "before");
   if (query) {
@@ -204,12 +207,14 @@ async function loadQuotationItems(database: QuotationDatabase, ids: number[]) {
 
 function normalizeQuotation(row: QuotationRow, items: OpportunityItem[]): NormalizedOpportunity {
   const proposalDeadline = toIso(row.proposal_deadline);
+  const canSubmitProposal = proposalDeadline ? new Date(proposalDeadline).getTime() >= Date.now() : false;
   return {
     kind: "quotation",
     externalId: row.external_id,
     orderId: row.nu_budget_order ?? row.external_id,
     sourceUrl: row.proposal_url,
     proposalUrl: row.proposal_url,
+    canSubmitProposal,
     idSubprogram: row.id_subprogram,
     idSchool: row.id_school,
     idBudget: row.id_budget,

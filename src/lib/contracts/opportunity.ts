@@ -30,6 +30,7 @@ export type NormalizedOpportunity = {
   orderId: string;
   sourceUrl: string;
   proposalUrl?: string | null;
+  canSubmitProposal?: boolean;
   idSubprogram: number;
   idSchool: number;
   idBudget: number;
