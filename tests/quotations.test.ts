@@ -68,6 +68,31 @@ describe("cotações abertas", () => {
     expect(record.items[0]).toMatchObject({ itemOrder: 1, referenceValue: 5 });
   });
 
+  it("não soma quantidade como valor quando itens não têm preço", () => {
+    const record = buildQuotationRecord(
+      listing,
+      {
+        schoolName: "EE Teste",
+        countyName: "Ibirité",
+        expenseGroupDescription: "Material de Consumo",
+        initiativeDescription: "Aquisição de lousa de vidro"
+      },
+      [
+        {
+          nuItemOrder: 1,
+          txBudgetItemType: "Lousa de vidro",
+          txDescription: "Lousa de vidro",
+          txBudgetItemUnit: "Unidade",
+          nuQuantity: 5,
+          nuReferralValue: null
+        }
+      ]
+    );
+
+    expect(record.totalReferenceValue).toBeNull();
+    expect(record.items[0]).toMatchObject({ quantity: 5, referenceValue: null });
+  });
+
   it("upsert idempotente não duplica e continua após erro", async () => {
     const repo = new FakeQuotationRepository();
     const result1 = await collectOpenQuotationsWithClient(new FakeQuotationClient(), repo, {

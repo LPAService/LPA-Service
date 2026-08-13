@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { formatCurrency, formatDate, pluralize } from "@/components/opportunity-card";
 import { opportunitySource, quotationSource } from "@/lib/data/source";
+import { formatQuantityWithUnit } from "@/lib/quantity-format";
 import { canSubmitQuotationProposal } from "@/lib/quotation-ui";
 
 type DetailPageProps = {
@@ -47,7 +48,7 @@ export default async function DetailPage({ params }: DetailPageProps) {
             </div>
             <div className="grid min-w-0 content-start gap-2 border-l-4 border-[var(--color-success)] bg-[var(--color-bg-subtle)] p-5 text-right shadow-[var(--shadow-card)]">
               <p className="text-3xl font-bold tabular-nums text-[var(--color-success)]">
-                {formatCurrency(opportunity.totalValue)}
+                {isQuotation && opportunity.totalValue === null ? "Valor a definir" : formatCurrency(opportunity.totalValue)}
               </p>
               <p className="text-sm text-[var(--color-fg-muted)]">
                 {pluralize(opportunity.itemCount, "item", "itens")} · {opportunity.expenseGroup}
@@ -113,7 +114,7 @@ export default async function DetailPage({ params }: DetailPageProps) {
                           {item.unit}
                         </td>
                         <td className="border-b border-[var(--color-border)] px-3 py-4 text-right tabular-nums text-[var(--color-fg-muted)]">
-                          {item.quantity}
+                          {formatQuantityWithUnit(item.quantity, item.unit)}
                         </td>
                         <td className="border-b border-[var(--color-border)] px-3 py-4 text-right tabular-nums text-[var(--color-fg-muted)]">
                           {formatCurrency(item.unitValue)}

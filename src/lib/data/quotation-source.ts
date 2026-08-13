@@ -208,6 +208,7 @@ async function loadQuotationItems(database: QuotationDatabase, ids: number[]) {
 function normalizeQuotation(row: QuotationRow, items: OpportunityItem[]): NormalizedOpportunity {
   const proposalDeadline = toIso(row.proposal_deadline);
   const canSubmitProposal = proposalDeadline ? new Date(proposalDeadline).getTime() >= Date.now() : false;
+  const hasReferenceValue = items.some((item) => item.unitValue !== null);
   return {
     kind: "quotation",
     externalId: row.external_id,
@@ -236,7 +237,7 @@ function normalizeQuotation(row: QuotationRow, items: OpportunityItem[]): Normal
     initiativeDescription: null,
     items,
     attachments: [],
-    totalValue: row.total_reference_value,
+    totalValue: hasReferenceValue ? row.total_reference_value : null,
     itemCount: row.item_count,
     category: row.category_slug && row.category_name ? { slug: row.category_slug, name: row.category_name, confidence: null, needsFallback: null } : null,
     headline: row.headline,

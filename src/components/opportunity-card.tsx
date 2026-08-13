@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { NormalizedOpportunity } from "@/lib/contracts/opportunity";
+import { formatQuantityWithUnit } from "@/lib/quantity-format";
 import { canSubmitQuotationProposal } from "@/lib/quotation-ui";
 
 type OpportunityCardProps = { opportunity: NormalizedOpportunity };
@@ -9,6 +10,7 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
   const isQuotation = opportunity.kind === "quotation";
   const href = isQuotation ? opportunity.proposalUrl ?? opportunity.sourceUrl : `/opportunity/${opportunity.externalId}`;
   const canSubmitProposal = canSubmitQuotationProposal(opportunity);
+  const quantitySummary = firstQuantitySummary(opportunity);
 
   return (
     <article className="opportunity-card group relative grid min-w-0 gap-5 overflow-hidden border-l-4 border-l-[var(--color-accent)] bg-[var(--color-bg)] p-5">
@@ -19,7 +21,7 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
           {isQuotation && <p className="mt-3 inline-flex select-all border border-[var(--color-border)] bg-[var(--color-bg-subtle)] px-2 py-1 text-xs font-bold tabular-nums text-[var(--color-fg)]">Orçamento nº {opportunity.orderId}</p>}
         </div>
         <div className="shrink-0 text-right">
-          <p className="text-xl font-bold tabular-nums text-[var(--color-success)]">{formatCurrency(opportunity.totalValue)}</p>
+          <p className="text-xl font-bold tabular-nums text-[var(--color-success)]">{isQuotation && opportunity.totalValue === null ? "Valor a definir" : formatCurrency(opportunity.totalValue)}</p>
           <p className="mt-1 text-xs font-medium text-[var(--color-fg-muted)]">{pluralize(opportunity.itemCount, "item", "itens")}</p>
           {opportunity.statusLabel && <p className="mt-2 text-xs font-bold text-[var(--color-primary)]">{opportunity.statusLabel}</p>}
         </div>
@@ -36,6 +38,7 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
         {isQuotation && <Fact label="Prazo" value={formatDate(opportunity.proposalDeadline ?? opportunity.proposalDate)} />}
         <Fact label="Entrega" value={formatDate(opportunity.deliveryDate)} />
       </dl>
+      {isQuotation && quantitySummary && <p className="text-sm font-bold leading-5 text-[var(--color-fg)]">{quantitySummary}</p>}
       <p className="line-clamp-2 text-sm leading-5 text-[var(--color-fg-muted)]"><span className="font-semibold text-[var(--color-fg)]">Principais itens: </span>{topItems}</p>
       {canSubmitProposal ? (
         <a className="card-link inline-flex min-h-11 items-center justify-between border-t border-[var(--color-border)] pt-4 text-sm font-bold text-[var(--color-primary)]" href={href} rel="noreferrer" target="_blank">
@@ -52,6 +55,12 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
       )}
     </article>
   );
+}
+
+function firstQuantitySummary(opportunity: NormalizedOpportunity) {
+  const item = opportunity.items[0];
+  if (!item) return null;
+  return `${formatQuantityWithUnit(item.quantity, item.unit)} · ${item.name}`;
 }
 
 function Fact({ label, value, className = "" }: { label: string; value: string; className?: string }) {

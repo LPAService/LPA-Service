@@ -71,6 +71,18 @@ describe("PostgresQuotationSource", () => {
     expect(quotation.orderId).toBe("2026166003");
     expect(canSubmitQuotationProposal(quotation)).toBe(false);
   });
+
+  it("ignora total suspeito quando todos os itens estão sem preço real", async () => {
+    await database
+      .update(schema.quotations)
+      .set({ totalReferenceValue: 400_000 });
+
+    const source = createPostgresQuotationSource(database);
+    const result = await source.listOpportunities({}, { pageSize: 12 });
+
+    expect(result.data[0]!.totalValue).toBeNull();
+    expect(result.data[0]!.items[0]).toMatchObject({ quantity: 1, unitValue: null });
+  });
 });
 
 async function resetDatabase(pool: Pool) {
