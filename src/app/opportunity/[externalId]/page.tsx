@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { formatCurrency, formatDate, formatOpportunityValue, pluralize } from "@/components/opportunity-card";
+import { formatDate, formatOpportunityValue, ItemsList, pluralize } from "@/components/opportunity-card";
 import { ProposalActionButton } from "@/components/proposal-action-button";
 import { opportunitySource, quotationSource } from "@/lib/data/source";
-import { formatQuantityWithUnit } from "@/lib/quantity-format";
 import { canSubmitQuotationProposal } from "@/lib/quotation-ui";
 
 type DetailPageProps = {
@@ -87,48 +86,7 @@ export default async function DetailPage({ params }: DetailPageProps) {
             {opportunity.items.length === 0 ? (
               <p className="text-sm text-[var(--color-fg-muted)]">Itens não informados.</p>
             ) : (
-              <div className="min-w-0 max-w-full overflow-x-auto">
-                <table className="w-max min-w-full border-separate border-spacing-0 text-left text-sm">
-                  <thead>
-                    <tr className="bg-[var(--color-bg-subtle)] text-xs uppercase tracking-normal text-[var(--color-fg-muted)]">
-                      <th className="border-b border-[var(--color-border)] px-3 py-3">Item</th>
-                      <th className="border-b border-[var(--color-border)] px-3">Descrição</th>
-                      <th className="border-b border-[var(--color-border)] px-3">Un.</th>
-                      <th className="border-b border-[var(--color-border)] px-3 text-right">Qtd</th>
-                      <th className="border-b border-[var(--color-border)] px-3 text-right">
-                        Valor unit.
-                      </th>
-                      <th className="border-b border-[var(--color-border)] pl-3 text-right">
-                        Total
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {opportunity.items.map((item) => (
-                      <tr key={item.order} className="align-top">
-                        <td className="border-b border-[var(--color-border)] px-3 py-4 font-semibold text-[var(--color-fg)]">
-                          {item.name}
-                        </td>
-                        <td className="max-w-md border-b border-[var(--color-border)] px-3 py-4 leading-5 text-[var(--color-fg-muted)]">
-                          {item.description}
-                        </td>
-                        <td className="border-b border-[var(--color-border)] px-3 py-4 text-[var(--color-fg-muted)]">
-                          {item.unit}
-                        </td>
-                        <td className="border-b border-[var(--color-border)] px-3 py-4 text-right tabular-nums text-[var(--color-fg-muted)]">
-                          {formatQuantityWithUnit(item.quantity, item.unit)}
-                        </td>
-                        <td className="border-b border-[var(--color-border)] px-3 py-4 text-right tabular-nums text-[var(--color-fg-muted)]">
-                          {formatCurrency(item.unitValue)}
-                        </td>
-                        <td className="border-b border-[var(--color-border)] px-3 py-4 text-right font-semibold tabular-nums text-[var(--color-fg)]">
-                          {formatCurrency(item.totalValue)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <ItemsList items={opportunity.items} />
             )}
           </Panel>
         </div>

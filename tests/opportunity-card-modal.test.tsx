@@ -49,6 +49,41 @@ describe("OpportunityCard modal", () => {
     expect(document.body.style.overflow).toBe("");
   });
 
+  it("renderiza itens longos em blocos sem tabela e remove preço repetido da descrição exibida", async () => {
+    mockFetch({
+      ...detailOpportunity(),
+      items: [
+        {
+          order: 1,
+          name: "CARNE BOVINA ACÉM OU PATINHO",
+          description:
+            "CARNE BOVINA ACÉM OU PATINHO, de primeira qualidade, sem cartilagens e materiais estranhos, com cor, odor e sabor. Acondicionada em embalagem sem furos, rasgos ou vazamentos. Entrega de acordo com a demanda da escola. Preço de referência R$40,26",
+          unit: "KG",
+          quantity: 600,
+          unitValue: 40.26,
+          totalValue: null,
+          isPermanent: false,
+          expenseCategory: ""
+        }
+      ],
+      itemCount: 1
+    });
+    render(React.createElement(OpportunityCard, { opportunity: listOpportunity() }));
+
+    await act(async () => {
+      card().click();
+    });
+
+    expect(await text("CARNE BOVINA ACÉM OU PATINHO")).toBeTruthy();
+    expect(document.querySelector("table")).toBeNull();
+    expect(document.body.textContent).toContain("sem cartilagens e materiais estranhos");
+    expect(document.body.textContent).toContain("Entrega de acordo com a demanda da escola.");
+    expect(document.body.textContent).not.toContain("Preço de referência R$40,26");
+    expect(document.body.textContent).toContain("Preço unitário");
+    expect(document.body.textContent).toMatch(/R\$\s*40,26/);
+    expect(document.body.textContent).toMatch(/R\$\s*24\.156,00/);
+  });
+
   it("usa externalId real no caminho card para modal, não número do orçamento", async () => {
     mockFetch(detailOpportunity());
     render(React.createElement(OpportunityCard, { opportunity: { ...listOpportunity(), externalId: "638-8380-342859", orderId: "2026166282" } }));

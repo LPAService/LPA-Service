@@ -215,7 +215,7 @@ function QuotationModal({ onClose, open, seed }: { onClose: () => void; open: bo
             {status === "loading" && <p className="mt-4 text-sm font-semibold text-[var(--color-fg-muted)]">Carregando itens...</p>}
             {status === "not-found" && <p className="mt-4 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-4 text-sm font-semibold text-[var(--color-fg)]">Cotação não encontrada. Verifique o identificador interno.</p>}
             {status === "network-error" && <p className="mt-4 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-4 text-sm font-semibold text-[var(--color-fg)]">Falha de rede ao carregar os itens. Tente novamente.</p>}
-            {status === "idle" && <ItemsTable items={data.items} />}
+            {status === "idle" && <ItemsList items={data.items} />}
           </section>
         </div>
         <div className="flex shrink-0 flex-col gap-3 border-t border-[var(--color-border)] p-4 sm:flex-row sm:items-center sm:justify-end sm:p-5">
@@ -227,9 +227,58 @@ function QuotationModal({ onClose, open, seed }: { onClose: () => void; open: bo
   );
 }
 
-function ItemsTable({ items }: { items: OpportunityItem[] }) {
+export function ItemsList({ items }: { items: OpportunityItem[] }) {
   if (items.length === 0) return <p className="mt-4 text-sm text-[var(--color-fg-muted)]">Itens não informados.</p>;
-  return <div className="mt-4 min-w-0 max-w-full overflow-x-auto overscroll-x-contain"><table className="w-max min-w-full border-separate border-spacing-0 text-left text-sm"><thead><tr className="bg-[var(--color-bg-subtle)] text-xs uppercase text-[var(--color-fg-muted)]"><th className="border-b border-[var(--color-border)] px-3 py-3">Nº</th><th className="border-b border-[var(--color-border)] px-3">Item</th><th className="border-b border-[var(--color-border)] px-3">Descrição</th><th className="border-b border-[var(--color-border)] px-3">Unidade</th><th className="border-b border-[var(--color-border)] px-3 text-right">Quantidade</th><th className="border-b border-[var(--color-border)] px-3 text-right">Preço de referência</th><th className="border-b border-[var(--color-border)] px-3 text-right">Total do item</th></tr></thead><tbody>{items.map((item) => <tr className="align-top" key={item.order}><td className="border-b border-[var(--color-border)] px-3 py-4 font-semibold tabular-nums text-[var(--color-fg)]">{item.order}</td><td className="border-b border-[var(--color-border)] px-3 py-4 font-semibold text-[var(--color-fg)]">{item.name}</td><td className="max-w-md border-b border-[var(--color-border)] px-3 py-4 leading-5 text-[var(--color-fg-muted)]">{item.description}</td><td className="border-b border-[var(--color-border)] px-3 py-4 text-[var(--color-fg-muted)]">{item.unit}</td><td className="border-b border-[var(--color-border)] px-3 py-4 text-right tabular-nums text-[var(--color-fg-muted)]">{formatQuantityWithUnit(item.quantity, item.unit)}</td><td className="border-b border-[var(--color-border)] px-3 py-4 text-right tabular-nums text-[var(--color-fg-muted)]">{formatCurrency(item.unitValue)}</td><td className="border-b border-[var(--color-border)] px-3 py-4 text-right font-semibold tabular-nums text-[var(--color-fg)]">{formatCurrency(item.totalValue)}</td></tr>)}</tbody></table></div>;
+  return (
+    <div className="mt-4 grid min-w-0 max-w-full gap-3">
+      {items.map((item) => {
+        const totalValue = item.totalValue ?? calculateItemTotal(item);
+        const description = cleanDisplayedDescription(item.description, item.unitValue);
+        return (
+          <article className="min-w-0 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] p-3 sm:p-4" key={item.order}>
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-[var(--color-bg-subtle)] text-xs font-bold tabular-nums text-[var(--color-fg)]">
+                {item.order}
+              </span>
+              <h4 className="min-w-0 flex-1 break-words text-sm font-bold leading-5 text-[var(--color-fg)] sm:text-base">
+                {item.name}
+              </h4>
+            </div>
+            <p className="mt-2 min-w-0 whitespace-pre-wrap break-words text-sm leading-5 text-[var(--color-fg-muted)]">
+              {description || "Descrição não informada."}
+            </p>
+            <dl className="mt-3 grid min-w-0 grid-cols-2 gap-2 border-t border-[var(--color-border)] pt-3 text-sm lg:grid-cols-4">
+              <ItemMetric label="Unidade" value={item.unit || "Não informado"} />
+              <ItemMetric label="Quantidade" value={formatQuantityWithUnit(item.quantity, item.unit)} />
+              <ItemMetric label="Preço unitário" value={formatCurrency(item.unitValue)} />
+              <ItemMetric strong label="Total do item" value={formatCurrency(totalValue)} />
+            </dl>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+function ItemMetric({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className="min-w-0 rounded-md bg-[var(--color-bg-subtle)] px-3 py-2">
+      <dt className="text-[10px] font-bold uppercase tracking-normal text-[var(--color-fg-muted)]">{label}</dt>
+      <dd className={`mt-1 min-w-0 break-words text-sm tabular-nums ${strong ? "font-bold text-[var(--color-fg)]" : "font-semibold text-[var(--color-fg-muted)]"}`}>{value}</dd>
+    </div>
+  );
+}
+
+export function cleanDisplayedDescription(description: string, unitValue: number | null) {
+  if (unitValue === null || !Number.isFinite(unitValue)) return description;
+  return description
+    .replace(/\s*(?:[-–—]\s*)?pre[cç]o\s+de\s+refer[eê]ncia\s*:?\s*r\$\s*\d{1,3}(?:\.\d{3})*,\d{2}\s*\.?\s*$/i, "")
+    .trim();
+}
+
+function calculateItemTotal(item: OpportunityItem) {
+  if (item.unitValue === null || !Number.isFinite(item.unitValue) || !Number.isFinite(item.quantity)) return null;
+  return item.quantity * item.unitValue;
 }
 
 function getFocusable(root: HTMLElement) {
