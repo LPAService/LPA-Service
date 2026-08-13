@@ -82,7 +82,10 @@ describe("PostgresQuotationSource", () => {
     const quotation = result.data.find((item) => item.externalId === "quote-open-later")!;
 
     expect(quotation.totalValue).toBeNull();
-    expect(quotation.items[0]).toMatchObject({ quantity: 1, unitValue: null });
+    expect(quotation.items).toEqual([]);
+    await expect(source.getOpportunity("quote-open-later")).resolves.toMatchObject({
+      items: [{ quantity: 1, unitValue: null }]
+    });
   });
 
   it("sinaliza total parcial quando só parte dos itens tem preço", async () => {

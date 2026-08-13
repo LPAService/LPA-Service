@@ -102,9 +102,8 @@ export function createPostgresQuotationSource(database: QuotationDatabase): Oppo
         `)
       ]);
 
-      const children = await loadQuotationItems(database, quotationResult.rows.map((row) => row.id));
       return {
-        data: quotationResult.rows.map((row) => normalizeQuotation(row, children.get(row.id) ?? [])),
+        data: quotationResult.rows.map((row) => normalizeQuotation(row, [])),
         total,
         totalAvailable,
         page: currentPage,

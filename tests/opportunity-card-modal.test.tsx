@@ -1,0 +1,191 @@
+// @vitest-environment happy-dom
+import React from "react";
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { OpportunityCard } from "@/components/opportunity-card";
+import type { NormalizedOpportunity } from "@/lib/contracts/opportunity";
+
+describe("OpportunityCard modal", () => {
+  let root: Root | null = null;
+  let container: HTMLDivElement | null = null;
+
+  beforeEach(() => {
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+  });
+
+  afterEach(() => {
+    act(() => root?.unmount());
+    container?.remove();
+    root = null;
+    container = null;
+    vi.restoreAllMocks();
+    document.body.style.overflow = "";
+    document.body.style.paddingRight = "";
+  });
+
+  it("abre e fecha modal com itens carregados", async () => {
+    mockFetch(detailOpportunity());
+    render(React.createElement(OpportunityCard, { opportunity: listOpportunity() }));
+
+    await act(async () => {
+      card().click();
+    });
+
+    expect(dialog()).not.toBeNull();
+    expect(await text("Borracha branca")).toBeTruthy();
+    expect(document.body.style.overflow).toBe("hidden");
+
+    await act(async () => {
+      button("Fechar detalhes").click();
+    });
+
+    expect(dialog()).toBeNull();
+    expect(document.body.style.overflow).toBe("");
+  });
+
+  it("Esc fecha modal", async () => {
+    mockFetch(detailOpportunity());
+    render(React.createElement(OpportunityCard, { opportunity: listOpportunity() }));
+
+    await act(async () => {
+      card().click();
+    });
+    await text("Borracha branca");
+
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    });
+
+    expect(dialog()).toBeNull();
+  });
+
+  it("clique no botão de proposta não abre modal", async () => {
+    mockFetch(detailOpportunity());
+    const writeText = vi.fn(async () => {});
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    vi.spyOn(window, "open").mockImplementation(() => null);
+    render(React.createElement(OpportunityCard, { opportunity: listOpportunity() }));
+
+    await act(async () => {
+      button("Enviar proposta").click();
+    });
+
+    expect(dialog()).toBeNull();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(writeText).toHaveBeenCalledWith("2026166001");
+  });
+
+  function render(element: React.ReactNode) {
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    act(() => root!.render(element));
+  }
+
+  function card() {
+    return container!.querySelector<HTMLElement>("article")!;
+  }
+
+  function dialog() {
+    return document.querySelector('[role="dialog"]');
+  }
+
+  function button(name: string) {
+    const match = Array.from(document.querySelectorAll("button")).find((item) => item.textContent?.includes(name) || item.getAttribute("aria-label") === name);
+    if (!match) throw new Error(`Botão não encontrado: ${name}`);
+    return match as HTMLButtonElement;
+  }
+
+  async function text(value: string) {
+    for (let index = 0; index < 5; index += 1) {
+      const found = document.body.textContent?.includes(value);
+      if (found) return true;
+      await act(async () => {
+        await Promise.resolve();
+      });
+    }
+    return false;
+  }
+});
+
+function mockFetch(quotation: NormalizedOpportunity) {
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ quotation }), { headers: { "content-type": "application/json" } })));
+}
+
+function listOpportunity(): NormalizedOpportunity {
+  return {
+    ...detailOpportunity(),
+    items: [],
+    itemCount: 2,
+    totalValue: 25,
+    isTotalValuePartial: true
+  };
+}
+
+function detailOpportunity(): NormalizedOpportunity {
+  return {
+    kind: "quotation",
+    externalId: "quote-open-soon",
+    orderId: "2026166001",
+    sourceUrl: "https://example.test/quote-open-soon",
+    proposalUrl: "https://example.test/quote-open-soon",
+    canSubmitProposal: true,
+    idSubprogram: 12,
+    idSchool: 34,
+    idBudget: 6001,
+    idSupplier: null,
+    school: "EE Teste",
+    city: "Ibirité",
+    regional: null,
+    expenseGroup: "Material de Consumo",
+    subprogram: "Não informado",
+    year: "",
+    purchaseDate: null,
+    proposalDate: new Date(Date.now() + 86_400_000).toISOString(),
+    proposalDeadline: new Date(Date.now() + 86_400_000).toISOString(),
+    deliveryDate: new Date(Date.now() + 864_000_000).toISOString(),
+    purchaseOrderStatus: "ENVI",
+    accountabilityStatus: null,
+    supplierName: null,
+    supplierDocument: null,
+    initiativeDescription: null,
+    items: [
+      {
+        order: 1,
+        name: "Borracha",
+        description: "Borracha branca",
+        unit: "UN",
+        quantity: 5,
+        unitValue: 5,
+        totalValue: 25,
+        isPermanent: false,
+        expenseCategory: ""
+      },
+      {
+        order: 2,
+        name: "Apontador",
+        description: "Apontador simples",
+        unit: "UN",
+        quantity: 1,
+        unitValue: null,
+        totalValue: null,
+        isPermanent: false,
+        expenseCategory: ""
+      }
+    ],
+    attachments: [],
+    totalValue: 25,
+    isTotalValuePartial: true,
+    itemCount: 2,
+    category: { slug: "material", name: "Material escolar", confidence: null, needsFallback: null },
+    headline: "Compra aberta próxima",
+    summary: "Materiais para escola.",
+    topItems: ["Borracha", "Apontador"],
+    rawJson: { source: "test" },
+    statusLabel: "Aberta"
+  };
+}
