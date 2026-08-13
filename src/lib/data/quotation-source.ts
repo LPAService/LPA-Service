@@ -209,6 +209,7 @@ function normalizeQuotation(row: QuotationRow, items: OpportunityItem[]): Normal
   const proposalDeadline = toIso(row.proposal_deadline);
   const canSubmitProposal = proposalDeadline ? new Date(proposalDeadline).getTime() >= Date.now() : false;
   const hasReferenceValue = items.some((item) => item.unitValue !== null);
+  const pricedItemCount = items.filter((item) => item.unitValue !== null).length;
   return {
     kind: "quotation",
     externalId: row.external_id,
@@ -238,6 +239,7 @@ function normalizeQuotation(row: QuotationRow, items: OpportunityItem[]): Normal
     items,
     attachments: [],
     totalValue: hasReferenceValue ? row.total_reference_value : null,
+    isTotalValuePartial: hasReferenceValue && pricedItemCount < items.length,
     itemCount: row.item_count,
     category: row.category_slug && row.category_name ? { slug: row.category_slug, name: row.category_name, confidence: null, needsFallback: null } : null,
     headline: row.headline,

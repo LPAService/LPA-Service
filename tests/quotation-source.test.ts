@@ -79,9 +79,22 @@ describe("PostgresQuotationSource", () => {
 
     const source = createPostgresQuotationSource(database);
     const result = await source.listOpportunities({}, { pageSize: 12 });
+    const quotation = result.data.find((item) => item.externalId === "quote-open-later")!;
 
-    expect(result.data[0]!.totalValue).toBeNull();
-    expect(result.data[0]!.items[0]).toMatchObject({ quantity: 1, unitValue: null });
+    expect(quotation.totalValue).toBeNull();
+    expect(quotation.items[0]).toMatchObject({ quantity: 1, unitValue: null });
+  });
+
+  it("sinaliza total parcial quando só parte dos itens tem preço", async () => {
+    const source = createPostgresQuotationSource(database);
+    const quotation = await source.getOpportunity("quote-open-soon");
+
+    expect(quotation).toMatchObject({
+      totalValue: 25,
+      isTotalValuePartial: true,
+      itemCount: 2
+    });
+    expect(quotation!.items.map((item) => item.totalValue)).toEqual([25, null]);
   });
 });
 
@@ -130,7 +143,9 @@ async function seedDatabase(database: NodePgDatabase<typeof schema>) {
         nuBudgetOrder: "2026166001",
         idBudget: 6001,
         proposalDeadline: futureDate(1),
-        headline: "Compra aberta próxima"
+        headline: "Compra aberta próxima",
+        itemCount: 2,
+        totalReferenceValue: 25
       }, category!.id)
     ])
     .returning({ id: schema.quotations.id, externalId: schema.quotations.externalId });
@@ -139,7 +154,8 @@ async function seedDatabase(database: NodePgDatabase<typeof schema>) {
   await database.insert(schema.quotationItems).values([
     itemValues(ids.get("quote-open-later")!, "Caderno"),
     itemValues(ids.get("quote-closed")!, "Lápis"),
-    itemValues(ids.get("quote-open-soon")!, "Borracha")
+    itemValues(ids.get("quote-open-soon")!, "Borracha", { referenceValue: 5, quantity: 5 }),
+    itemValues(ids.get("quote-open-soon")!, "Apontador", { itemOrder: 2 })
   ]);
 }
 
@@ -149,6 +165,8 @@ function quotationValues(input: {
   idBudget: number;
   proposalDeadline: Date;
   headline: string;
+  itemCount?: number;
+  totalReferenceValue?: number | null;
 }, categoryId: number) {
   return {
     externalId: input.externalId,
@@ -166,8 +184,8 @@ function quotationValues(input: {
     topItems: ["caderno"],
     proposalDeadline: input.proposalDeadline,
     deliveryDate: futureDate(10),
-    itemCount: 1,
-    totalReferenceValue: null,
+    itemCount: input.itemCount ?? 1,
+    totalReferenceValue: input.totalReferenceValue ?? null,
     budgetStatus: "ENVI",
     supplierStatus: "NAEN",
     proposalUrl: `https://example.test/${input.externalId}`,
@@ -175,15 +193,19 @@ function quotationValues(input: {
   };
 }
 
-function itemValues(quotationId: number, name: string) {
+function itemValues(quotationId: number, name: string, overrides: Partial<{
+  itemOrder: number;
+  quantity: number;
+  referenceValue: number | null;
+}> = {}) {
   return {
     quotationId,
-    itemOrder: 1,
+    itemOrder: overrides.itemOrder ?? 1,
     name,
     description: name,
     unit: "UN",
-    quantity: 1,
-    referenceValue: null,
+    quantity: overrides.quantity ?? 1,
+    referenceValue: overrides.referenceValue ?? null,
     rawJson: { source: "test" }
   };
 }

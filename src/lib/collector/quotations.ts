@@ -6,6 +6,7 @@ import { summarize } from "@/lib/parsing/summarize";
 import { collectionRuns, quotationItems, quotations } from "@/lib/db/schema";
 import * as dbSchema from "@/lib/db/schema";
 import rmbhCounties from "@/lib/collector/rmbh-counties.json";
+import { extractReferencePrice } from "@/lib/parsing/reference-price";
 
 const API_BASE = "https://api.caixaescolar.educacao.mg.gov.br";
 const PORTAL_BASE = "https://caixaescolar.educacao.mg.gov.br";
@@ -367,13 +368,14 @@ export function buildQuotationRecord(listing: SummaryRecord, detail: DetailRecor
 }
 
 function mapQuotationItem(item: ItemRecord) {
+  const description = item.txDescription ?? "Não informado";
   return {
     itemOrder: item.nuItemOrder ?? 0,
     name: item.txBudgetItemType ?? item.txDescription ?? "Não informado",
-    description: item.txDescription ?? "Não informado",
+    description,
     unit: item.txBudgetItemUnit ?? item.coBudgetItemUnit ?? "Não informado",
     quantity: parseNumber(item.nuQuantity) ?? 0,
-    referenceValue: parseNumber(item.nuReferralValue) ?? parseNumber(item.nuValueByItem),
+    referenceValue: parseNumber(item.nuReferralValue) ?? parseNumber(item.nuValueByItem) ?? extractReferencePrice(description),
     rawJson: item
   };
 }

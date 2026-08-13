@@ -53,6 +53,7 @@ export type NormalizedOpportunity = {
   items: OpportunityItem[];
   attachments: OpportunityAttachment[];
   totalValue: number | null;
+  isTotalValuePartial?: boolean;
   itemCount: number;
   category: OpportunityCategory | null;
   headline: string;

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { formatCurrency, formatDate, pluralize } from "@/components/opportunity-card";
+import { formatCurrency, formatDate, formatOpportunityValue, pluralize } from "@/components/opportunity-card";
+import { ProposalActionButton } from "@/components/proposal-action-button";
 import { opportunitySource, quotationSource } from "@/lib/data/source";
 import { formatQuantityWithUnit } from "@/lib/quantity-format";
 import { canSubmitQuotationProposal } from "@/lib/quotation-ui";
@@ -48,8 +49,9 @@ export default async function DetailPage({ params }: DetailPageProps) {
             </div>
             <div className="grid min-w-0 content-start gap-2 border-l-4 border-[var(--color-success)] bg-[var(--color-bg-subtle)] p-5 text-right shadow-[var(--shadow-card)]">
               <p className="text-3xl font-bold tabular-nums text-[var(--color-success)]">
-                {isQuotation && opportunity.totalValue === null ? "Valor a definir" : formatCurrency(opportunity.totalValue)}
+                {formatOpportunityValue(opportunity)}
               </p>
+              {isQuotation && opportunity.isTotalValuePartial && <p className="text-xs font-bold text-[var(--color-fg-muted)]">valor de referência parcial</p>}
               <p className="text-sm text-[var(--color-fg-muted)]">
                 {pluralize(opportunity.itemCount, "item", "itens")} · {opportunity.expenseGroup}
               </p>
@@ -81,7 +83,7 @@ export default async function DetailPage({ params }: DetailPageProps) {
             </div>
           </Panel>
 
-          <Panel title={`Itens solicitados · ${pluralize(opportunity.itemCount, "item", "itens")}`}>
+          <Panel title={isQuotation ? `Lista de Itens Solicitados · ${pluralize(opportunity.itemCount, "item", "itens")}` : `Itens solicitados · ${pluralize(opportunity.itemCount, "item", "itens")}`}>
             {opportunity.items.length === 0 ? (
               <p className="text-sm text-[var(--color-fg-muted)]">Itens não informados.</p>
             ) : (
@@ -184,7 +186,16 @@ export default async function DetailPage({ params }: DetailPageProps) {
             </dl>
           </Panel>
 
-          {canSubmitProposal ? <a className="action-primary" href={opportunity.proposalUrl ?? opportunity.sourceUrl} rel="noreferrer" target="_blank">Enviar proposta</a> : <a className="action-primary" href={opportunity.sourceUrl} rel="noreferrer" target="_blank">{isQuotation ? "Consultar cotação no portal" : "Ver no portal da transparência"}</a>}
+          {canSubmitProposal ? (
+            <div className="grid gap-3">
+              <ProposalActionButton className="action-primary inline-flex min-h-11 w-full items-center justify-center gap-2" orderId={opportunity.orderId} />
+              {opportunity.proposalUrl && (
+                <a className="inline-flex min-h-11 items-center justify-center text-sm font-semibold text-[var(--color-fg-muted)] underline-offset-4 hover:underline" href={opportunity.proposalUrl} rel="noreferrer" target="_blank">
+                  Abrir processo direto
+                </a>
+              )}
+            </div>
+          ) : <a className="action-primary" href={opportunity.sourceUrl} rel="noreferrer" target="_blank">{isQuotation ? "Consultar cotação no portal" : "Ver no portal da transparência"}</a>}
         </aside>
       </section>
     </main>
