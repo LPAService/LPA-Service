@@ -100,6 +100,21 @@ describe("PostgresQuotationSource", () => {
     });
     expect(quotation!.items.map((item) => item.totalValue)).toEqual([25, null]);
   });
+
+  it("busca cotação por externalId e também por número do orçamento", async () => {
+    const source = createPostgresQuotationSource(database);
+
+    await expect(source.getOpportunity("quote-open-soon")).resolves.toMatchObject({
+      externalId: "quote-open-soon",
+      orderId: "2026166001",
+      itemCount: 2
+    });
+    await expect(source.getOpportunity("2026166001")).resolves.toMatchObject({
+      externalId: "quote-open-soon",
+      orderId: "2026166001",
+      itemCount: 2
+    });
+  });
 });
 
 async function resetDatabase(pool: Pool) {

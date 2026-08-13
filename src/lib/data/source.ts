@@ -47,7 +47,7 @@ export interface OpportunitySource {
     filters?: OpportunityFilters,
     page?: Partial<OpportunityPage>
   ): Promise<OpportunityListResult>;
-  getOpportunity(externalId: string): Promise<NormalizedOpportunity | null>;
+  getOpportunity(identifier: string): Promise<NormalizedOpportunity | null>;
 }
 
 export { sanitizePageParam };

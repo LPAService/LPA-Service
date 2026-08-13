@@ -36,7 +36,9 @@ describe("OpportunityCard modal", () => {
     });
 
     expect(dialog()).not.toBeNull();
+    expect(fetch).toHaveBeenCalledWith("/api/quotations/quote-open-soon");
     expect(await text("Borracha branca")).toBeTruthy();
+    expect(document.body.textContent).toMatch(/R\$\s*25,00/);
     expect(document.body.style.overflow).toBe("hidden");
 
     await act(async () => {
@@ -45,6 +47,31 @@ describe("OpportunityCard modal", () => {
 
     expect(dialog()).toBeNull();
     expect(document.body.style.overflow).toBe("");
+  });
+
+  it("usa externalId real no caminho card para modal, não número do orçamento", async () => {
+    mockFetch(detailOpportunity());
+    render(React.createElement(OpportunityCard, { opportunity: { ...listOpportunity(), externalId: "638-8380-342859", orderId: "2026166282" } }));
+
+    await act(async () => {
+      card().click();
+    });
+
+    expect(fetch).toHaveBeenCalledWith("/api/quotations/638-8380-342859");
+    expect(await text("Borracha branca")).toBeTruthy();
+  });
+
+  it("diferencia 404 de falha de rede no modal", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: "Cotação não encontrada" }), { status: 404, headers: { "content-type": "application/json" } })));
+    render(React.createElement(OpportunityCard, { opportunity: listOpportunity() }));
+
+    await act(async () => {
+      card().click();
+    });
+
+    expect(await text("Cotação não encontrada. Verifique o identificador interno.")).toBeTruthy();
+    expect(errorSpy).toHaveBeenCalledWith("Falha ao carregar cotação", { externalId: "quote-open-soon", orderId: "2026166001", status: 404 });
   });
 
   it("Esc fecha modal", async () => {

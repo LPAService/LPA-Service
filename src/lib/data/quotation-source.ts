@@ -118,14 +118,15 @@ export function createPostgresQuotationSource(database: QuotationDatabase): Oppo
       };
     },
 
-    async getOpportunity(externalId) {
-      const cleanExternalId = externalId.trim();
-      if (!cleanExternalId) return null;
+    async getOpportunity(identifier) {
+      const cleanIdentifier = identifier.trim();
+      if (!cleanIdentifier) return null;
+      const lookupByBudgetOrder = isBudgetOrderIdentifier(cleanIdentifier);
       const result = await database.execute<QuotationRow>(sql`
         select ${sql.raw('"quotations".*')}, ${categories.slug} as category_slug, ${categories.name} as category_name
         from ${quotations}
         left join ${categories} on ${categories.id} = ${quotations.categoryId} and ${categories.active} = true
-        where ${quotations.externalId} = ${cleanExternalId} and ${scopeWhere()}
+        where ${lookupByBudgetOrder ? quotations.nuBudgetOrder : quotations.externalId} = ${cleanIdentifier} and ${scopeWhere()}
         limit 1
       `);
       const row = result.rows[0];
@@ -174,6 +175,10 @@ function buildWhere(filters: OpportunityFilters) {
 function scopeWhere() {
   if (process.env.SCOPE_REGION?.trim().toLowerCase() === "all") return sql`true`;
   return sql`${quotations.idCounty} in (${sql.join(rmbhCountyIds.map((id) => sql`${id}`), sql`, `)})`;
+}
+
+function isBudgetOrderIdentifier(value: string) {
+  return /^\d+$/.test(value);
 }
 
 function addPeriodCondition(conditions: SQL[], value: string | undefined, column: typeof quotations.proposalDeadline, endOfDay: boolean, direction: "after" | "before") {

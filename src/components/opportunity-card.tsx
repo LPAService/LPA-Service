@@ -110,7 +110,7 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
 
 function QuotationModal({ onClose, open, seed }: { onClose: () => void; open: boolean; seed: NormalizedOpportunity }) {
   const [quotation, setQuotation] = useState<NormalizedOpportunity | null>(null);
-  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "loading" | "not-found" | "network-error">("idle");
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const titleId = useId();
 
@@ -126,21 +126,32 @@ function QuotationModal({ onClose, open, seed }: { onClose: () => void; open: bo
     setQuotation(null);
     fetch(`/api/quotations/${encodeURIComponent(seed.externalId)}`)
       .then(async (response) => {
-        if (!response.ok) throw new Error("Cotação não encontrada");
+        if (!response.ok) {
+          console.error("Falha ao carregar cotação", { externalId: seed.externalId, orderId: seed.orderId, status: response.status });
+          if (response.status === 404) {
+            setStatus("not-found");
+            return null;
+          }
+          throw new Error(`Falha HTTP ${response.status}`);
+        }
         return response.json() as Promise<{ quotation: NormalizedOpportunity }>;
       })
       .then((data) => {
+        if (!data) return;
         setQuotation(data.quotation);
         setStatus("idle");
       })
-      .catch(() => setStatus("error"));
+      .catch((error) => {
+        console.error("Erro de rede ao carregar cotação", { externalId: seed.externalId, orderId: seed.orderId, error });
+        setStatus("network-error");
+      });
     requestAnimationFrame(() => dialogRef.current?.focus());
     return () => {
       document.body.style.overflow = previousOverflow;
       document.body.style.paddingRight = previousPaddingRight;
       active?.focus();
     };
-  }, [open, seed.externalId]);
+  }, [open, seed.externalId, seed.orderId]);
 
   useEffect(() => {
     if (!open) return;
@@ -202,7 +213,8 @@ function QuotationModal({ onClose, open, seed }: { onClose: () => void; open: bo
           <section className="mt-6 min-w-0">
             <h3 className="text-xl font-bold text-[var(--color-fg)]">Lista completa de itens · {pluralize(data.itemCount, "item", "itens")}</h3>
             {status === "loading" && <p className="mt-4 text-sm font-semibold text-[var(--color-fg-muted)]">Carregando itens...</p>}
-            {status === "error" && <p className="mt-4 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-4 text-sm font-semibold text-[var(--color-fg)]">Não foi possível carregar os itens agora. A página continua disponível.</p>}
+            {status === "not-found" && <p className="mt-4 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-4 text-sm font-semibold text-[var(--color-fg)]">Cotação não encontrada. Verifique o identificador interno.</p>}
+            {status === "network-error" && <p className="mt-4 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-4 text-sm font-semibold text-[var(--color-fg)]">Falha de rede ao carregar os itens. Tente novamente.</p>}
             {status === "idle" && <ItemsTable items={data.items} />}
           </section>
         </div>
