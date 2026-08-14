@@ -10,3 +10,4 @@ tsconfig.tsbuildinfo
 .grok
 .codex/
 research/taxonomy/node_modules/
+.vercel

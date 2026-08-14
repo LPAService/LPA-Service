@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export const config = {
-  matcher: ['/((?!api/auth|_next/static|_next/image|favicon.ico|login).*)'],
+  matcher: ['/((?!api/auth|api/admin|_next/static|_next/image|favicon.ico|login).*)'],
 };
 
 export async function middleware(request: NextRequest) {
@@ -12,6 +12,7 @@ export async function middleware(request: NextRequest) {
   if (
     pathname.startsWith('/login') ||
     pathname.startsWith('/api/auth') ||
+    pathname.startsWith('/api/admin') ||
     pathname.startsWith('/_next') ||
     pathname === '/favicon.ico'
   ) {
