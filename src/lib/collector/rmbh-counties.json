@@ -9,6 +9,8 @@
     { "idCounty": 2540, "name": "Betim", "apiTotal": 1142, "tier": 1 },
     { "idCounty": 2880, "name": "Nova Lima", "apiTotal": 200, "tier": 1 },
     { "idCounty": 2678, "name": "Sarzedo", "apiTotal": 93, "tier": 1 },
+    { "idCounty": 2117, "name": "Lagoa Santa", "apiTotal": 202, "tier": 1 },
+    { "idCounty": 2763, "name": "Ribeirão das Neves", "apiTotal": 1353, "tier": 1 },
     { "idCounty": 2085, "name": "Mário Campos", "apiTotal": 79, "tier": 1 }
   ],
   "counties": [
