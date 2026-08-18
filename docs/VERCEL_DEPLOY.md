@@ -10,6 +10,12 @@
    - `DATABASE_URL` (PostgreSQL connection string)
    - `NEXTAUTH_SECRET` (gerado com `openssl rand -base64 32`)
    - `NEXTAUTH_URL` (URL de produção do Vercel, ex: https://seusite.vercel.app)
+   - `CRON_SECRET` — segredo usado pela Vercel Cron e exigido por `/api/cron/sync` (sem ele o endpoint responde 401 e a coleta nunca roda).
+   - `SGD_LOGIN` — CPF/CNPJ do fornecedor pro login no SGD (coleta de cotacoes abertas).
+   - `SGD_PASSWORD` — senha do SGD.
+   - `DATABASE_URL` — deve apontar pro Postgres de PRODUCAO (Neon), nao localhost.
+
+   Nota: O cron diario (`vercel.json`) so coleta se CRON_SECRET + SGD_LOGIN + SGD_PASSWORD estiverem setadas no projeto Vercel de producao.
 
 3. Rode as migrations:
    ```
@@ -30,3 +36,9 @@
 ## Variáveis no Vercel
 - NEXTAUTH_URL: URL de produção
 - NEXTAUTH_SECRET: Chave secreta
+- CRON_SECRET: segredo usado pela Vercel Cron e exigido por `/api/cron/sync` (sem ele o endpoint responde 401 e a coleta nunca roda).
+- SGD_LOGIN: CPF/CNPJ do fornecedor pro login no SGD (coleta de cotacoes abertas).
+- SGD_PASSWORD: senha do SGD.
+- DATABASE_URL: deve apontar pro Postgres de PRODUCAO (Neon), nao localhost.
+
+Nota: O cron diario (`vercel.json`) so coleta se CRON_SECRET + SGD_LOGIN + SGD_PASSWORD estiverem setadas no projeto Vercel de producao.
