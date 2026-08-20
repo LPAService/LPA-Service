@@ -17,7 +17,7 @@ describe("ProposalActionButton", () => {
     vi.restoreAllMocks();
   });
 
-  it("copia número antes de abrir lista de orçamentos", async () => {
+  it("copia número antes de abrir portal", async () => {
     const events: string[] = [];
     const writeText = vi.fn(async (value: string) => {
       events.push(`copy:${value}`);
@@ -29,16 +29,40 @@ describe("ProposalActionButton", () => {
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
     vi.spyOn(window, "open").mockImplementation(open);
 
-    render(React.createElement(ProposalActionButton, { className: "test-button", orderId: "2026166170" }));
+    render(
+      React.createElement(ProposalActionButton, {
+        className: "test-button",
+        orderId: "2026166170",
+        proposalUrl: "https://caixaescolar.educacao.mg.gov.br/selecionar-perfil"
+      })
+    );
 
     await act(async () => {
       button().click();
     });
 
     expect(writeText).toHaveBeenCalledWith("2026166170");
-    expect(open).toHaveBeenCalledWith("https://caixaescolar.educacao.mg.gov.br/compras/orcamentos", "_blank", "noopener,noreferrer");
+    expect(open).toHaveBeenCalledWith(
+      "https://caixaescolar.educacao.mg.gov.br/selecionar-perfil",
+      "_blank",
+      "noopener,noreferrer"
+    );
     expect(events).toEqual(["copy:2026166170", "open"]);
     expect(button().textContent).toContain("Número copiado");
+  });
+
+  it("renderiza estado desabilitado com motivo", () => {
+    render(
+      React.createElement(ProposalActionButton, {
+        className: "test-button",
+        disabled: true,
+        disabledReason: "Proposta bloqueada pela escola",
+        orderId: "2026166170"
+      })
+    );
+
+    expect(button().hasAttribute("disabled")).toBe(true);
+    expect(container!.textContent).toContain("Proposta bloqueada pela escola");
   });
 
   function render(element: React.ReactNode) {
