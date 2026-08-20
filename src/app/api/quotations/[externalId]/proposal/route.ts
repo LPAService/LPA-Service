@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { quotationSource } from "@/lib/data/source";
+import { db } from "@/lib/db";
+import {
+  buildQuotationPortalUrl,
+  getQuotationProposalTarget
+} from "@/lib/data/quotation-source";
 
 const PORTAL_PROFILE_URL = "https://caixaescolar.educacao.mg.gov.br/selecionar-perfil";
 
@@ -9,10 +13,8 @@ type RouteContext = {
 
 export async function GET(_request: Request, { params }: RouteContext) {
   const { externalId } = await params;
-  const quotation = await quotationSource.getOpportunity(externalId);
-  if (!quotation || quotation.kind !== "quotation") {
-    return NextResponse.json({ error: "Cotação não encontrada" }, { status: 404 });
-  }
+  const target = await getQuotationProposalTarget(db, externalId);
+  if (!target) return NextResponse.redirect(PORTAL_PROFILE_URL, 302);
 
-  return NextResponse.redirect(PORTAL_PROFILE_URL, 302);
+  return NextResponse.redirect(buildQuotationPortalUrl(target), 302);
 }

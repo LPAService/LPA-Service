@@ -61,6 +61,15 @@ type FacetRow = {
   school: string | null;
 };
 
+export type QuotationProposalTarget = {
+  externalId: string;
+  nuBudgetOrder: string | null;
+  idSubprogram: number;
+  idSchool: number;
+  idBudget: number;
+  proposalUrl: string;
+};
+
 const rmbhCountyIds = rmbhCounties.counties.map((county) => county.idCounty);
 const rmbhCityNames = new Set(rmbhCounties.counties.map((county) => normalizeScopeCity(county.name)));
 
@@ -137,6 +146,42 @@ export function createPostgresQuotationSource(database: QuotationDatabase): Oppo
       return normalizeQuotation(row, children.get(row.id) ?? []);
     }
   };
+}
+
+export async function getQuotationProposalTarget(database: QuotationDatabase, identifier: string) {
+  const cleanIdentifier = identifier.trim();
+  if (!cleanIdentifier) return null;
+  const lookupByBudgetOrder = isBudgetOrderIdentifier(cleanIdentifier);
+  const result = await database.execute<{
+    external_id: string;
+    nu_budget_order: string | null;
+    id_subprogram: number;
+    id_school: number;
+    id_budget: number;
+    proposal_url: string;
+  }>(sql`
+    select ${quotations.externalId}, ${quotations.nuBudgetOrder}, ${quotations.idSubprogram}, ${quotations.idSchool}, ${quotations.idBudget}, ${quotations.proposalUrl}
+    from ${quotations}
+    where ${lookupByBudgetOrder ? quotations.nuBudgetOrder : quotations.externalId} = ${cleanIdentifier} and ${scopeWhere()}
+    limit 1
+  `);
+  const row = result.rows[0];
+  if (!row) return null;
+  return {
+    externalId: row.external_id,
+    nuBudgetOrder: row.nu_budget_order,
+    idSubprogram: row.id_subprogram,
+    idSchool: row.id_school,
+    idBudget: row.id_budget,
+    proposalUrl: row.proposal_url
+  } satisfies QuotationProposalTarget;
+}
+
+export function buildQuotationPortalUrl(target: QuotationProposalTarget) {
+  const pathname = `/compras/orcamento/subprograma/${encodeURIComponent(target.idSubprogram)}/escola/${encodeURIComponent(target.idSchool)}/detalhe-orcamento/${encodeURIComponent(target.idBudget)}`;
+  const url = new URL(pathname, PORTAL_PROFILE_URL);
+  if (target.nuBudgetOrder) url.searchParams.set("nuBudgetOrder", target.nuBudgetOrder);
+  return url.toString();
 }
 
 function buildWhere(filters: OpportunityFilters) {
