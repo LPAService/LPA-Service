@@ -82,10 +82,11 @@ describe("PostgresQuotationSource", () => {
     const result = await source.listOpportunities({}, { pageSize: 12 });
     const quotation = result.data.find((item) => item.externalId === "quote-open-later")!;
 
-    expect(quotation.totalValue).toBeNull();
+    expect(quotation.totalValue).toBe(400000);
+    expect(quotation.totalReferenceValue).toBe(400000);
     expect(quotation.items).toEqual([]);
     await expect(source.getOpportunity("quote-open-later")).resolves.toMatchObject({
-      items: [{ quantity: 1, unitValue: null }]
+      items: [{ quantity: 1, unitValue: null, referenceValue: null }]
     });
   });
 
@@ -98,7 +99,8 @@ describe("PostgresQuotationSource", () => {
       isTotalValuePartial: true,
       itemCount: 2
     });
-    expect(quotation!.items.map((item) => item.totalValue)).toEqual([25, null]);
+    expect(quotation!.items.map((item) => item.totalValue)).toEqual([null, null]);
+    expect(quotation!.items.map((item) => item.referenceValue)).toEqual([1, null]);
   });
 
   it("busca cotação por externalId e também por número do orçamento", async () => {
@@ -107,6 +109,7 @@ describe("PostgresQuotationSource", () => {
     await expect(source.getOpportunity("quote-open-soon")).resolves.toMatchObject({
       externalId: "quote-open-soon",
       orderId: "2026166001",
+      proposalUrl: "/api/quotations/quote-open-soon/proposal",
       itemCount: 2
     });
     await expect(source.getOpportunity("2026166001")).resolves.toMatchObject({

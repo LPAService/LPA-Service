@@ -6,6 +6,7 @@ export type OpportunityItem = {
   quantity: number;
   unitValue: number | null;
   totalValue: number | null;
+  referenceValue?: number | null;
   isPermanent: boolean;
   expenseCategory: string;
 };
@@ -58,6 +59,7 @@ export type NormalizedOpportunity = {
   items: OpportunityItem[];
   attachments: OpportunityAttachment[];
   totalValue: number | null;
+  totalReferenceValue?: number | null;
   isTotalValuePartial?: boolean;
   itemCount: number;
   category: OpportunityCategory | null;
