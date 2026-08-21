@@ -42,7 +42,7 @@ describe("RelatoriosPage", () => {
     vi.restoreAllMocks();
   });
 
-  it("renderiza o funil de status com 0 vitórias e 84% de prazo encerrado", async () => {
+  it("renderiza o funil de status com 0 vitórias e 84% de prazo encerrado e marcações de proveniência", async () => {
     const pageComponent = await RelatoriosPage();
     render(pageComponent);
 
@@ -52,7 +52,12 @@ describe("RelatoriosPage", () => {
     expect(container!.textContent).toContain("APRO");
     expect(container!.textContent).toContain("RECU");
     expect(container!.textContent).toContain("FORA");
+    expect(container!.textContent).toContain("NAEN");
+    expect(container!.textContent).toContain("Snapshot");
+    expect(container!.textContent).toContain("20/08/2026");
     expect(container!.textContent).toContain("A Armadilha do Preço de Referência do SGD");
+    expect(container!.textContent).toContain("100% de Cobertura");
+    expect(container!.textContent).toContain("14,5% de Cobertura");
     expect(container!.textContent).toContain("95,8%");
     expect(container!.textContent).toContain("41,3% dos Prazos são Estruturalmente Impossíveis");
   });

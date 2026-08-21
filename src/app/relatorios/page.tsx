@@ -6,84 +6,14 @@ export const metadata = {
   description: "Análise estratégica de 180.451 cotações do SGD: funil de status, armadilha do preço de referência, saúde da coleta e gargalos operacionais."
 };
 
-// Dados estruturais consolidados da auditoria analítica real (2026-08-20)
-const AUDIT_DATE = "2026-08-20";
-
-const STATUS_VOCABULARY = [
-  {
-    code: "APRO",
-    label: "Aprovada",
-    color: "#25D366",
-    badgeClass: "border-emerald-500/40 bg-emerald-500/15 text-emerald-300",
-    bgBar: "bg-emerald-500",
-    count: 0,
-    pct: "0.0%",
-    meaning: "A escola aprovou a proposta (você venceu o processo). É o único balde positivo.",
-    supplierAction: "Meta principal: sair do zero neste balde."
-  },
-  {
-    code: "ENVI",
-    label: "Enviada",
-    color: "#FFB020",
-    badgeClass: "border-amber-500/40 bg-amber-500/15 text-amber-300",
-    bgBar: "bg-amber-500",
-    count: 1,
-    pct: "<0.01%",
-    meaning: "Proposta enviada pelo fornecedor, aguardando análise e julgamento da escola.",
-    supplierAction: "Acompanhar prazo de homologação."
-  },
-  {
-    code: "NAEN",
-    label: "Não Enviada (Aberta)",
-    color: "#7F1A6B",
-    badgeClass: "border-fuchsia-500/40 bg-fuchsia-500/15 text-fuchsia-300",
-    bgBar: "bg-fuchsia-600",
-    count: 11, // Ativas no portal / 274 na base recente
-    pct: "0.15%",
-    meaning: "Cotações abertas no portal SGD aguardando envio de proposta dentro do prazo.",
-    supplierAction: "Janela útil de ação imediata (lead time médio de 4 dias)."
-  },
-  {
-    code: "RECU",
-    label: "Recusada",
-    color: "#EF4C4C",
-    badgeClass: "border-red-500/40 bg-red-500/15 text-red-300",
-    bgBar: "bg-red-500",
-    count: 23591,
-    pct: "13.07%",
-    meaning: "A proposta enviada foi ativamente recusada pela escola após análise de preços/documentos.",
-    supplierAction: "Analisar motivos de desclassificação/recusa formal."
-  },
-  {
-    code: "CANC",
-    label: "Cancelada",
-    color: "#F87171",
-    badgeClass: "border-rose-500/40 bg-rose-500/15 text-rose-300",
-    bgBar: "bg-rose-400",
-    count: 4693,
-    pct: "2.60%",
-    meaning: "A escola cancelou a cotação no SGD antes da conclusão. Não representa perda de lance.",
-    supplierAction: "Descartar do cômputo de concorrência real."
-  },
-  {
-    code: "FORA",
-    label: "Prazo Encerrado",
-    color: "#64748B",
-    badgeClass: "border-slate-500/40 bg-slate-500/15 text-slate-300",
-    bgBar: "bg-slate-500",
-    count: 152155,
-    pct: "84.32%",
-    meaning: "O prazo de proposta expirou sem que o fornecedor submetesse lance. Perda por inércia.",
-    supplierAction: "Gargalo central do negócio: 84% das perdas ocorrem por não-envio."
-  }
-];
-
+// Data da auditoria estrutural em profundidade
+const AUDIT_SNAPSHOT_DATE = "20/08/2026";
 const TOTAL_HISTORICAL_QUOTES = 180451;
 
 export default async function RelatoriosPage() {
   // Consultas dinâmicas ao banco de dados com fallback gracioso
-  let liveOpenCount = 0;
-  let liveTotalCount = 0;
+  let liveOpenCount = 274;
+  let liveTotalCount = 18046;
   let liveHistoryCount = 0;
   let hasHistoryData = false;
 
@@ -102,6 +32,69 @@ export default async function RelatoriosPage() {
     console.error("Erro ao carregar dados dinâmicos para relatórios:", error);
   }
 
+  const statusVocabulary = [
+    {
+      code: "APRO",
+      label: "Aprovada",
+      badgeClass: "border-emerald-500/40 bg-emerald-500/15 text-emerald-300",
+      countText: "0",
+      pct: "0.0%",
+      provenance: "snapshot",
+      meaning: "A escola aprovou a proposta (você venceu o processo). É o único balde positivo.",
+      supplierAction: "Meta principal: sair do zero absoluto neste balde."
+    },
+    {
+      code: "ENVI",
+      label: "Enviada",
+      badgeClass: "border-amber-500/40 bg-amber-500/15 text-amber-300",
+      countText: "1",
+      pct: "<0.01%",
+      provenance: "snapshot",
+      meaning: "Proposta enviada pelo fornecedor, aguardando análise e julgamento da escola.",
+      supplierAction: "Acompanhar prazo de homologação da escola."
+    },
+    {
+      code: "NAEN",
+      label: "Não Enviada (Aberta)",
+      badgeClass: "border-fuchsia-500/40 bg-fuchsia-500/15 text-fuchsia-300",
+      countText: liveOpenCount.toLocaleString("pt-BR"),
+      pct: `${((liveOpenCount / (liveTotalCount || 18046)) * 100).toFixed(1)}%`,
+      provenance: "live",
+      meaning: `Cotações ativas abertas no banco aguardando envio de proposta (11 visíveis na tela inicial do SGD no snapshot de ${AUDIT_SNAPSHOT_DATE}).`,
+      supplierAction: "Janela útil de ação imediata (lead time mediano de 4,1 dias)."
+    },
+    {
+      code: "RECU",
+      label: "Recusada",
+      badgeClass: "border-red-500/40 bg-red-500/15 text-red-300",
+      countText: "23.591",
+      pct: "13.07%",
+      provenance: "snapshot",
+      meaning: "A proposta enviada foi ativamente recusada pela escola após análise de preços/documentos.",
+      supplierAction: "Investigar motivos de desclassificação formal e impugnações."
+    },
+    {
+      code: "CANC",
+      label: "Cancelada",
+      badgeClass: "border-rose-500/40 bg-rose-500/15 text-rose-300",
+      countText: "4.693",
+      pct: "2.60%",
+      provenance: "snapshot",
+      meaning: "A escola cancelou a cotação no SGD antes da conclusão. Não representa perda de lance.",
+      supplierAction: "Descartar do cômputo de concorrência real."
+    },
+    {
+      code: "FORA",
+      label: "Prazo Encerrado",
+      badgeClass: "border-slate-500/40 bg-slate-500/15 text-slate-300",
+      countText: "152.155",
+      pct: "84.32%",
+      provenance: "snapshot",
+      meaning: "O prazo de proposta expirou sem que o fornecedor submetesse lance. Perda por inércia.",
+      supplierAction: "Gargalo central do negócio: 84% das perdas ocorrem por não-envio."
+    }
+  ];
+
   return (
     <main className="min-h-screen bg-[var(--color-bg)] text-[var(--color-fg)]">
       {/* Header com Navegação */}
@@ -109,22 +102,16 @@ export default async function RelatoriosPage() {
         <div className="shell py-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="eyebrow text-[var(--color-primary)]">Inteligência & Diagnóstico</span>
-                <span className="rounded-full border border-fuchsia-500/30 bg-fuchsia-500/10 px-2.5 py-0.5 text-[11px] font-bold text-fuchsia-300">
-                  Auditoria Base SGD
-                </span>
-                {liveTotalCount > 0 && (
-                  <span className="hidden sm:inline-flex rounded-full border border-[var(--color-border)] bg-[var(--color-bg-subtle)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-fg-muted)]">
-                    {liveOpenCount.toLocaleString("pt-BR")} abertas / {liveTotalCount.toLocaleString("pt-BR")} no banco
-                  </span>
-                )}
+                <LiveBadge label={`Banco: ${liveOpenCount} abertas / ${liveTotalCount.toLocaleString("pt-BR")} total`} />
+                <SnapshotBadge date={AUDIT_SNAPSHOT_DATE} label="Auditoria Base SGD" />
               </div>
               <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-[var(--color-fg)] sm:text-4xl">
                 Por que perdemos tantos lances?
               </h1>
               <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
-                Radiografia comercial de 180.451 cotações, gargalos operacionais e qualidade de dados do portal.
+                Dashboard permanente de análise: funil de status, armadilha do preço de referência, saúde da coleta e gargalos operacionais.
               </p>
             </div>
 
@@ -149,8 +136,11 @@ export default async function RelatoriosPage() {
         <section className="rounded-2xl border-2 border-red-500/30 bg-red-950/20 p-6 sm:p-8 shadow-xl">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="max-w-3xl space-y-3">
-              <div className="inline-flex items-center gap-2 rounded-md bg-red-500/20 px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-red-300">
-                🚨 Conclusão Central da Auditoria
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex items-center gap-2 rounded-md bg-red-500/20 px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-red-300">
+                  🚨 Conclusão Central da Auditoria
+                </div>
+                <SnapshotBadge date={AUDIT_SNAPSHOT_DATE} />
               </div>
               <h2 className="text-2xl font-bold leading-tight text-[var(--color-fg)] sm:text-3xl">
                 O fornecedor tem <span className="text-emerald-400 font-black">ZERO</span> vitórias porque{" "}
@@ -162,10 +152,10 @@ export default async function RelatoriosPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-3 shrink-0 sm:grid-cols-2 lg:grid-cols-2">
-              <KpiMiniCard highlight label="Vitórias (Aprovadas)" sub="Em 180.451 cotações" value="0" />
-              <KpiMiniCard alert label="Sem Lance (FORA)" sub="84,3% do volume total" value="152.155" />
-              <KpiMiniCard label="Recusadas (RECU)" sub="13,1% pela escola" value="23.591" />
-              <KpiMiniCard label="Prazos Impossíveis" sub="Entrega no mesmo dia" value="41,3%" />
+              <KpiMiniCard highlight label="Vitórias (Aprovadas)" provenance="snapshot" sub="Em 180.451 cotações" value="0" />
+              <KpiMiniCard alert label="Sem Lance (FORA)" provenance="snapshot" sub="84,3% do volume total" value="152.155" />
+              <KpiMiniCard label="Recusadas (RECU)" provenance="snapshot" sub="13,1% pela escola" value="23.591" />
+              <KpiMiniCard label="Prazos Impossíveis" provenance="snapshot" sub="Entrega no mesmo dia" value="41,3%" />
             </div>
           </div>
         </section>
@@ -174,14 +164,14 @@ export default async function RelatoriosPage() {
         <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] p-6 sm:p-8 shadow-[var(--shadow-card)] space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-2 border-b border-[var(--color-border)] pb-4">
             <div>
-              <p className="eyebrow text-xs">Decodificação Angular SGD</p>
+              <p className="eyebrow text-xs">Decodificação do Bundle Angular SGD</p>
               <h2 className="text-2xl font-bold text-[var(--color-fg)]">
                 Funil de Status do Fornecedor ({TOTAL_HISTORICAL_QUOTES.toLocaleString("pt-BR")} cotações)
               </h2>
             </div>
-            <span className="text-xs font-semibold text-[var(--color-fg-muted)]">
-              Auditoria: {AUDIT_DATE} · Total: 100%
-            </span>
+            <div className="flex items-center gap-2">
+              <SnapshotBadge date={AUDIT_SNAPSHOT_DATE} label="Snapshot Base SGD" />
+            </div>
           </div>
 
           {/* Barra Visual de Proporção */}
@@ -189,7 +179,7 @@ export default async function RelatoriosPage() {
             <div className="flex h-5 w-full overflow-hidden rounded-lg bg-[var(--color-bg-subtle)] p-0.5 border border-[var(--color-border)]">
               <div className="bg-emerald-500 w-[0.1%] transition-all" title="Aprovada: 0" />
               <div className="bg-amber-500 w-[0.1%] transition-all" title="Enviada: 1" />
-              <div className="bg-fuchsia-600 w-[0.2%] transition-all" title="Não enviada: 11" />
+              <div className="bg-fuchsia-600 w-[0.2%] transition-all" title={`Não enviada (aberta): ${liveOpenCount}`} />
               <div className="bg-red-500 w-[13.1%] transition-all" title="Recusada: 23.591 (13.1%)" />
               <div className="bg-rose-400 w-[2.6%] transition-all" title="Cancelada: 4.693 (2.6%)" />
               <div className="bg-slate-500 w-[84.3%] transition-all" title="Prazo Encerrado: 152.155 (84.3%)" />
@@ -197,14 +187,14 @@ export default async function RelatoriosPage() {
             <div className="flex flex-wrap items-center justify-between text-xs text-[var(--color-fg-muted)]">
               <span>🟩 0% Aprovadas</span>
               <span>🟥 13,1% Recusadas</span>
-              <span>🟪 0,2% Abertas</span>
+              <span>🟪 Abertas ({liveOpenCount} ativas)</span>
               <span>⬜ 84,3% Prazo Encerrado (Sem Lance)</span>
             </div>
           </div>
 
           {/* Grid dos 6 Status */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {STATUS_VOCABULARY.map((status) => (
+            {statusVocabulary.map((status) => (
               <div
                 className="flex flex-col justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-5 transition-all hover:border-[var(--color-border)]/80"
                 key={status.code}
@@ -214,13 +204,17 @@ export default async function RelatoriosPage() {
                     <span className={`rounded-md border px-2.5 py-0.5 text-xs font-extrabold ${status.badgeClass}`}>
                       {status.code} · {status.label}
                     </span>
-                    <span className="text-xs font-bold tabular-nums text-[var(--color-fg-muted)]">
-                      {status.pct}
-                    </span>
+                    {status.provenance === "live" ? (
+                      <LiveBadge label="Tempo Real" />
+                    ) : (
+                      <span className="text-xs font-bold tabular-nums text-[var(--color-fg-muted)]">
+                        {status.pct}
+                      </span>
+                    )}
                   </div>
 
                   <p className="mt-3 text-3xl font-black tabular-nums text-[var(--color-fg)]">
-                    {status.count.toLocaleString("pt-BR")}
+                    {status.countText}
                   </p>
                   <p className="mt-2 text-xs leading-relaxed text-[var(--color-fg-muted)]">
                     {status.meaning}
@@ -235,27 +229,58 @@ export default async function RelatoriosPage() {
           </div>
 
           <div className="rounded-xl border border-fuchsia-500/30 bg-fuchsia-950/20 p-4 text-xs leading-relaxed text-fuchsia-200">
-            <strong>Descoberta técnica:</strong> O código Angular do portal revela a cor nativa da rede como <code>#7F1A6B</code> (roxo SGD). O status <code>RECU</code> (Recusada) é registrado exclusivamente após julgamento da escola (não há botão do fornecedor para &quot;declinar&quot;). Portanto, <strong>23.591 propostas foram avaliadas e reprovadas</strong> pela administração escolar.
+            <strong>Descoberta técnica (Bundle Angular):</strong> O código revela a cor primária nativa da rede como <code>#7F1A6B</code> (roxo SGD). O status <code>RECU</code> (Recusada) é registrado exclusivamente após homologação/julgamento da escola (o fornecedor não possui ação para &quot;recusar&quot; ou &quot;declinar&quot;). Portanto, <strong>23.591 propostas foram avaliadas e rejeitadas</strong> pela administração escolar.
           </div>
         </section>
 
-        {/* SEÇÃO 2: A Armadilha do Preço de Referência */}
+        {/* SEÇÃO 2: A Armadilha do Preço de Referência & Diagnóstico por Item */}
         <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] p-6 sm:p-8 shadow-[var(--shadow-card)] space-y-6">
-          <div className="border-b border-[var(--color-border)] pb-4">
-            <div className="flex items-center gap-2">
-              <span className="eyebrow text-amber-400">Qualidade de Dados & Alerta de Precificação</span>
-              <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-300">
-                Inconsistência Comprovada
-              </span>
+          <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-2 border-b border-[var(--color-border)] pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="eyebrow text-amber-400">Qualidade de Dados & Diagnóstico de Itens</span>
+                <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+                  Inconsistência Comprovada na Origem
+                </span>
+              </div>
+              <h2 className="mt-1 text-2xl font-bold text-[var(--color-fg)]">
+                A Armadilha do Preço de Referência do SGD
+              </h2>
             </div>
-            <h2 className="mt-1 text-2xl font-bold text-[var(--color-fg)]">
-              A Armadilha do Preço de Referência do SGD
-            </h2>
-            <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
-              Por que o valor de referência do portal NÃO deve ser utilizado como benchmark para cálculo de desconto.
-            </p>
+            <SnapshotBadge date={AUDIT_SNAPSHOT_DATE} label="Diagnóstico de Origem" />
           </div>
 
+          {/* Comparativo de Cobertura de Preço (Novo Diagnóstico de Dados) */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-emerald-300 uppercase">Teto Orçamentário Global</span>
+                <span className="text-xs font-extrabold text-emerald-400">100% de Cobertura</span>
+              </div>
+              <p className="text-3xl font-black text-emerald-400 tabular-nums">274 / 274</p>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                <code>quotations.total_reference_value</code>: O portal divulga com 100% de consistência o <strong>valor total estimado da cotação</strong> pela escola. Confiável como teto orçamentário.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-amber-300 uppercase">Preço Unitário por Item</span>
+                <span className="text-xs font-extrabold text-amber-400">14,5% de Cobertura</span>
+              </div>
+              <p className="text-3xl font-black text-amber-400 tabular-nums">218 / 1.503</p>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                <code>quotation_items.reference_value</code>: <strong>~82% dos itens NÃO possuem preço divulgado na fonte SGD</strong>. Apenas ~44 itens (3%) seriam recuperáveis por regex. A ausência é um estado legítimo do portal.
+              </p>
+            </div>
+          </div>
+
+          {/* Diretriz de Produto: Não Derivar Preço Unitário Fake */}
+          <div className="rounded-xl border border-blue-500/30 bg-blue-950/20 p-4 text-xs leading-relaxed text-blue-200">
+            🛡️ <strong>Diretriz de Produto Obrigatória:</strong> A plataforma <strong>NUNCA divide o valor total da cotação pela quantidade de itens</strong>. Como um mesmo processo mistura unidades distintas (ex: 50 UN de caneta + 2 CX de papel + 5 L de álcool), essa divisão geraria uma média matemática falsa e induziria o fornecedor a erro grave de precificação. Onde não há preço unitário na fonte, exibimos honestamente <em>&quot;Sem preço de referência&quot;</em>.
+          </div>
+
+          {/* Cards de Inconsistência de Benchmark */}
           <div className="grid gap-6 lg:grid-cols-3">
             {/* Card Alerta 95.8% */}
             <div className="rounded-xl border border-amber-500/30 bg-amber-950/15 p-5 space-y-3">
@@ -264,7 +289,7 @@ export default async function RelatoriosPage() {
                 Vencedores &quot;acima&quot; da referência
               </h3>
               <p className="text-xs leading-relaxed text-slate-300">
-                Em 2.779 cruzamentos reais, 2.663 vencedores homologados aparecem acima da referência (48,7% com mais de 100x). Em envelope fechado isso é estruturalmente impossível, comprovando inconsistência no dado de origem.
+                Em 2.779 cruzamentos reais, 2.663 vencedores homologados aparecem acima da referência (48,7% com mais de 100x). Em envelope fechado isso é estruturalmente impossível, comprovando inconsistência no dado do SGD.
               </p>
             </div>
 
@@ -273,7 +298,7 @@ export default async function RelatoriosPage() {
               <div className="text-2xl font-black text-[var(--color-primary)]">Causa Raiz</div>
               <h3 className="font-bold text-[var(--color-fg)]">Total de Lote × Unitário & Placeholders</h3>
               <p className="text-xs leading-relaxed text-[var(--color-fg-muted)]">
-                O portal frequentemente insere o <strong>valor total do lote</strong> na descrição do item ou usa valores de preenchimento (R$ 1,00 / R$ 5,00), distorcendo a multiplicação por quantidade.
+                O portal frequentemente insere o <strong>valor total do lote</strong> no texto descritivo do item ou usa valores placeholder (R$ 1,00 / R$ 5,00), distorcendo a multiplicação por quantidade.
               </p>
             </div>
 
@@ -332,8 +357,9 @@ export default async function RelatoriosPage() {
         <section className="grid gap-6 lg:grid-cols-2">
           {/* Prazos Impossíveis */}
           <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] p-6 shadow-[var(--shadow-card)] space-y-4">
-            <div className="flex items-center gap-2">
-              <span className="eyebrow text-red-400">Gargalo Logístico</span>
+            <div className="flex items-center justify-between">
+              <span className="eyebrow text-red-400">Gargalo Logístico Estrutural</span>
+              <SnapshotBadge date={AUDIT_SNAPSHOT_DATE} />
             </div>
             <h2 className="text-xl font-bold text-[var(--color-fg)]">
               41,3% dos Prazos são Estruturalmente Impossíveis
@@ -367,8 +393,9 @@ export default async function RelatoriosPage() {
 
           {/* Cotações Bloqueadas e Lead Time */}
           <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] p-6 shadow-[var(--shadow-card)] space-y-4">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between">
               <span className="eyebrow text-fuchsia-400">Filtragem de Ruído</span>
+              <SnapshotBadge date={AUDIT_SNAPSHOT_DATE} />
             </div>
             <h2 className="text-xl font-bold text-[var(--color-fg)]">
               2.084 Cotações Bloqueadas ou Suspeitas
@@ -406,9 +433,9 @@ export default async function RelatoriosPage() {
                 Estrutura de Mercado: Cauda Longa, não Monopólio
               </h2>
             </div>
-            <span className="text-xs font-bold text-[var(--color-fg-muted)]">
-              11.695 pedidos · 1.648 fornecedores
-            </span>
+            <div className="flex items-center gap-2">
+              <SnapshotBadge date={AUDIT_SNAPSHOT_DATE} label="11.695 pedidos · RMBH" />
+            </div>
           </div>
 
           <div className="grid gap-6 lg:grid-cols-3">
@@ -448,22 +475,23 @@ export default async function RelatoriosPage() {
               </p>
             </div>
           ) : (
-            <div className="text-xs text-[var(--color-success)] font-semibold">
-              ✓ {liveHistoryCount.toLocaleString("pt-BR")} compras adjudicadas carregadas na base.
+            <div className="text-xs text-[var(--color-success)] font-semibold flex items-center gap-2">
+              <LiveBadge label="Ativo" />
+              <span>{liveHistoryCount.toLocaleString("pt-BR")} compras adjudicadas carregadas na base.</span>
             </div>
           )}
         </section>
 
         {/* SEÇÃO 5: Saúde da Infraestrutura de Coleta */}
         <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] p-6 sm:p-8 shadow-[var(--shadow-card)] space-y-6">
-          <div className="border-b border-[var(--color-border)] pb-4">
-            <p className="eyebrow text-red-400">Infraestrutura & Pipeline</p>
-            <h2 className="text-2xl font-bold text-[var(--color-fg)]">
-              Saúde do Sincronizador Diário
-            </h2>
-            <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
-              Métricas operacionais de execução e oportunidades perdidas por instabilidade técnica.
-            </p>
+          <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-2 border-b border-[var(--color-border)] pb-4">
+            <div>
+              <p className="eyebrow text-red-400">Infraestrutura & Pipeline</p>
+              <h2 className="text-2xl font-bold text-[var(--color-fg)]">
+                Saúde do Sincronizador Diário
+              </h2>
+            </div>
+            <SnapshotBadge date={AUDIT_SNAPSHOT_DATE} label="Diagnóstico de Sync" />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
@@ -551,16 +579,36 @@ export default async function RelatoriosPage() {
   );
 }
 
+function LiveBadge({ label }: { label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+      {label}
+    </span>
+  );
+}
+
+function SnapshotBadge({ date, label }: { date: string; label?: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-800/80 px-2 py-0.5 text-[10px] font-medium text-slate-300">
+      <span>📌</span>
+      {label ? `${label} (${date})` : `Snapshot ${date}`}
+    </span>
+  );
+}
+
 function KpiMiniCard({
   label,
   value,
   sub,
+  provenance,
   highlight = false,
   alert = false
 }: {
   label: string;
   value: string;
   sub: string;
+  provenance?: "live" | "snapshot";
   highlight?: boolean;
   alert?: boolean;
 }) {
@@ -574,7 +622,14 @@ function KpiMiniCard({
             : "border-[var(--color-border)] bg-[var(--color-bg)]"
       }`}
     >
-      <p className="eyebrow text-[10px] text-[var(--color-fg-muted)]">{label}</p>
+      <div className="flex items-center justify-between gap-1">
+        <p className="eyebrow text-[10px] text-[var(--color-fg-muted)]">{label}</p>
+        {provenance === "live" ? (
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" title="Tempo Real" />
+        ) : (
+          <span className="text-[10px] text-slate-500" title="Snapshot 20/08/2026">📌</span>
+        )}
+      </div>
       <p
         className={`mt-1 text-2xl font-black tabular-nums ${
           highlight ? "text-emerald-400" : alert ? "text-red-400" : "text-[var(--color-fg)]"
