@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { opportunitySource, quotationSource } from "@/lib/data/source";
-import { formatCurrency, pluralize } from "@/components/opportunity-card";
 
 export const metadata = {
   title: "Relatórios & Diagnóstico Comercial · LPA Leo",
@@ -115,6 +114,11 @@ export default async function RelatoriosPage() {
                 <span className="rounded-full border border-fuchsia-500/30 bg-fuchsia-500/10 px-2.5 py-0.5 text-[11px] font-bold text-fuchsia-300">
                   Auditoria Base SGD
                 </span>
+                {liveTotalCount > 0 && (
+                  <span className="hidden sm:inline-flex rounded-full border border-[var(--color-border)] bg-[var(--color-bg-subtle)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-fg-muted)]">
+                    {liveOpenCount.toLocaleString("pt-BR")} abertas / {liveTotalCount.toLocaleString("pt-BR")} no banco
+                  </span>
+                )}
               </div>
               <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-[var(--color-fg)] sm:text-4xl">
                 Por que perdemos tantos lances?
@@ -231,7 +235,7 @@ export default async function RelatoriosPage() {
           </div>
 
           <div className="rounded-xl border border-fuchsia-500/30 bg-fuchsia-950/20 p-4 text-xs leading-relaxed text-fuchsia-200">
-            <strong>Descoberta técnica:</strong> O código Angular do portal revela a cor nativa da rede como <code>#7F1A6B</code> (roxo SGD). O status <code>RECU</code> (Recusada) é registrado exclusivamente após julgamento da escola (não há botão do fornecedor para "declinar"). Portanto, <strong>23.591 propostas foram avaliadas e reprovadas</strong> pela administração escolar.
+            <strong>Descoberta técnica:</strong> O código Angular do portal revela a cor nativa da rede como <code>#7F1A6B</code> (roxo SGD). O status <code>RECU</code> (Recusada) é registrado exclusivamente após julgamento da escola (não há botão do fornecedor para &quot;declinar&quot;). Portanto, <strong>23.591 propostas foram avaliadas e reprovadas</strong> pela administração escolar.
           </div>
         </section>
 
