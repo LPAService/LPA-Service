@@ -1,0 +1,47 @@
+{
+  "name": "lpa-fleet",
+  "nodes": [
+    {
+      "id": "orchestrator",
+      "role": "Orquestrador",
+      "provider": "codex-cli",
+      "model": "gpt-5",
+      "territory": "studio",
+      "instructions": "Coordene execucao da Partitura LPA.",
+      "x": 80,
+      "y": 120
+    },
+    {
+      "id": "frontend",
+      "role": "Frontend/UI",
+      "provider": "antigravity-cli",
+      "model": "gemini-3.7-flash-high-gemini-3.7-flash-high",
+      "territory": "src/app src/components",
+      "instructions": "Construa interface do Studio LPA em src/app e src/components.",
+      "x": 320,
+      "y": 100
+    },
+    {
+      "id": "collector",
+      "role": "Coletor",
+      "provider": "opencode-cli",
+      "model": "qwen3-coder",
+      "territory": "src/lib/collector",
+      "instructions": "Implemente coleta da fonte Caixa Escolar MG preservando raw_json.",
+      "x": 320,
+      "y": 260
+    }
+  ],
+  "edges": [
+    {
+      "from": "orchestrator",
+      "to": "frontend",
+      "type": "delegates"
+    },
+    {
+      "from": "orchestrator",
+      "to": "collector",
+      "type": "delegates"
+    }
+  ]
+}

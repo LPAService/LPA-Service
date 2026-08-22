@@ -420,3 +420,270 @@ Recomendacao:
 - Nao liberar merge sem decisao explicita sobre essa limitacao de filtros.
 - Se a decisao for aceitar seed honesto com filtros parciais ate o banco real, merge fica tecnicamente defensavel.
 - Se a branch precisa demonstrar filtros cidade+categoria agora, falta corrigir/ajustar UI ou seed.
+
+## Re-review 2 2026-08-12
+
+STATUS: NAO LIBERADA PARA MERGE
+
+Commit reavaliado: `51676738a2451e779c8e5d7b8331fb54804e4d88`.
+
+Decisao do produto considerada:
+
+- Limitação dos filtros por seed honesto aceita.
+- Cidade vazia no seed e categoria cobrindo so 3 registros nao contam mais como bloqueio.
+
+### 1. `/?category=alimentos&page=2`. RESOLVIDO
+
+Evidencia Playwright 375x812:
+
+- URL: `http://localhost:3000/?category=alimentos&page=2`
+- Cards: `2`
+- Estado vazio: `false`
+- Indicador topo: `40 registros`, `2 resultado`, `1/1 página`
+- Desktop tambem validado com o mesmo resultado.
+- Screenshot: `/Users/haza/Desktop/Projetos/LPA_Leo/research/review/shots/final-fix-category-alimentos-page2.png`
+- Screenshot desktop: `/Users/haza/Desktop/Projetos/LPA_Leo/research/review/shots/final-desktop-category-alimentos-page2.png`
+
+Codigo lido:
+
+- `/Users/haza/Desktop/Projetos/LPA_Leo/.worktrees/dashboard/src/lib/data/source.ts:125`
+- `currentPage = Math.min(pageNumber, totalPages)`
+- `/Users/haza/Desktop/Projetos/LPA_Leo/.worktrees/dashboard/src/lib/data/source.ts:126`
+- `offset = (currentPage - 1) * pageSize`
+
+Conclusao:
+
+- O bug original de offset stale em filtro curto foi corrigido.
+
+### 2. `/?page=2` sem filtro. RESOLVIDO
+
+Evidencia Playwright 375x812:
+
+- URL: `http://localhost:3000/?page=2`
+- Cards: `12`
+- Indicador topo: `40 registros`, `40 resultado`, `2/4 página`
+- Footer: `Página 2 de 4`
+- Estado vazio: `false`
+- Screenshot: `/Users/haza/Desktop/Projetos/LPA_Leo/research/review/shots/final-fix-page2-unfiltered.png`
+
+Conclusao:
+
+- Paginacao normal segue alinhada.
+
+### 3. Trocar filtro estando na pagina 2. RESOLVIDO
+
+Evidencia Playwright 375x812:
+
+- Comecei em `/?page=2`.
+- Selecionei categoria `alimentos`.
+- Cliquei `Filtrar`.
+- URL final: `/?query=&city=&category=alimentos&expenseGroup=&school=&periodStart=&periodEnd=`
+- Cards: `2`
+- Indicador topo: `40 registros`, `2 resultado`, `1/1 página`
+- Estado vazio: `false`
+- Screenshot: `/Users/haza/Desktop/Projetos/LPA_Leo/research/review/shots/final-change-filter-from-page2.png`
+
+Conclusao:
+
+- Troca de filtro por UI remove `page=2` e volta para pagina coerente.
+
+### 4. Filtro sem resultado `/?category=seguranca&page=2`. RESOLVIDO
+
+Evidencia Playwright 375x812:
+
+- URL: `http://localhost:3000/?category=seguranca&page=2`
+- Cards: `0`
+- Estado vazio: `true`
+- Indicador topo: `40 registros`, `0 resultado`, `1/1 página`
+- Screenshot: `/Users/haza/Desktop/Projetos/LPA_Leo/research/review/shots/final-fix-category-seguranca-page2-zero.png`
+
+Conclusao:
+
+- Vazio correto quando o filtro realmente nao tem resultado.
+
+### 5. Pagina absurda e invalida. PARCIAL / NAO RESOLVIDO
+
+Evidencia Playwright 375x812:
+
+- `/?page=999`
+  - Cards: `4`
+  - Estado vazio: `false`
+  - Indicador topo: `40 registros`, `40 resultado`, `4/4 página`
+  - Footer: `Página 4 de 4`
+  - Screenshot: `/Users/haza/Desktop/Projetos/LPA_Leo/research/review/shots/final-fix-page999.png`
+- `/?page=0`
+  - Cards: `12`
+  - Estado vazio: `false`
+  - Indicador topo: `40 registros`, `40 resultado`, `1/4 página`
+  - Footer: `Página 1 de 4`
+  - Screenshot: `/Users/haza/Desktop/Projetos/LPA_Leo/research/review/shots/final-fix-page0.png`
+- `/?page=abc`
+  - Cards: `0`
+  - Estado vazio: `true`
+  - Indicador topo: `40 registros`, `40 resultado`, `NaN/4 página`
+  - Footer: `Página NaN de 4`
+  - DOM contem `NaN`.
+  - Screenshot: `/Users/haza/Desktop/Projetos/LPA_Leo/research/review/shots/final-fix-pageabc.png`
+
+Defeito:
+
+- `page=abc` mostra vazio indevido e `NaN/4`.
+- Isso viola requisito desta rodada: pagina invalida nao pode quebrar nem mostrar vazio indevido.
+- Causa lida:
+  - `/Users/haza/Desktop/Projetos/LPA_Leo/.worktrees/dashboard/src/app/page.tsx:19` faz `Number(currentParams.get("page") ?? "1")`.
+  - `/Users/haza/Desktop/Projetos/LPA_Leo/.worktrees/dashboard/src/lib/data/source.ts:119` faz `Math.max(1, page.page ?? 1)`.
+  - `NaN ?? 1` continua `NaN`; `Math.max(1, NaN)` continua `NaN`.
+  - `currentPage` vira `NaN`, `offset` vira `NaN`, `slice` retorna vazio e a UI exibe `NaN`.
+
+Conclusao:
+
+- Pagina absurda e zero resolvidas.
+- Pagina invalida textual nao resolvida.
+- Esse e defeito de codigo, nao limitacao aceita do seed.
+
+### 6. Total, paginas e fatia saem do mesmo conjunto filtrado. RESOLVIDO EXCETO `page=abc`
+
+Evidencia:
+
+- `category=alimentos&page=2`: total `2`, totalPages `1`, page `1`, cards `2`.
+- `page=2`: total `40`, totalPages `4`, page `2`, cards `12`.
+- `category=seguranca&page=2`: total `0`, totalPages `1`, page `1`, cards `0`.
+- `page=999`: total `40`, totalPages `4`, page `4`, cards `4`.
+- `page=0`: total `40`, totalPages `4`, page `1`, cards `12`.
+- `page=abc`: total `40`, totalPages `4`, page `NaN`, cards `0`.
+
+Conclusao:
+
+- Correção do offset alinhou os cenarios numericos.
+- Ainda falta sanitizar pagina nao numerica.
+
+### 7. Regressao das 3 correcoes homologadas. RESOLVIDO
+
+Dado fabricado:
+
+- Script `tsx` comparando 40 registros contra fixtures: `badCount=0`.
+- Para os 37 sem detalhe: campos comerciais seguem `null`/vazio.
+- `rawJson` continua igual ao objeto inteiro real de `pagesize_1000.json`.
+- `city`/`regional` continuam `null` no seed.
+
+Seed nao importado pela UI:
+
+- `rg -n "mock|seed|mockOpportunities|fixture|fixtures|listingOrders|opportunities" src/app src/components src/lib/data/source.ts src/app/not-found.tsx`
+- Ocorrencias de fixture/listing ficam em `src/lib/data/source.ts`.
+- `src/app/page.tsx` e detalhe continuam importando so `opportunitySource`.
+- UI nao contem `mock`/`seed`.
+
+Mobile 375px:
+
+- Listagem `/`: `docScrollWidth=375`, `bodyScrollWidth=375`, `clientWidth=375`, `hasPageHorizontalScroll=false`.
+- Detalhe `/opportunity/2027075586`: `docScrollWidth=375`, `bodyScrollWidth=375`, `clientWidth=375`, `hasPageHorizontalScroll=false`.
+- A tabela segue com scroll interno controlado: wrapper `clientWidth=309`, `scrollWidth=903`.
+- Screenshots:
+  - `/Users/haza/Desktop/Projetos/LPA_Leo/research/review/shots/final-fix-mobile-list.png`
+  - `/Users/haza/Desktop/Projetos/LPA_Leo/research/review/shots/final-fix-mobile-detail.png`
+
+### Testes executados no re-review 2
+
+- `git status --short --branch`: exit `0`, branch `feature/dashboard`, apenas `?? .codex/`.
+- `git rev-parse HEAD`: exit `0`, `51676738a2451e779c8e5d7b8331fb54804e4d88`.
+- `rg` de isolamento seed/UI: exit `0`.
+- Script `tsx` de regressao dos 40 registros x fixtures: exit `0`, `badCount=0`.
+- `corepack pnpm dev`: exit `0` apos `Ctrl-C`, servidor em `http://localhost:3000`.
+- Playwright Chromium headless 375x812 e desktop: exit `0`.
+- `corepack pnpm lint`: exit `0`.
+- `corepack pnpm typecheck`: exit `0`.
+- `corepack pnpm test`: exit `0`, `2 passed (2)`, `5 passed (5)`.
+- `corepack pnpm build`: exit `0`.
+
+### Veredito do re-review 2
+
+`feature/dashboard` nao esta liberada para merge.
+
+Bloqueador atual:
+
+- `/?page=abc` mostra tela vazia indevida e `NaN/4`. Corrigir parsing/sanitizacao de pagina e adicionar teste cobrindo pagina nao numerica.
+
+Nao bloqueador por decisao do produto:
+
+- Filtros fracos no seed honesto.
+
+## Re-review 3 2026-08-12
+
+STATUS: LIBERADA PARA MERGE
+
+Commit reavaliado: `0e7d5431b2ff36255eb02f4a86c8e05a24cdeeeb`.
+
+Decisao do produto considerada:
+
+- Limitação dos filtros por seed honesto aceita.
+- Banco real citado pelo produto: 201 oportunidades reais, cidade preenchida em 100%, 3.400 escolas.
+
+### 1. Sanitizacao de pagina. RESOLVIDO
+
+Playwright 375x812, todas sem `NaN`, `undefined`, `null`, sem vazio indevido:
+
+- `/?page=abc`: 12 cards, `1/4`.
+- `/?page=`: 12 cards, `1/4`.
+- `/?page=%20%20%20`: 12 cards, `1/4`.
+- `/?page=0`: 12 cards, `1/4`.
+- `/?page=-2`: 12 cards, `1/4`.
+- `/?page=1.5`: 12 cards, `1/4`.
+- `/?page=999999`: 4 cards, `4/4`.
+- `/?page=1&page=2`: 12 cards, `1/4`.
+- `/?%20page%20=%202%20`: 12 cards, `2/4`.
+
+Lixo combinado:
+
+- `/?category=lixo&city=lixo&query=lixo&page=abc`: 0 cards, vazio correto, `1/1`, sem tokens ruins.
+
+Variacoes extras:
+
+- `/?page[]=2`: 12 cards, `1/4`.
+- `/?page=2e3`: 4 cards, `4/4`.
+- `/?page=Infinity`: 12 cards, `1/4`.
+- `/?page=null`: 12 cards, `1/4`.
+- `/?page=` + numero com 300 digitos: 4 cards, `4/4`.
+- `/?page=2&foo=bar&x=%20`: 12 cards, `2/4`.
+
+Screenshots:
+
+- `/Users/haza/Desktop/Projetos/LPA_Leo/research/review/shots/rereview3-claimed-page-abc.png`
+- `/Users/haza/Desktop/Projetos/LPA_Leo/research/review/shots/rereview3-claimed-page-huge.png`
+- `/Users/haza/Desktop/Projetos/LPA_Leo/research/review/shots/rereview3-junk-filter-invalid-page.png`
+
+### 2. Offset anterior. RESOLVIDO
+
+- `/?category=alimentos&page=2`: 2 cards, `2 resultado`, `1/1`, sem vazio.
+- Screenshot: `/Users/haza/Desktop/Projetos/LPA_Leo/research/review/shots/rereview3-regression-offset-category-page2.png`
+
+### 3. Regressoes homologadas. RESOLVIDO
+
+- Dado fabricado: script dos 40 registros contra fixtures retornou `badCount=0`.
+- UI nao importa seed direto: ocorrencias de fixture/listing ficam em `src/lib/data/source.ts`; paginas/componentes nao importam seed.
+- Mobile 375px:
+  - listagem: `docScrollWidth=375`, `bodyScrollWidth=375`, sem scroll horizontal.
+  - detalhe `/opportunity/2027075586`: `docScrollWidth=375`, `bodyScrollWidth=375`, sem scroll horizontal de pagina.
+- Screenshots:
+  - `/Users/haza/Desktop/Projetos/LPA_Leo/research/review/shots/rereview3-regression-mobile-list.png`
+  - `/Users/haza/Desktop/Projetos/LPA_Leo/research/review/shots/rereview3-regression-mobile-detail.png`
+
+### Testes executados no re-review 3
+
+- `git status --short --branch`: exit `0`, branch `feature/dashboard`, apenas `?? .codex/`.
+- `git rev-parse HEAD`: exit `0`, `0e7d5431b2ff36255eb02f4a86c8e05a24cdeeeb`.
+- `corepack pnpm dev`: exit `0` apos `Ctrl-C`.
+- Playwright Chromium headless 375x812: exit `0`.
+- Script `tsx` dos 40 registros x fixtures: exit `0`, `badCount=0`.
+- `rg` isolamento seed/UI: exit `0`.
+- `corepack pnpm test`: exit `0`, `2 passed (2)`, `20 passed (20)`.
+- `corepack pnpm typecheck`: exit `0`.
+- `corepack pnpm lint`: exit `0`.
+- `corepack pnpm build`: exit `0`.
+
+### Veredito do re-review 3
+
+`feature/dashboard` esta liberada para merge.
+
+Bloqueadores atuais:
+
+- Nenhum.
