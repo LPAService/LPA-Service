@@ -299,6 +299,8 @@ export const users = pgTable(
   },
   (table) => [
     uniqueIndex("users_email_idx").on(table.email)
+  ]
+);
 
 export const catalogSuppliers = pgTable(
   "catalog_suppliers",

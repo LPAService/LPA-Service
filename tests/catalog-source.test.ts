@@ -17,7 +17,8 @@ const migrationFiles = [
   "drizzle/0003_suppliers_base.sql",
   "drizzle/0004_parallel_princess_powerful.sql",
   "drizzle/0006_faulty_nocturne.sql",
-  "drizzle/0007_yielding_husk.sql"
+  "drizzle/0007_clumsy_proudstar.sql",
+  "drizzle/0008_yielding_husk.sql"
 ];
 const dbTestLockKey = 941_445_007;
 
