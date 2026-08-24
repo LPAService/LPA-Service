@@ -299,5 +299,101 @@ export const users = pgTable(
   },
   (table) => [
     uniqueIndex("users_email_idx").on(table.email)
+
+export const catalogSuppliers = pgTable(
+  "catalog_suppliers",
+  {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull(),
+    document: text("document"),
+    contactName: text("contact_name"),
+    phone: text("phone"),
+    email: text("email"),
+    city: text("city"),
+    notes: text("notes"),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    index("catalog_suppliers_document_idx").on(table.document),
+    index("catalog_suppliers_name_idx").on(table.name)
+  ]
+);
+
+export const catalogItems = pgTable(
+  "catalog_items",
+  {
+    id: serial("id").primaryKey(),
+    supplierId: integer("supplier_id")
+      .notNull()
+      .references(() => catalogSuppliers.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    normalizedName: text("normalized_name").notNull(),
+    unit: text("unit").notNull(),
+    unitPrice: doublePrecision("unit_price").notNull(),
+    notes: text("notes"),
+    lastPriceAt: timestamp("last_price_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    uniqueIndex("catalog_items_supplier_item_unique").on(table.supplierId, table.normalizedName, table.unit),
+    index("catalog_items_supplier_id_idx").on(table.supplierId),
+    index("catalog_items_normalized_name_idx").on(table.normalizedName)
+  ]
+);
+
+export const preQuotes = pgTable(
+  "pre_quotes",
+  {
+    id: serial("id").primaryKey(),
+    quotationExternalId: text("quotation_external_id").notNull(),
+    orderId: text("order_id"),
+    schoolName: text("school_name"),
+    city: text("city"),
+    expenseGroup: text("expense_group"),
+    headline: text("headline"),
+    marginPercent: doublePrecision("margin_percent").notNull().default(0),
+    freightCost: doublePrecision("freight_cost").notNull().default(0),
+    status: text("status").notNull().default("draft"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    index("pre_quotes_quotation_idx").on(table.quotationExternalId),
+    index("pre_quotes_status_idx").on(table.status)
+  ]
+);
+
+export const preQuoteItems = pgTable(
+  "pre_quote_items",
+  {
+    id: serial("id").primaryKey(),
+    preQuoteId: integer("pre_quote_id")
+      .notNull()
+      .references(() => preQuotes.id, { onDelete: "cascade" }),
+    itemOrder: integer("item_order").notNull(),
+    name: text("name").notNull(),
+    description: text("description").notNull(),
+    unit: text("unit").notNull(),
+    quantity: doublePrecision("quantity").notNull(),
+    referenceValue: doublePrecision("reference_value"),
+    supplierId: integer("supplier_id").references(() => catalogSuppliers.id, { onDelete: "set null" }),
+    catalogItemId: integer("catalog_item_id").references(() => catalogItems.id, { onDelete: "set null" }),
+    unitCost: doublePrecision("unit_cost"),
+    totalCost: doublePrecision("total_cost"),
+    source: text("source").notNull().default("none"),
+    webTitle: text("web_title"),
+    webPrice: doublePrecision("web_price"),
+    webUrl: text("web_url"),
+    webSearchedAt: timestamp("web_searched_at", { withTimezone: true }),
+    notes: text("notes")
+  },
+  (table) => [
+    uniqueIndex("pre_quote_items_quote_order_unique").on(table.preQuoteId, table.itemOrder),
+    index("pre_quote_items_pre_quote_id_idx").on(table.preQuoteId)
+
   ]
 );

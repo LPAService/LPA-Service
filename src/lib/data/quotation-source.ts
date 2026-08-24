@@ -7,6 +7,8 @@ import type * as schema from "@/lib/db/schema";
 import { getQuotationStatus } from "@/lib/collector/quotations";
 import rmbhCounties from "@/lib/collector/rmbh-counties.json";
 
+const PORTAL_PROFILE_URL = "https://caixaescolar.educacao.mg.gov.br/selecionar-perfil";
+
 type QuotationDatabase = NodePgDatabase<typeof schema>;
 
 type QuotationRow = {
@@ -57,6 +59,15 @@ type FacetRow = {
   category_name: string | null;
   expense_group: string;
   school: string | null;
+};
+
+export type QuotationProposalTarget = {
+  externalId: string;
+  nuBudgetOrder: string | null;
+  idSubprogram: number;
+  idSchool: number;
+  idBudget: number;
+  proposalUrl: string;
 };
 
 const rmbhCountyIds = rmbhCounties.counties.map((county) => county.idCounty);
@@ -137,6 +148,42 @@ export function createPostgresQuotationSource(database: QuotationDatabase): Oppo
   };
 }
 
+export async function getQuotationProposalTarget(database: QuotationDatabase, identifier: string) {
+  const cleanIdentifier = identifier.trim();
+  if (!cleanIdentifier) return null;
+  const lookupByBudgetOrder = isBudgetOrderIdentifier(cleanIdentifier);
+  const result = await database.execute<{
+    external_id: string;
+    nu_budget_order: string | null;
+    id_subprogram: number;
+    id_school: number;
+    id_budget: number;
+    proposal_url: string;
+  }>(sql`
+    select ${quotations.externalId}, ${quotations.nuBudgetOrder}, ${quotations.idSubprogram}, ${quotations.idSchool}, ${quotations.idBudget}, ${quotations.proposalUrl}
+    from ${quotations}
+    where ${lookupByBudgetOrder ? quotations.nuBudgetOrder : quotations.externalId} = ${cleanIdentifier} and ${scopeWhere()}
+    limit 1
+  `);
+  const row = result.rows[0];
+  if (!row) return null;
+  return {
+    externalId: row.external_id,
+    nuBudgetOrder: row.nu_budget_order,
+    idSubprogram: row.id_subprogram,
+    idSchool: row.id_school,
+    idBudget: row.id_budget,
+    proposalUrl: row.proposal_url
+  } satisfies QuotationProposalTarget;
+}
+
+export function buildQuotationPortalUrl(target: QuotationProposalTarget) {
+  const pathname = `/compras/orcamento/subprograma/${encodeURIComponent(target.idSubprogram)}/escola/${encodeURIComponent(target.idSchool)}/detalhe-orcamento/${encodeURIComponent(target.idBudget)}`;
+  const url = new URL(pathname, PORTAL_PROFILE_URL);
+  if (target.nuBudgetOrder) url.searchParams.set("nuBudgetOrder", target.nuBudgetOrder);
+  return url.toString();
+}
+
 function buildWhere(filters: OpportunityFilters) {
   const conditions: SQL[] = [scopeWhere()];
   const city = clean(filters.city);
@@ -206,8 +253,9 @@ async function loadQuotationItems(database: QuotationDatabase, ids: number[]) {
       description: row.description,
       unit: row.unit,
       quantity: row.quantity,
-      unitValue: row.reference_value,
-      totalValue: row.reference_value === null ? null : row.reference_value * row.quantity,
+      unitValue: null,
+      totalValue: null,
+      referenceValue: row.quantity > 0 && row.reference_value !== null ? row.reference_value / row.quantity : null,
       isPermanent: false,
       expenseCategory: ""
     });
@@ -219,14 +267,15 @@ async function loadQuotationItems(database: QuotationDatabase, ids: number[]) {
 function normalizeQuotation(row: QuotationRow, items: OpportunityItem[]): NormalizedOpportunity {
   const proposalDeadline = toIso(row.proposal_deadline);
   const canSubmitProposal = proposalDeadline ? new Date(proposalDeadline).getTime() >= Date.now() && !row.proposal_blocked : false;
-  const hasReferenceValue = items.some((item) => item.unitValue !== null);
-  const pricedItemCount = items.filter((item) => item.unitValue !== null).length;
+  const hasReferenceValue = row.total_reference_value !== null || items.some((item) => item.referenceValue !== null);
+  const pricedItemCount = items.filter((item) => item.referenceValue !== null).length;
+  const proposalUrl = `/api/quotations/${encodeURIComponent(row.external_id)}/proposal`;
   return {
     kind: "quotation",
     externalId: row.external_id,
     orderId: row.nu_budget_order ?? row.external_id,
-    sourceUrl: row.proposal_url,
-    proposalUrl: row.proposal_url,
+    sourceUrl: PORTAL_PROFILE_URL,
+    proposalUrl,
     canSubmitProposal,
     proposalBlocked: row.proposal_blocked,
     proposalBlockedReason: row.proposal_blocked_reason,
@@ -255,6 +304,7 @@ function normalizeQuotation(row: QuotationRow, items: OpportunityItem[]): Normal
     items,
     attachments: [],
     totalValue: hasReferenceValue ? row.total_reference_value : null,
+    totalReferenceValue: row.total_reference_value,
     isTotalValuePartial: hasReferenceValue && pricedItemCount < items.length,
     itemCount: row.item_count,
     category: row.category_slug && row.category_name ? { slug: row.category_slug, name: row.category_name, confidence: null, needsFallback: null } : null,

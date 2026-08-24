@@ -133,7 +133,7 @@ describe("OpportunityCard modal", () => {
     render(React.createElement(OpportunityCard, { opportunity: listOpportunity() }));
 
     await act(async () => {
-      button("Enviar proposta").click();
+      button("Fazer lance").click();
     });
 
     expect(dialog()).toBeNull();
@@ -153,7 +153,7 @@ describe("OpportunityCard modal", () => {
     mockFetch(blocked);
     render(React.createElement(OpportunityCard, { opportunity: { ...blocked, items: [] } }));
 
-    expect(document.body.textContent).not.toContain("Enviar proposta");
+    expect(document.body.textContent).not.toContain("Fazer lance");
     expect(document.body.textContent).toContain("A escola indicou que não é para enviar proposta (1 de 2 itens marcados).");
 
     await act(async () => {
@@ -162,7 +162,7 @@ describe("OpportunityCard modal", () => {
     await text("Trecho original:");
 
     expect(document.body.textContent).toContain("PROCESSO DE REGULARIZAÇÃO NO SISTEMA, NÃO ENVIAR PROPOSTA.");
-    expect(document.body.textContent).not.toContain("Enviar proposta");
+    expect(document.body.textContent).not.toContain("Fazer lance");
   });
 
   function render(element: React.ReactNode) {

@@ -112,9 +112,10 @@ describe("PostgresOpportunitySource", () => {
         needsFallback: null
       },
       itemCount: 1,
-      items: [{ name: "Arroz premium", quantity: 10 }],
+      items: [{ name: "Arroz premium", quantity: 10, unitValue: 10, totalValue: 100 }],
       attachments: [{ id: 501, filename: "edital.pdf" }]
     });
+    expect(opportunity!.items[0]).not.toHaveProperty("referenceValue");
     await expect(source.getOpportunity("missing")).resolves.toBeNull();
   });
 

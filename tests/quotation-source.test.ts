@@ -4,7 +4,11 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { createPostgresQuotationSource } from "@/lib/data/quotation-source";
+import {
+  buildQuotationPortalUrl,
+  createPostgresQuotationSource,
+  getQuotationProposalTarget
+} from "@/lib/data/quotation-source";
 import * as schema from "@/lib/db/schema";
 import { canSubmitQuotationProposal } from "@/lib/quotation-ui";
 
@@ -82,10 +86,11 @@ describe("PostgresQuotationSource", () => {
     const result = await source.listOpportunities({}, { pageSize: 12 });
     const quotation = result.data.find((item) => item.externalId === "quote-open-later")!;
 
-    expect(quotation.totalValue).toBeNull();
+    expect(quotation.totalValue).toBe(400000);
+    expect(quotation.totalReferenceValue).toBe(400000);
     expect(quotation.items).toEqual([]);
     await expect(source.getOpportunity("quote-open-later")).resolves.toMatchObject({
-      items: [{ quantity: 1, unitValue: null }]
+      items: [{ quantity: 1, unitValue: null, referenceValue: null }]
     });
   });
 
@@ -95,10 +100,12 @@ describe("PostgresQuotationSource", () => {
 
     expect(quotation).toMatchObject({
       totalValue: 25,
+      totalReferenceValue: 25,
       isTotalValuePartial: true,
       itemCount: 2
     });
-    expect(quotation!.items.map((item) => item.totalValue)).toEqual([25, null]);
+    expect(quotation!.items.map((item) => item.totalValue)).toEqual([null, null]);
+    expect(quotation!.items.map((item) => item.referenceValue)).toEqual([1, null]);
   });
 
   it("busca cotação por externalId e também por número do orçamento", async () => {
@@ -107,6 +114,7 @@ describe("PostgresQuotationSource", () => {
     await expect(source.getOpportunity("quote-open-soon")).resolves.toMatchObject({
       externalId: "quote-open-soon",
       orderId: "2026166001",
+      proposalUrl: "/api/quotations/quote-open-soon/proposal",
       itemCount: 2
     });
     await expect(source.getOpportunity("2026166001")).resolves.toMatchObject({
@@ -114,6 +122,23 @@ describe("PostgresQuotationSource", () => {
       orderId: "2026166001",
       itemCount: 2
     });
+  });
+
+  it("busca alvo de proposta com consulta mínima e monta link do orçamento no portal", async () => {
+    const target = await getQuotationProposalTarget(database, "quote-open-soon");
+
+    expect(target).toEqual({
+      externalId: "quote-open-soon",
+      nuBudgetOrder: "2026166001",
+      idSubprogram: 12,
+      idSchool: 34,
+      idBudget: 6001,
+      proposalUrl: "https://example.test/quote-open-soon"
+    });
+    expect(buildQuotationPortalUrl(target!)).toBe(
+      "https://caixaescolar.educacao.mg.gov.br/compras/orcamento/subprograma/12/escola/34/detalhe-orcamento/6001?nuBudgetOrder=2026166001"
+    );
+    await expect(getQuotationProposalTarget(database, "missing")).resolves.toBeNull();
   });
 });
 
