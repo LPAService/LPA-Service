@@ -401,7 +401,7 @@ export function createCatalogSource(database: CatalogDatabase) {
       const result = await database.execute<{ id: number }>(sql`
         select ${preQuotes.id} from ${preQuotes}
         where ${preQuotes.quotationExternalId} = ${externalId}
-        order by ${preQuotes.updatedAt} desc
+        order by ${preQuotes.updatedAt} desc, ${preQuotes.id} desc
         limit 1
       `);
       const row = result.rows[0];
@@ -410,7 +410,7 @@ export function createCatalogSource(database: CatalogDatabase) {
 
     async listPreQuotes(): Promise<PreQuote[]> {
       const headerResult = await database.execute<PreQuoteRow>(sql`
-        select * from ${preQuotes} order by ${preQuotes.updatedAt} desc limit 200
+        select * from ${preQuotes} order by ${preQuotes.updatedAt} desc, ${preQuotes.id} desc limit 200
       `);
       if (headerResult.rows.length === 0) return [];
       const ids = headerResult.rows.map((row) => row.id);
