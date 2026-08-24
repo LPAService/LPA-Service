@@ -4,6 +4,7 @@ import {
   sanitizePageParam
 } from "@/lib/data/postgres-source";
 import { createPostgresQuotationSource } from "@/lib/data/quotation-source";
+import { normalize } from "@/lib/text/normalize";
 import type { NormalizedOpportunity } from "@/lib/contracts/opportunity";
 
 export type OpportunityFilters = {
@@ -52,13 +53,7 @@ export interface OpportunitySource {
 
 export { sanitizePageParam };
 
-export function normalize(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .trim()
-    .toLowerCase();
-}
+export { normalize };
 
 export const opportunitySource: OpportunitySource =
   createPostgresOpportunitySource(db);

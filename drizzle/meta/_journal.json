@@ -43,6 +43,13 @@
       "when": 1786628730766,
       "tag": "0006_faulty_nocturne",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787599600976,
+      "tag": "0007_yielding_husk",
+      "breakpoints": true
     }
   ]
 }

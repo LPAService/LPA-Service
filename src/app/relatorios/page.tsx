@@ -126,6 +126,12 @@ export default async function RelatoriosPage() {
               <Link className="action-primary text-sm font-bold" href="/relatorios">
                 📊 Relatório & Análise
               </Link>
+              <Link className="action-secondary text-sm" href="/fornecedores">
+                📦 Fornecedores
+              </Link>
+              <Link className="action-secondary text-sm" href="/preorcamento">
+                🧮 Pré-Orçamento
+              </Link>
             </nav>
           </div>
         </div>
