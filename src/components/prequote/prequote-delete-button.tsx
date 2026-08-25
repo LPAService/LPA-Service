@@ -28,7 +28,7 @@ export function PrequoteDeleteButton({ id, name }: { id: number; name: string })
 
   return (
     <button
-      className="text-xs font-semibold text-red-400 hover:underline"
+      className="text-xs font-semibold text-[var(--color-danger)] hover:underline"
       disabled={busy}
       onClick={remove}
       type="button"

@@ -105,7 +105,7 @@ export function CatalogSuppliersPanel({ initialSuppliers }: { initialSuppliers: 
   return (
     <div className="space-y-5">
       {error && (
-        <div className="rounded-lg border border-red-500/40 bg-red-950/30 p-3 text-sm font-semibold text-red-300">
+        <div className="rounded-lg border border-[var(--color-danger)]/40 bg-[var(--color-bg-subtle)] p-3 text-sm font-semibold text-[var(--color-danger)]">
           {error}
         </div>
       )}
@@ -148,8 +148,8 @@ export function CatalogSuppliersPanel({ initialSuppliers }: { initialSuppliers: 
                   aria-label={supplier.active ? "Desativar fornecedor" : "Ativar fornecedor"}
                   className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${
                     supplier.active
-                      ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300"
-                      : "border-zinc-600 bg-zinc-800 text-zinc-400"
+                      ? "badge-success"
+                      : "badge-muted"
                   }`}
                   disabled={busy}
                   onClick={() => toggleActive(supplier)}
@@ -207,7 +207,7 @@ export function CatalogSuppliersPanel({ initialSuppliers }: { initialSuppliers: 
                   Editar
                 </button>
                 <button
-                  className="text-xs font-semibold text-red-400 hover:underline"
+                  className="text-xs font-semibold text-[var(--color-danger)] hover:underline"
                   disabled={busy}
                   onClick={() => remove(supplier)}
                   type="button"

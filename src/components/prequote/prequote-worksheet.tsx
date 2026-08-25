@@ -367,13 +367,13 @@ export function PrequoteWorksheet({
                 )}
 
                 {row.source === "web" && row.webTitle && (
-                  <div className="mt-3 rounded-lg border border-blue-500/30 bg-blue-950/20 p-3 text-xs text-blue-200">
+                  <div className="mt-3 rounded-lg border border-[var(--color-primary)]/30 bg-[var(--color-bg-subtle)] p-3 text-xs text-[var(--color-fg-muted)]">
                     <p className="font-bold">🌐 Menor preço encontrado na internet:</p>
                     <p className="mt-1">{row.webTitle}</p>
                     <div className="mt-1 flex flex-wrap items-center gap-3">
                       <span className="font-bold tabular-nums">{formatBRL(row.webPrice ?? row.unitCost ?? 0)}</span>
                       {row.webUrl && (
-                        <a className="text-blue-300 underline" href={row.webUrl} rel="noreferrer" target="_blank">
+                        <a className="text-[var(--color-primary)] underline" href={row.webUrl} rel="noreferrer" target="_blank">
                           ver anúncio ↗
                         </a>
                       )}
@@ -403,7 +403,7 @@ export function PrequoteWorksheet({
                     </div>
                     {isSearching && <p className="mt-3 text-sm text-[var(--color-fg-muted)]">Buscando melhores preços…</p>}
                     {!isSearching && result?.error && (
-                      <p className="mt-3 text-sm font-semibold text-amber-300">{result.error}</p>
+                      <p className="mt-3 text-sm font-semibold text-[var(--color-warning)]">{result.error}</p>
                     )}
                     {!isSearching && result && result.offers.length === 0 && !result.error && (
                       <p className="mt-3 text-sm text-[var(--color-fg-muted)]">Nenhuma oferta encontrada para este item.</p>
@@ -458,7 +458,7 @@ export function PrequoteWorksheet({
             </div>
             <div className="flex items-baseline justify-between gap-3">
               <dt className="text-[var(--color-fg-muted)]">Itens sem preço</dt>
-              <dd className={`font-bold tabular-nums ${totals.missingCount > 0 ? "text-amber-400" : "text-[var(--color-success)]"}`}>
+              <dd className={`font-bold tabular-nums ${totals.missingCount > 0 ? "text-[var(--color-warning)]" : "text-[var(--color-success)]"}`}>
                 {totals.missingCount} de {rows.length}
               </dd>
             </div>
@@ -477,7 +477,7 @@ export function PrequoteWorksheet({
             {referenceDiff !== null && (
               <div className="flex items-baseline justify-between gap-3 border-t border-[var(--color-border)] pt-3">
                 <dt className="text-[var(--color-fg-muted)]">Vs. referência</dt>
-                <dd className={`font-bold tabular-nums ${referenceDiff <= 0 ? "text-[var(--color-success)]" : "text-red-400"}`}>
+                <dd className={`font-bold tabular-nums ${referenceDiff <= 0 ? "text-[var(--color-success)]" : "text-[var(--color-danger)]"}`}>
                   {formatBRL(referenceDiff)}{" "}
                   <span className="text-xs">({formatPercent(referenceDiff / (quotation.totalReferenceValue || 1) * 100)})</span>
                 </dd>
@@ -528,12 +528,12 @@ export function PrequoteWorksheet({
           </div>
 
           {error && (
-            <div className="mt-4 rounded-lg border border-red-500/40 bg-red-950/30 p-3 text-xs font-semibold text-red-300">
+            <div className="mt-4 rounded-lg border border-[var(--color-danger)]/40 bg-[var(--color-bg-subtle)] p-3 text-xs font-semibold text-[var(--color-danger)]">
               {error}
             </div>
           )}
           {savedAt && !error && (
-            <div className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-950/30 p-3 text-xs font-semibold text-emerald-300">
+            <div className="mt-4 rounded-lg badge-success p-3 text-xs font-semibold">
               ✓ Pré-orçamento salvo às {savedAt}.
             </div>
           )}

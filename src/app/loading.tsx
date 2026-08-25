@@ -6,7 +6,7 @@ export default function Loading() {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 6 }).map((_, index) => (
             <div
-              className="h-72 animate-pulse rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-bg)]"
+              className="h-72 animate-pulse rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-glass)]"
               key={index}
             />
           ))}

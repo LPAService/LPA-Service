@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LPA Leo · Proposta de front-end 2026</title>
+<style>
+/* ============================================================
+   LPA LEO — proposta visual 2026 (protótipo estático, sem build)
+   Direção: leve, fluida, com profundidade suave (glass + aurora)
+   ============================================================ */
+:root {
+  --bg0:#f3f6fb; --bg1:#eef3fa;
+  --ink:#0b1526; --ink-soft:#3c4a5f; --muted:#5f6f86;
+  --line:rgba(13,27,42,.09); --line-strong:rgba(13,27,42,.14);
+  --glass:rgba(255,255,255,.72); --glass-strong:rgba(255,255,255,.88);
+  --teal:#0d9488; --cyan:#06b6d4; --indigo:#6366f1; --amber:#f59e0b;
+  --rose:#f43f5e; --green:#10b981; --orange:#f97316; --violet:#8b5cf6;
+  --grad:linear-gradient(100deg,#0d9488,#06b6d4 55%,#6366f1);
+  --shadow-sm:0 2px 10px -4px rgba(13,27,42,.12);
+  --shadow-md:0 14px 34px -18px rgba(13,27,42,.28);
+  --shadow-lg:0 28px 60px -24px rgba(13,27,42,.35);
+  --r-lg:22px; --r-md:16px; --r-sm:12px;
+  --ease:cubic-bezier(.22,1,.36,1);
+  --font:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+[data-theme="dark"] {
+  --bg0:#0a101c; --bg1:#0d1524;
+  --ink:#e8eef8; --ink-soft:#c3cfe0; --muted:#8fa0b8;
+  --line:rgba(255,255,255,.09); --line-strong:rgba(255,255,255,.16);
+  --glass:rgba(17,26,43,.62); --glass-strong:rgba(15,23,38,.82);
+  --shadow-sm:0 2px 10px -4px rgba(0,0,0,.5);
+  --shadow-md:0 14px 34px -18px rgba(0,0,0,.6);
+  --shadow-lg:0 28px 60px -24px rgba(0,0,0,.7);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--font); background:var(--bg0); color:var(--ink);
+  min-height:100vh; overflow-x:hidden; line-height:1.5;
+  transition:background .5s,color .5s;
+}
+button,a,input{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:none}
+::selection{background:color-mix(in srgb,var(--cyan) 30%,transparent)}
+
+/* ---------- fundo: aurora + grão ---------- */
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden;background:
+  radial-gradient(1200px 700px at 85% -10%,rgba(99,102,241,.10),transparent 60%),
+  radial-gradient(1000px 620px at -10% 20%,rgba(6,182,212,.10),transparent 60%),
+  var(--bg0); transition:background .5s}
+.blob{position:absolute;border-radius:50%;filter:blur(80px);opacity:.5;will-change:transform}
+[data-theme="dark"] .blob{opacity:.32}
+.blob.b1{width:520px;height:520px;left:-140px;top:-120px;background:radial-gradient(circle,#2dd4bf,transparent 70%);animation:drift1 26s var(--ease) infinite alternate}
+.blob.b2{width:600px;height:600px;right:-180px;top:8%;background:radial-gradient(circle,#818cf8,transparent 70%);animation:drift2 32s var(--ease) infinite alternate}
+.blob.b3{width:460px;height:460px;left:38%;bottom:-200px;background:radial-gradient(circle,#fbbf24,transparent 70%);animation:drift3 24s var(--ease) infinite alternate}
+@keyframes drift1{to{transform:translate(70px,60px) scale(1.12)}}
+@keyframes drift2{to{transform:translate(-90px,70px) scale(.92)}}
+@keyframes drift3{to{transform:translate(60px,-70px) scale(1.08)}}
+.grain{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.05;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.6'/%3E%3C/svg%3E")}
+
+/* ---------- casca ---------- */
+.shell{width:min(100% - 2.5rem,76rem);margin-inline:auto}
+
+/* ---------- nav ---------- */
+nav{position:sticky;top:14px;z-index:60}
+.nav-pill{
+  display:flex;flex-wrap:wrap;align-items:center;gap:.6rem .9rem;padding:.55rem .7rem .55rem .9rem;
+  margin-top:14px;border-radius:999px;border:1px solid var(--line);
+  background:var(--glass-strong);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  box-shadow:var(--shadow-sm);
+  animation:fadeDown .7s var(--ease) both;
+}
+.brand{display:flex;align-items:center;gap:.6rem;margin-right:auto;text-decoration:none}
+.brand-mark{width:34px;height:34px;border-radius:11px;background:var(--grad);
+  display:grid;place-items:center;color:#fff;font-weight:800;font-size:1rem;
+  box-shadow:0 6px 16px -6px rgba(13,148,136,.55)}
+.brand-name{font-weight:800;letter-spacing:-.02em;line-height:1.05}
+.brand-sub{font-size:.62rem;color:var(--muted);font-weight:600;letter-spacing:.04em}
+.nav-link{display:none;text-decoration:none;font-size:.85rem;font-weight:600;color:var(--muted);
+  padding:.45rem .85rem;border-radius:999px;transition:color .2s,background .2s}
+.nav-link:hover{color:var(--ink);background:color-mix(in srgb,var(--cyan) 10%,transparent)}
+@media(min-width:720px){.nav-link{display:inline-flex}}
+@media(max-width:480px){.btn-label{display:none}.btn{padding:.55rem .75rem}}
+.icon-btn{width:38px;height:38px;border-radius:999px;display:grid;place-items:center;
+  border:1px solid var(--line);background:var(--glass);transition:transform .2s,background .2s;flex:none}
+.icon-btn:hover{transform:rotate(8deg) scale(1.06)}
+.btn{
+  display:inline-flex;align-items:center;gap:.5rem;border:none;border-radius:999px;
+  padding:.55rem 1.05rem;font-weight:700;font-size:.85rem;white-space:nowrap;
+  transition:transform .25s var(--ease),box-shadow .25s,background .25s;
+}
+.btn:active{transform:scale(.96)}
+.btn-primary{background:var(--grad);color:#fff;box-shadow:0 10px 22px -10px rgba(13,148,136,.6)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 16px 30px -12px rgba(13,148,136,.7)}
+.btn-ghost{border:1px solid var(--line-strong);background:var(--glass);color:var(--ink)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal);background:color-mix(in srgb,var(--teal) 8%,transparent)}
+.spin{animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ---------- hero ---------- */
+header.hero{padding:3.2rem 0 1rem}
+.hero-grid{display:grid;gap:2.2rem;align-items:end}
+@media(min-width:900px){.hero-grid{grid-template-columns:1.35fr .9fr}}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:.5rem;padding:.4rem .85rem;border-radius:999px;
+  border:1px solid var(--line);background:var(--glass);backdrop-filter:blur(10px);
+  font-size:.72rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
+  animation:fadeUp .7s var(--ease) .05s both;
+}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--green);position:relative;flex:none}
+.dot::after{content:"";position:absolute;inset:-4px;border-radius:50%;border:2px solid var(--green);opacity:.5;animation:pulse 2s ease-out infinite}
+@keyframes pulse{0%{transform:scale(.6);opacity:.7}100%{transform:scale(1.6);opacity:0}}
+h1{
+  margin-top:1.1rem;font-size:clamp(2.3rem,5.6vw,4rem);font-weight:800;
+  letter-spacing:-.035em;line-height:1.02;max-width:13ch;
+  animation:fadeUp .7s var(--ease) .12s both;
+}
+h1 .grad{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero-sub{margin-top:1rem;max-width:52ch;color:var(--muted);font-size:1.02rem;
+  animation:fadeUp .7s var(--ease) .18s both}
+/* métricas */
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+.metric{
+  position:relative;overflow:hidden;padding:1rem 1.1rem;border-radius:var(--r-md);
+  border:1px solid var(--line);background:var(--glass);backdrop-filter:blur(12px);
+  box-shadow:var(--shadow-sm);transition:transform .3s var(--ease),box-shadow .3s;
+  animation:fadeUp .7s var(--ease) both;
+}
+.metric:nth-child(1){animation-delay:.24s}.metric:nth-child(2){animation-delay:.3s}
+.metric:nth-child(3){animation-delay:.36s}.metric:nth-child(4){animation-delay:.42s}
+.metric:hover{transform:translateY(-4px);box-shadow:var(--shadow-md)}
+.metric b{display:block;font-size:1.7rem;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.metric small{color:var(--muted);font-weight:600;font-size:.74rem;letter-spacing:.04em}
+.metric .icon{position:absolute;right:.9rem;top:.9rem;font-size:1.05rem;opacity:.9}
+.bars{position:absolute;right:1rem;bottom:.85rem;display:flex;gap:3px;align-items:flex-end;height:26px}
+.bars i{width:5px;border-radius:3px;background:var(--grad);transform-origin:bottom;
+  animation:growBar .8s var(--ease) .9s both}
+.bars i:nth-child(2){animation-delay:1.02s}.bars i:nth-child(3){animation-delay:1.14s}
+.bars i:nth-child(4){animation-delay:1.26s}.bars i:nth-child(5){animation-delay:1.38s}
+@keyframes growBar{from{transform:scaleY(0)}}
+
+/* ---------- ticker ---------- */
+.ticker{overflow:hidden;border-block:1px solid var(--line);margin-top:2.2rem;
+  background:var(--glass);backdrop-filter:blur(8px);
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);
+  mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
+.ticker-track{display:flex;gap:2.4rem;width:max-content;padding:.55rem 1.2rem;animation:slide 36s linear infinite}
+.ticker-track span{color:var(--muted);font-size:.8rem;font-weight:600;white-space:nowrap}
+.ticker-track span::before{content:"✦ ";color:var(--cyan)}
+@keyframes slide{to{transform:translateX(-50%)}}
+
+/* ---------- toolbar ---------- */
+.toolbar{position:sticky;top:76px;z-index:50;margin-top:1.6rem}
+.toolbar-inner{
+  display:flex;flex-direction:column;gap:.8rem;padding:.85rem;border-radius:var(--r-lg);
+  border:1px solid var(--line);background:var(--glass-strong);backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);box-shadow:var(--shadow-sm);
+  animation:fadeUp .7s var(--ease) .4s both;
+}
+.toolbar-row{display:flex;flex-wrap:wrap;gap:.55rem;align-items:center}
+.seg{display:inline-flex;flex-wrap:wrap;max-width:100%;padding:4px;gap:4px;border-radius:999px;border:1px solid var(--line);background:var(--bg1)}
+.seg button{padding:.42rem 1rem;border-radius:999px;font-weight:700;font-size:.82rem;color:var(--muted);
+  transition:background .25s,color .25s,box-shadow .25s}
+.seg button.active{background:var(--grad);color:#fff;box-shadow:0 6px 14px -6px rgba(13,148,136,.55)}
+.search{position:relative;flex:1 1 220px;min-width:200px}
+.search input{
+  width:100%;height:42px;border-radius:999px;border:1px solid var(--line);background:var(--bg1);
+  padding:0 1rem 0 2.5rem;color:var(--ink);outline:none;transition:border .2s,box-shadow .2s;
+}
+.search input:focus{border-color:var(--cyan);box-shadow:0 0 0 4px color-mix(in srgb,var(--cyan) 15%,transparent)}
+.search .lens{position:absolute;left:.9rem;top:50%;translate:0 -50%;opacity:.55;font-size:.9rem}
+.chip{
+  display:inline-flex;align-items:center;gap:.4rem;padding:.4rem .85rem;border-radius:999px;
+  border:1px solid var(--line);background:var(--bg1);font-size:.8rem;font-weight:600;color:var(--ink-soft);
+  transition:transform .2s var(--ease),border-color .2s,background .2s,box-shadow .2s;
+}
+.chip:hover{transform:translateY(-2px)}
+.chip.active{border-color:transparent;background:var(--grad);color:#fff;box-shadow:0 8px 18px -8px rgba(13,148,136,.55)}
+.chip .count{font-size:.68rem;font-weight:800;opacity:.65}
+.chip.active .count{opacity:.9}
+
+/* ---------- grade de cards ---------- */
+.grid{
+  display:grid;gap:1.25rem;margin-top:1.5rem;
+  grid-template-columns:repeat(auto-fill,minmax(320px,1fr));
+}
+.card{
+  position:relative;display:flex;flex-direction:column;gap:.9rem;padding:1.25rem;
+  border-radius:var(--r-lg);border:1px solid var(--line);
+  background:linear-gradient(165deg,var(--glass-strong),var(--glass));
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  box-shadow:var(--shadow-sm);overflow:hidden;isolation:isolate;
+  transform:translateY(26px) scale(.97);opacity:0;
+  transition:opacity .6s var(--ease),transform .6s var(--ease),box-shadow .35s,border-color .35s;
+  transition-delay:var(--d,0s);
+  animation-delay:var(--d,0s);
+}
+.card.revealed{transform:none;opacity:1}
+.card:hover{border-color:color-mix(in srgb,var(--c,var(--teal)) 45%,transparent);box-shadow:var(--shadow-md)}
+.card::before{ /* brilho que segue o cursor */
+  content:"";position:absolute;inset:0;z-index:-1;opacity:0;transition:opacity .4s;
+  background:radial-gradient(420px circle at var(--mx,50%) var(--my,50%),color-mix(in srgb,var(--c,var(--teal)) 13%,transparent),transparent 55%);
+}
+.card:hover::before{opacity:1}
+.card::after{ /* fio de cor da categoria */
+  content:"";position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:0 3px 3px 0;
+  background:linear-gradient(180deg,var(--c,var(--teal)),transparent);opacity:.55;
+}
+.card-top{display:flex;align-items:center;justify-content:space-between;gap:.6rem}
+.cat{
+  display:inline-flex;align-items:center;gap:.4rem;padding:.32rem .7rem;border-radius:999px;
+  font-size:.74rem;font-weight:700;color:color-mix(in srgb,var(--c) 80%,var(--ink));
+  background:color-mix(in srgb,var(--c) 13%,transparent);
+  border:1px solid color-mix(in srgb,var(--c) 25%,transparent);
+}
+.status{display:inline-flex;align-items:center;gap:.4rem;font-size:.72rem;font-weight:700;padding:.32rem .7rem;border-radius:999px}
+.status.open{color:var(--green);background:color-mix(in srgb,var(--green) 12%,transparent);border:1px solid color-mix(in srgb,var(--green) 28%,transparent)}
+.status.urgent{color:var(--rose);background:color-mix(in srgb,var(--rose) 12%,transparent);border:1px solid color-mix(in srgb,var(--rose) 28%,transparent);animation:glow 1.6s ease-in-out infinite}
+.status.closed{color:var(--muted);background:var(--bg1);border:1px solid var(--line)}
+@keyframes glow{50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--rose) 12%,transparent)}}
+.card h3{font-size:1.18rem;font-weight:800;letter-spacing:-.02em;line-height:1.2}
+.city{display:flex;align-items:center;gap:.35rem;margin-top:.3rem;color:var(--muted);font-size:.85rem;font-weight:600}
+.deadline{display:flex;align-items:center;gap:.8rem;padding:.75rem .9rem;border-radius:var(--r-md);
+  background:var(--bg1);border:1px solid var(--line)}
+.ring{width:52px;height:52px;flex:none;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:5;stroke-linecap:round}
+.ring .bg{stroke:var(--line)}
+.ring .fg{stroke:var(--rc,var(--teal));stroke-dasharray:150.8;stroke-dashoffset:150.8;transition:stroke-dashoffset 1.2s var(--ease) .55s}
+.ring-num{position:absolute;font-size:.8rem;font-weight:800}
+.deadline b{display:block;font-size:.92rem;letter-spacing:-.01em}
+.deadline small{color:var(--muted);font-weight:600;font-size:.75rem}
+.value{display:flex;align-items:baseline;justify-content:space-between;gap:.8rem}
+.value small{color:var(--muted);font-weight:700;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase}
+.value b{font-size:1.42rem;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums;
+  background:linear-gradient(100deg,var(--c,var(--teal)),color-mix(in srgb,var(--c,var(--teal)) 55%,var(--ink)));
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.summary{color:var(--ink-soft);font-size:.88rem;line-height:1.55;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.items{display:flex;flex-wrap:wrap;gap:.4rem}
+.items span{font-size:.72rem;font-weight:600;color:var(--muted);padding:.28rem .6rem;border-radius:8px;
+  background:var(--bg1);border:1px solid var(--line)}
+.card-foot{display:flex;align-items:center;justify-content:space-between;gap:.7rem;margin-top:auto;padding-top:.8rem;border-top:1px dashed var(--line)}
+.order{font-size:.74rem;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
+.card .btn{padding:.5rem .95rem;font-size:.8rem}
+
+/* ---------- vazio / rodapé / toast ---------- */
+.empty{
+  grid-column:1/-1;text-align:center;padding:4rem 1rem;border:1px dashed var(--line-strong);
+  border-radius:var(--r-lg);color:var(--muted);animation:fadeUp .5s var(--ease) both;
+}
+.empty .big{font-size:2.4rem;display:block;margin-bottom:.6rem}
+footer{padding:3rem 0 2.5rem;margin-top:3rem;text-align:center;color:var(--muted);font-size:.82rem;
+  border-top:1px solid var(--line)}
+footer b{color:var(--ink-soft)}
+.toast{
+  position:fixed;left:50%;bottom:26px;translate:-50% 80px;z-index:90;
+  padding:.75rem 1.3rem;border-radius:999px;background:var(--ink);color:var(--bg0);
+  font-weight:700;font-size:.86rem;box-shadow:var(--shadow-lg);
+  transition:translate .45s var(--ease),opacity .45s;opacity:0;pointer-events:none;
+}
+.toast.show{translate:-50% 0;opacity:1}
+
+/* ---------- animações de entrada ---------- */
+@keyframes fadeUp{from{opacity:0;transform:translateY(22px)}}
+@keyframes fadeDown{from{opacity:0;transform:translateY(-18px)}}
+@keyframes popIn{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:none}}
+
+/* ---------- acessibilidade: movimento reduzido ---------- */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001s!important;animation-iteration-count:1!important;transition-duration:.001s!important}
+  .ticker-track{animation:none}
+  html{scroll-behavior:auto}
+}
+</style>
+</head>
+<body>
+<div class="aurora"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+<div class="grain"></div>
+
+<nav><div class="shell nav-pill">
+  <a class="brand" href="#" data-demo="Início">
+    <span class="brand-mark">L</span>
+    <span><span class="brand-name">LPA Leo</span><br /><span class="brand-sub">CAIXA ESCOLAR MG</span></span>
+  </a>
+  <a class="nav-link" href="#cotacoes">Cotações</a>
+  <a class="nav-link" href="#" data-demo="Histórico">Histórico</a>
+  <a class="nav-link" href="#" data-demo="Relatórios">Relatórios</a>
+  <a class="nav-link" href="#" data-demo="Fornecedores">Fornecedores</a>
+  <button class="icon-btn" id="themeBtn" title="Alternar tema" aria-label="Alternar tema">🌙</button>
+  <button class="btn btn-primary" id="collectBtn"><span id="collectIcon">⟳</span><span class="btn-label">Coletar agora</span></button>
+</div></nav>
+
+<header class="hero"><div class="shell hero-grid">
+  <div>
+    <span class="eyebrow"><span class="dot"></span>Cotações abertas · Grande BH</span>
+    <h1>Novas compras para <span class="grad">enviar proposta</span>.</h1>
+    <p class="hero-sub">Prazos, escolas e itens do Caixa Escolar MG em cards rápidos — sem abrir processo por processo.</p>
+  </div>
+  <div class="metrics">
+    <div class="metric"><span class="icon">📬</span><b data-count="142">0</b><small>cotações abertas</small><div class="bars"><i style="height:60%"></i><i style="height:45%"></i><i style="height:80%"></i><i style="height:55%"></i><i style="height:95%"></i></div></div>
+    <div class="metric"><span class="icon">🗂️</span><b data-count="1284">0</b><small>no SGD</small><div class="bars"><i style="height:50%"></i><i style="height:70%"></i><i style="height:40%"></i><i style="height:85%"></i><i style="height:65%"></i></div></div>
+    <div class="metric"><span class="icon">🏙️</span><b data-count="7">0</b><small>municípios</small></div>
+    <div class="metric"><span class="icon">⏱️</span><b data-count="9">0</b><small>dias até o prazo médio</small></div>
+  </div>
+</div>
+<div class="ticker shell"><div class="ticker-track" id="tickerTrack"></div></div>
+</header>
+
+<main class="shell" id="cotacoes">
+  <div class="toolbar"><div class="toolbar-inner">
+    <div class="toolbar-row">
+      <div class="seg" id="viewSeg">
+        <button data-view="open" class="active">Cotações abertas</button>
+        <button data-view="history">Histórico</button>
+      </div>
+      <label class="search"><span class="lens">🔎</span>
+        <input id="searchInput" type="search" placeholder="Busque por item, escola ou fornecedor…" />
+      </label>
+    </div>
+    <div class="toolbar-row">
+      <div class="seg" id="sitSeg">
+        <button data-situation="all" class="active">Todas</button>
+        <button data-situation="open">Abertas</button>
+        <button data-situation="urgent">Urgentes</button>
+        <button data-situation="closed">Encerradas</button>
+      </div>
+      <div id="catChips" style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center"></div>
+    </div>
+  </div></div>
+  <section class="grid" id="grid" aria-live="polite"></section>
+</main>
+
+<footer><div class="shell">Protótipo de proposta visual — <b>dados fictícios de demonstração</b> · LPA Leo · campos alinhados ao produto (escola, cidade, prazo, itens, resumo, categoria, valor)</div></footer>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/* ================= dados fictícios (campos reais do produto) ================= */
+const CATS = {
+  alimentacao:{name:"Alimentação",emoji:"🍎",c:"#f59e0b"},
+  limpeza:{name:"Limpeza & Higiene",emoji:"🧼",c:"#06b6d4"},
+  tecnologia:{name:"Tecnologia",emoji:"🖥️",c:"#6366f1"},
+  material:{name:"Material Escolar",emoji:"📚",c:"#8b5cf6"},
+  manutencao:{name:"Manutenção",emoji:"🔧",c:"#f97316"},
+  transporte:{name:"Transporte",emoji:"🚌",c:"#10b981"},
+};
+const OPEN = [
+  {order:"2026-0143",school:"E.E. Professor João Gomes",city:"Belo Horizonte",cat:"alimentacao",days:5,date:"05/06",value:"R$ 18.450",status:"open",
+   summary:"Aquisição de gêneros alimentícios para a merenda escolar do 2º semestre, com entrega parcelada quinzenal.",
+   items:["Arroz branco tipo 1 · 500 kg","Feijão carioca · 300 kg","Óleo de soja 900 ml · 200 un"]},
+  {order:"2026-0147",school:"E.E. Maria da Silva",city:"Contagem",cat:"limpeza",days:12,date:"12/06",value:"R$ 9.320",status:"open",
+   summary:"Reposição do estoque de material de limpeza e higiene para uso diário nas dependências da escola.",
+   items:["Detergente neutro 5 L · 120 un","Álcool 70% · 80 cx","Papel toalha · 300 fardos"]},
+  {order:"2026-0152",school:"E.M. Dom Pedro II",city:"Betim",cat:"tecnologia",days:8,date:"08/06",value:"R$ 32.700",status:"open",
+   summary:"Modernização do laboratório de informática e equipamentos audiovisuais das salas de aula.",
+   items:["Notebook i5 8 GB · 12 un","Projetor multimídia · 4 un","Roteador Wi-Fi · 6 un"]},
+  {order:"2026-0158",school:"E.E. Santos Dumont",city:"Nova Lima",cat:"material",days:20,date:"20/06",value:"R$ 14.980",status:"open",
+   summary:"Kit de material escolar para distribuição aos alunos da rede no início do próximo semestre.",
+   items:["Caderno 96 fls · 2.000 un","Lápis preto nº 2 · 1.500 un","Mochila escolar · 350 un"]},
+  {order:"2026-0161",school:"E.M. Cecília Meireles",city:"Ribeirão das Neves",cat:"manutencao",days:3,date:"03/06",value:"R$ 6.740",status:"urgent",
+   summary:"Manutenção emergencial de portas, pintura de salas e reparos na quadra poliesportiva.",
+   items:["Tinta látex 18 L · 30 latas","Rolo de pintura · 60 un","Fechadura · 12 un"]},
+  {order:"2026-0164",school:"E.E. Ziraldo",city:"Sabará",cat:"transporte",days:15,date:"15/06",value:"R$ 26.300",status:"open",
+   summary:"Contratação de serviço de transporte escolar para alunos da zona rural durante o semestre letivo.",
+   items:["Transporte escolar · 2 rotas","Monitor de transporte · 2","Seguro de passageiros · 12 meses"]},
+  {order:"2026-0170",school:"E.E. Rui Barbosa",city:"Santa Luzia",cat:"alimentacao",days:25,date:"25/06",value:"R$ 11.200",status:"open",
+   summary:"Complemento alimentar para lanches escolares e café da manhã dos alunos.",
+   items:["Leite integral UHT · 800 L","Biscoito salgado · 600 pct","Polpa de fruta · 400 kg"]},
+  {order:"2026-0173",school:"E.E. Monteiro Lobato",city:"Ibirité",cat:"limpeza",days:10,date:"10/06",value:"R$ 5.890",status:"open",
+   summary:"Suprimento de material de limpeza para o segundo trimestre do ano letivo.",
+   items:["Saco de lixo 100 L · 500 un","Vassoura · 80 un","Desinfetante 5 L · 90 un"]},
+  {order:"2026-0176",school:"E.M. Paulo Freire",city:"Belo Horizonte",cat:"tecnologia",days:2,date:"02/06",value:"R$ 21.450",status:"urgent",
+   summary:"Substituição de equipamentos do laboratório de informática avariados por descarga elétrica.",
+   items:["Monitor 24″ · 18 un","Teclado + mouse · 25 kits","Nobreak 700 VA · 8 un"]},
+];
+const HISTORY = [
+  {order:"2026-0112",school:"E.E. Machado de Assis",city:"Belo Horizonte",cat:"alimentacao",value:"R$ 22.100",status:"closed",when:"Homologado em 12/05",
+   summary:"Aquisição de gêneros alimentícios para merenda escolar — 1º semestre.",
+   items:["Arroz · 600 kg","Feijão · 400 kg","Óleo · 250 un"]},
+  {order:"2026-0108",school:"E.E. Clarice Lispector",city:"Contagem",cat:"material",value:"R$ 8.450",status:"closed",when:"Homologado em 28/04",
+   summary:"Kit de material escolar para distribuição aos alunos no início do ano letivo.",
+   items:["Caderno · 1.800 un","Lápis · 1.200 un","Borracha · 1.000 un"]},
+  {order:"2026-0099",school:"E.M. Vinícius de Moraes",city:"Betim",cat:"manutencao",value:"R$ 15.300",status:"closed",when:"Homologado em 09/04",
+   summary:"Reforma da biblioteca e pintura geral das salas de aula.",
+   items:["Tinta · 40 latas","Massa corrida · 25 galões","Rolo · 90 un"]},
+];
+const CITIES = ["Belo Horizonte","Contagem","Betim","Nova Lima","Ribeirão das Neves","Sabará","Santa Luzia","Ibirité"];
+
+/* ================= estado ================= */
+const state = {view:"open",situation:"all",cat:null,query:""};
+const $ = (s)=>document.querySelector(s);
+const grid = $("#grid"), catChips = $("#catChips");
+
+/* ================= render ================= */
+const ringC = (days)=> days<=3 ? "var(--rose)" : days<=7 ? "var(--amber)" : "var(--teal)";
+function statusBadge(o){
+  if(o.status==="urgent") return `<span class="status urgent">⚡ Urgente</span>`;
+  if(o.status==="closed") return `<span class="status closed">● Encerrada</span>`;
+  return `<span class="status open">● Aberta</span>`;
+}
+function deadlineBox(o){
+  if(state.view==="history") return `<div class="deadline" style="justify-content:space-between"><b>✓ ${o.when}</b><small>valor homologado</small></div>`;
+  const frac = Math.min(1,Math.max(.05,o.days/30));
+  return `<div class="deadline" style="position:relative">
+    <svg class="ring" viewBox="0 0 56 56"><circle class="bg" cx="28" cy="28" r="24"/><circle class="fg" cx="28" cy="28" r="24"/></svg>
+    <span class="ring-num">${o.days}</span>
+    <div><b>${o.days===1?"falta 1 dia":`faltam ${o.days} dias`}</b><small>prazo até ${o.date}</small></div>
+  </div>`;
+}
+function cardHTML(o,i){
+  const cat = CATS[o.cat]||CATS.alimentacao;
+  const items = o.items.map(t=>`<span>${t}</span>`).join("");
+  return `<article class="card" data-cat="${o.cat}" data-search="${(o.school+" "+o.city+" "+o.items.join(" ")+" "+o.summary).toLowerCase()}" style="--c:${cat.c};--rc:${o.status==="open"||o.status==="urgent"?ringC(o.days):"var(--teal)"};--d:${Math.min(i,8)*0.06}s">
+    <div class="card-top"><span class="cat">${cat.emoji} ${cat.name}</span>${statusBadge(o)}</div>
+    <div><h3>${o.school}</h3><p class="city">📍 ${o.city}</p></div>
+    ${deadlineBox(o)}
+    <div class="value"><small>${state.view==="history"?"Valor homologado":"Preço de referência"}</small><b>${o.value}</b></div>
+    <p class="summary">${o.summary}</p>
+    <div class="items">${items}</div>
+    <div class="card-foot"><span class="order">Orçamento nº ${o.order}</span>
+      <button class="btn btn-ghost" data-propose>${state.view==="history"?"Ver detalhes":"Enviar proposta →"}</button></div>
+  </article>`;
+}
+function render(){
+  const data = state.view==="history" ? HISTORY : OPEN;
+  const q = state.query.trim().toLowerCase();
+  const list = data.filter(o=>{
+    if(state.situation==="open" && o.status!=="open") return false;
+    if(state.situation==="urgent" && o.status!=="urgent") return false;
+    if(state.situation==="closed" && o.status!=="closed") return false;
+    if(state.cat && o.cat!==state.cat) return false;
+    if(q && !(o.school+" "+o.city+" "+o.summary+" "+o.items.join(" ")).toLowerCase().includes(q)) return false;
+    return true;
+  });
+  grid.innerHTML = list.length ? list.map(cardHTML).join("")
+    : `<div class="empty"><span class="big">🫧</span><b>Nenhuma cotação com esses filtros.</b><br>Remova um filtro ou amplie o período.</div>`;
+  requestAnimationFrame(()=>{
+    grid.querySelectorAll(".card").forEach((el,i)=>{
+      requestAnimationFrame(()=>el.classList.add("revealed"));
+      const fg = el.querySelector(".ring .fg");
+      if(fg){
+        const days = parseInt(el.querySelector(".ring-num").textContent,10);
+        const frac = Math.min(1,Math.max(.05,days/30));
+        fg.style.strokeDashoffset = (150.8*(1-frac)).toFixed(1);
+      }
+    });
+  });
+  renderChips(data);
+}
+function renderChips(data){
+  const counts = {};
+  data.forEach(o=>counts[o.cat]=(counts[o.cat]||0)+1);
+  catChips.innerHTML = `<button class="chip ${state.cat? "":"active"}" data-cat="">Todas <span class="count">${data.length}</span></button>`+
+    Object.entries(counts).map(([slug,n])=>{
+      const c = CATS[slug]||{name:slug,emoji:"•"};
+      return `<button class="chip ${state.cat===slug?"active":""}" data-cat="${slug}">${c.emoji} ${c.name} <span class="count">${n}</span></button>`;
+    }).join("");
+}
+
+/* ================= interações ================= */
+$("#viewSeg").addEventListener("click",e=>{
+  const b = e.target.closest("button"); if(!b) return;
+  $("#viewSeg").querySelectorAll("button").forEach(x=>x.classList.toggle("active",x===b));
+  state.view = b.dataset.view; state.situation = state.view==="history" ? "all" : state.situation==="closed" ? "all" : state.situation;
+  $("#sitSeg").querySelectorAll("button").forEach(x=>x.classList.toggle("active",x.dataset.situation===state.situation));
+  $("#searchInput").value = ""; state.query = "";
+  render();
+});
+$("#sitSeg").addEventListener("click",e=>{
+  const b = e.target.closest("button"); if(!b) return;
+  $("#sitSeg").querySelectorAll("button").forEach(x=>x.classList.toggle("active",x===b));
+  state.situation = b.dataset.situation; render();
+});
+catChips.addEventListener("click",e=>{
+  const b = e.target.closest("button"); if(!b) return;
+  state.cat = b.dataset.cat || null; render();
+});
+let searchT;
+$("#searchInput").addEventListener("input",e=>{
+  clearTimeout(searchT); searchT = setTimeout(()=>{ state.query = e.target.value; render(); },180);
+});
+/* spotlight + inclinação sutil */
+grid.addEventListener("pointermove",e=>{
+  const card = e.target.closest(".card"); if(!card) return;
+  const r = card.getBoundingClientRect();
+  card.style.setProperty("--mx",(e.clientX-r.left)+"px");
+  card.style.setProperty("--my",(e.clientY-r.top)+"px");
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const rx = ((e.clientY-r.top)/r.height-.5)*-3, ry = ((e.clientX-r.left)/r.width-.5)*3;
+  card.style.transform = `translateY(-4px) perspective(900px) rotateX(${rx}deg) rotateY(${ry}deg)`;
+});
+grid.addEventListener("pointerleave",e=>{
+  const card = e.target.closest(".card");
+  if(card) card.style.transform = "";
+});
+grid.addEventListener("click",e=>{
+  if(e.target.closest("[data-propose]")) { toast("Demo: proposta aberta em nova aba ✨"); return; }
+  const card = e.target.closest(".card");
+  if(card) toast(`Demo: detalhes de ${card.querySelector("h3").textContent}`);
+});
+document.body.addEventListener("click",e=>{
+  const demo = e.target.closest("[data-demo]");
+  if(demo){ e.preventDefault(); toast(`Demo: ${demo.dataset.demo} (em breve)`); }
+});
+
+/* ================= tema ================= */
+const themeBtn = $("#themeBtn");
+function applyTheme(t){
+  document.documentElement.dataset.theme = t;
+  themeBtn.textContent = t==="dark" ? "☀️" : "🌙";
+  try{ localStorage.setItem("lpa-theme",t); }catch{}
+}
+themeBtn.addEventListener("click",()=>applyTheme(document.documentElement.dataset.theme==="dark"?"light":"dark"));
+try{ const saved = localStorage.getItem("lpa-theme"); if(saved) applyTheme(saved); }catch{}
+
+/* ================= contadores + toast ================= */
+function countUp(el){
+  const target = parseInt(el.dataset.count,10), t0 = performance.now(), dur = 1300;
+  const step = (t)=>{
+    const p = Math.min(1,(t-t0)/dur), eased = 1-Math.pow(1-p,3);
+    el.textContent = Math.round(target*eased).toLocaleString("pt-BR");
+    if(p<1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+document.querySelectorAll("[data-count]").forEach(countUp);
+let toastT;
+function toast(msg){
+  const t = $("#toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastT); toastT = setTimeout(()=>t.classList.remove("show"),2600);
+}
+const collectBtn = $("#collectBtn"), collectIcon = $("#collectIcon");
+collectBtn.addEventListener("click",()=>{
+  collectIcon.classList.add("spin"); collectBtn.disabled = true;
+  setTimeout(()=>{
+    collectIcon.classList.remove("spin"); collectBtn.disabled = false;
+    toast("Coleta simulada: 3 novas cotações encontradas ✨"); render();
+  },1400);
+});
+
+/* ================= ticker de cidades ================= */
+$("#tickerTrack").innerHTML = CITIES.concat(CITIES).map(c=>`<span>${c}</span>`).join("");
+
+render();
+</script>
+</body>
+</html>

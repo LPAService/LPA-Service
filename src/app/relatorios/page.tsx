@@ -36,7 +36,7 @@ export default async function RelatoriosPage() {
     {
       code: "APRO",
       label: "Aprovada",
-      badgeClass: "border-emerald-500/40 bg-emerald-500/15 text-emerald-300",
+      badgeClass: "badge-success",
       countText: "0",
       pct: "0.0%",
       provenance: "snapshot",
@@ -46,7 +46,7 @@ export default async function RelatoriosPage() {
     {
       code: "ENVI",
       label: "Enviada",
-      badgeClass: "border-amber-500/40 bg-amber-500/15 text-amber-300",
+      badgeClass: "badge-warning",
       countText: "1",
       pct: "<0.01%",
       provenance: "snapshot",
@@ -66,7 +66,7 @@ export default async function RelatoriosPage() {
     {
       code: "RECU",
       label: "Recusada",
-      badgeClass: "border-red-500/40 bg-red-500/15 text-red-300",
+      badgeClass: "badge-danger",
       countText: "23.591",
       pct: "13.07%",
       provenance: "snapshot",
@@ -76,7 +76,7 @@ export default async function RelatoriosPage() {
     {
       code: "CANC",
       label: "Cancelada",
-      badgeClass: "border-rose-500/40 bg-rose-500/15 text-rose-300",
+      badgeClass: "badge-danger",
       countText: "4.693",
       pct: "2.60%",
       provenance: "snapshot",
@@ -86,7 +86,7 @@ export default async function RelatoriosPage() {
     {
       code: "FORA",
       label: "Prazo Encerrado",
-      badgeClass: "border-slate-500/40 bg-slate-500/15 text-slate-300",
+      badgeClass: "badge-muted",
       countText: "152.155",
       pct: "84.32%",
       provenance: "snapshot",
@@ -122,20 +122,20 @@ export default async function RelatoriosPage() {
 
       <div className="shell py-8 space-y-10">
         {/* Banner de Resumo com Headline Inequívoco */}
-        <section className="rounded-2xl border-2 border-red-500/30 bg-red-950/20 p-6 sm:p-8 shadow-xl">
+        <section className="rounded-2xl border-2 border-[var(--color-danger)]/30 bg-[var(--color-bg-subtle)] p-6 sm:p-8 shadow-xl">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="max-w-3xl space-y-3">
               <div className="flex flex-wrap items-center gap-2">
-                <div className="inline-flex items-center gap-2 rounded-md bg-red-500/20 px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-red-300">
+                <div className="inline-flex items-center gap-2 rounded-md bg-[var(--color-bg-subtle)] px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-[var(--color-danger)]">
                   🚨 Conclusão Central da Auditoria
                 </div>
                 <SnapshotBadge date={AUDIT_SNAPSHOT_DATE} />
               </div>
               <h2 className="text-2xl font-bold leading-tight text-[var(--color-fg)] sm:text-3xl">
-                O fornecedor tem <span className="text-emerald-400 font-black">ZERO</span> vitórias porque{" "}
-                <span className="text-red-400 underline decoration-red-500/50">84% dos processos expiram sem lance</span>.
+                O fornecedor tem <span className="text-[var(--color-success)] font-black">ZERO</span> vitórias porque{" "}
+                <span className="text-[var(--color-danger)] underline decoration-red-500/50">84% dos processos expiram sem lance</span>.
               </h2>
-              <p className="text-sm leading-relaxed text-slate-300">
+              <p className="text-sm leading-relaxed text-[var(--color-fg-muted)]">
                 Em 180.451 cotações analisadas no perfil do SGD, o balde de aprovação está zerado. A perda histórica não é causada por preço alto ou concorrência predatória: é causada por <strong>não-envio de proposta (152.155 casos)</strong> e prazos logisticamente inviáveis.
               </p>
             </div>
@@ -210,7 +210,7 @@ export default async function RelatoriosPage() {
                   </p>
                 </div>
 
-                <div className="mt-4 border-t border-[var(--color-border)] pt-3 text-[11px] font-semibold text-slate-300">
+                <div className="mt-4 border-t border-[var(--color-border)] pt-3 text-[11px] font-semibold text-[var(--color-fg-muted)]">
                   💡 <span className="text-[var(--color-primary)]">Ação:</span> {status.supplierAction}
                 </div>
               </div>
@@ -227,8 +227,8 @@ export default async function RelatoriosPage() {
           <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-2 border-b border-[var(--color-border)] pb-4">
             <div>
               <div className="flex items-center gap-2">
-                <span className="eyebrow text-amber-400">Qualidade de Dados & Diagnóstico de Itens</span>
-                <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+                <span className="eyebrow text-[var(--color-warning)]">Qualidade de Dados & Diagnóstico de Itens</span>
+                <span className="rounded-full bg-[var(--color-bg-subtle)] px-2 py-0.5 text-[10px] font-bold text-[var(--color-warning)]">
                   Inconsistência Comprovada na Origem
                 </span>
               </div>
@@ -241,43 +241,43 @@ export default async function RelatoriosPage() {
 
           {/* Comparativo de Cobertura de Preço (Novo Diagnóstico de Dados) */}
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-5 space-y-2">
+            <div className="rounded-xl border border-[var(--color-success)]/30 bg-[var(--color-bg-subtle)] p-5 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-emerald-300 uppercase">Teto Orçamentário Global</span>
-                <span className="text-xs font-extrabold text-emerald-400">100% de Cobertura</span>
+                <span className="text-xs font-bold text-[var(--color-success)] uppercase">Teto Orçamentário Global</span>
+                <span className="text-xs font-extrabold text-[var(--color-success)]">100% de Cobertura</span>
               </div>
-              <p className="text-3xl font-black text-emerald-400 tabular-nums">274 / 274</p>
-              <p className="text-xs text-slate-300 leading-relaxed">
+              <p className="text-3xl font-black text-[var(--color-success)] tabular-nums">274 / 274</p>
+              <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">
                 <code>quotations.total_reference_value</code>: O portal divulga com 100% de consistência o <strong>valor total estimado da cotação</strong> pela escola. Confiável como teto orçamentário.
               </p>
             </div>
 
-            <div className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-5 space-y-2">
+            <div className="rounded-xl border border-[var(--color-warning)]/30 bg-[var(--color-bg-subtle)] p-5 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-amber-300 uppercase">Preço Unitário por Item</span>
-                <span className="text-xs font-extrabold text-amber-400">14,5% de Cobertura</span>
+                <span className="text-xs font-bold text-[var(--color-warning)] uppercase">Preço Unitário por Item</span>
+                <span className="text-xs font-extrabold text-[var(--color-warning)]">14,5% de Cobertura</span>
               </div>
-              <p className="text-3xl font-black text-amber-400 tabular-nums">218 / 1.503</p>
-              <p className="text-xs text-slate-300 leading-relaxed">
+              <p className="text-3xl font-black text-[var(--color-warning)] tabular-nums">218 / 1.503</p>
+              <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">
                 <code>quotation_items.reference_value</code>: <strong>~82% dos itens NÃO possuem preço divulgado na fonte SGD</strong>. Apenas ~44 itens (3%) seriam recuperáveis por regex. A ausência é um estado legítimo do portal.
               </p>
             </div>
           </div>
 
           {/* Diretriz de Produto: Não Derivar Preço Unitário Fake */}
-          <div className="rounded-xl border border-blue-500/30 bg-blue-950/20 p-4 text-xs leading-relaxed text-blue-200">
+          <div className="rounded-xl border border-[var(--color-primary)]/30 bg-[var(--color-bg-subtle)] p-4 text-xs leading-relaxed text-[var(--color-fg-muted)]">
             🛡️ <strong>Diretriz de Produto Obrigatória:</strong> A plataforma <strong>NUNCA divide o valor total da cotação pela quantidade de itens</strong>. Como um mesmo processo mistura unidades distintas (ex: 50 UN de caneta + 2 CX de papel + 5 L de álcool), essa divisão geraria uma média matemática falsa e induziria o fornecedor a erro grave de precificação. Onde não há preço unitário na fonte, exibimos honestamente <em>&quot;Sem preço de referência&quot;</em>.
           </div>
 
           {/* Cards de Inconsistência de Benchmark */}
           <div className="grid gap-6 lg:grid-cols-3">
             {/* Card Alerta 95.8% */}
-            <div className="rounded-xl border border-amber-500/30 bg-amber-950/15 p-5 space-y-3">
-              <div className="text-3xl font-black text-amber-400 tabular-nums">95,8%</div>
+            <div className="rounded-xl border border-[var(--color-warning)]/30 bg-[var(--color-bg-subtle)] p-5 space-y-3">
+              <div className="text-3xl font-black text-[var(--color-warning)] tabular-nums">95,8%</div>
               <h3 className="font-bold text-[var(--color-fg)]">
                 Vencedores &quot;acima&quot; da referência
               </h3>
-              <p className="text-xs leading-relaxed text-slate-300">
+              <p className="text-xs leading-relaxed text-[var(--color-fg-muted)]">
                 Em 2.779 cruzamentos reais, 2.663 vencedores homologados aparecem acima da referência (48,7% com mais de 100x). Em envelope fechado isso é estruturalmente impossível, comprovando inconsistência no dado do SGD.
               </p>
             </div>
@@ -292,10 +292,10 @@ export default async function RelatoriosPage() {
             </div>
 
             {/* Subconjunto Confiável */}
-            <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/15 p-5 space-y-3">
-              <div className="text-3xl font-black text-emerald-400 tabular-nums">~20%</div>
+            <div className="rounded-xl border border-[var(--color-success)]/30 bg-[var(--color-bg-subtle)] p-5 space-y-3">
+              <div className="text-3xl font-black text-[var(--color-success)] tabular-nums">~20%</div>
               <h3 className="font-bold text-[var(--color-fg)]">Desconto Real Típico do Vencedor</h3>
-              <p className="text-xs leading-relaxed text-slate-300">
+              <p className="text-xs leading-relaxed text-[var(--color-fg-muted)]">
                 No subconjunto sanitizado (85 cotações com ratio válido entre 0,3 e 1,0), a mediana de desconto dos concorrentes vencedores é de <strong>20% abaixo do preço de referência</strong> (P25: 33,1%).
               </p>
             </div>
@@ -316,25 +316,25 @@ export default async function RelatoriosPage() {
                 <tr>
                   <td className="p-3 font-bold text-[var(--color-fg)]">Material de Consumo Geral</td>
                   <td className="p-3 text-center tabular-nums">18</td>
-                  <td className="p-3 text-right font-bold text-emerald-400 tabular-nums">32,8% abaixo</td>
+                  <td className="p-3 text-right font-bold text-[var(--color-success)] tabular-nums">32,8% abaixo</td>
                   <td className="p-3 text-[var(--color-fg-muted)]">Maior agressividade de preço entre fornecedores</td>
                 </tr>
                 <tr>
                   <td className="p-3 font-bold text-[var(--color-fg)]">Equipamentos Tecnológicos</td>
                   <td className="p-3 text-center tabular-nums">4</td>
-                  <td className="p-3 text-right font-bold text-emerald-400 tabular-nums">25,6% abaixo</td>
+                  <td className="p-3 text-right font-bold text-[var(--color-success)] tabular-nums">25,6% abaixo</td>
                   <td className="p-3 text-[var(--color-fg-muted)]">Concorrência média, oportunidade em informática</td>
                 </tr>
                 <tr>
                   <td className="p-3 font-bold text-[var(--color-fg)]">Gêneros Alimentícios</td>
                   <td className="p-3 text-center tabular-nums">33</td>
-                  <td className="p-3 text-right font-bold text-emerald-400 tabular-nums">13,8% abaixo</td>
+                  <td className="p-3 text-right font-bold text-[var(--color-success)] tabular-nums">13,8% abaixo</td>
                   <td className="p-3 text-[var(--color-fg-muted)]">Margem menor, dominada por cooperativas PNAE</td>
                 </tr>
                 <tr>
                   <td className="p-3 font-bold text-[var(--color-fg)]">Conservação e Pequenos Reparos</td>
                   <td className="p-3 text-center tabular-nums">10</td>
-                  <td className="p-3 text-right font-bold text-emerald-400 tabular-nums">6,0% abaixo</td>
+                  <td className="p-3 text-right font-bold text-[var(--color-success)] tabular-nums">6,0% abaixo</td>
                   <td className="p-3 text-[var(--color-fg-muted)]">Propostas muito próximas da referência da escola</td>
                 </tr>
               </tbody>
@@ -347,7 +347,7 @@ export default async function RelatoriosPage() {
           {/* Prazos Impossíveis */}
           <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] p-6 shadow-[var(--shadow-card)] space-y-4">
             <div className="flex items-center justify-between">
-              <span className="eyebrow text-red-400">Gargalo Logístico Estrutural</span>
+              <span className="eyebrow text-[var(--color-danger)]">Gargalo Logístico Estrutural</span>
               <SnapshotBadge date={AUDIT_SNAPSHOT_DATE} />
             </div>
             <h2 className="text-xl font-bold text-[var(--color-fg)]">
@@ -358,20 +358,20 @@ export default async function RelatoriosPage() {
             </p>
 
             <div className="space-y-3">
-              <div className="rounded-xl border border-red-500/30 bg-red-950/15 p-4 flex items-center justify-between">
+              <div className="rounded-xl border border-[var(--color-danger)]/30 bg-[var(--color-bg-subtle)] p-4 flex items-center justify-between">
                 <div>
                   <p className="font-bold text-sm text-[var(--color-fg)]">Proposta = Entrega no mesmo dia</p>
-                  <p className="text-xs text-slate-300">Prazo de envio igual à data de entrega</p>
+                  <p className="text-xs text-[var(--color-fg-muted)]">Prazo de envio igual à data de entrega</p>
                 </div>
-                <span className="text-2xl font-extrabold text-red-400 tabular-nums">7.448 (41,3%)</span>
+                <span className="text-2xl font-extrabold text-[var(--color-danger)] tabular-nums">7.448 (41,3%)</span>
               </div>
 
-              <div className="rounded-xl border border-amber-500/30 bg-amber-950/15 p-4 flex items-center justify-between">
+              <div className="rounded-xl border border-[var(--color-warning)]/30 bg-[var(--color-bg-subtle)] p-4 flex items-center justify-between">
                 <div>
                   <p className="font-bold text-sm text-[var(--color-fg)]">Entrega em menos de 48h</p>
-                  <p className="text-xs text-slate-300">Tempo de mobilização pós-homologação inviável</p>
+                  <p className="text-xs text-[var(--color-fg-muted)]">Tempo de mobilização pós-homologação inviável</p>
                 </div>
-                <span className="text-2xl font-extrabold text-amber-400 tabular-nums">8.187 (45,4%)</span>
+                <span className="text-2xl font-extrabold text-[var(--color-warning)] tabular-nums">8.187 (45,4%)</span>
               </div>
             </div>
 
@@ -395,19 +395,19 @@ export default async function RelatoriosPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-4">
-                <p className="text-2xl font-bold text-amber-400 tabular-nums">586</p>
+                <p className="text-2xl font-bold text-[var(--color-warning)] tabular-nums">586</p>
                 <p className="text-xs font-semibold text-[var(--color-fg)] mt-1">Bloqueadas expressas</p>
                 <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">Texto manda explicitamente não lanciar</p>
               </div>
 
               <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-4">
-                <p className="text-2xl font-bold text-slate-300 tabular-nums">1.498</p>
+                <p className="text-2xl font-bold text-[var(--color-fg-muted)] tabular-nums">1.498</p>
                 <p className="text-xs font-semibold text-[var(--color-fg)] mt-1">Padrão suspeito</p>
                 <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">Regularizações internas ou itens zerados</p>
               </div>
             </div>
 
-            <div className="rounded-xl border border-blue-500/30 bg-blue-950/20 p-3 text-xs text-blue-200">
+            <div className="rounded-xl border border-[var(--color-primary)]/30 bg-[var(--color-bg-subtle)] p-3 text-xs text-[var(--color-fg-muted)]">
               ⚡ <strong>Janela útil de envio:</strong> As cotações abertas reais têm lead time mediano de <strong>4,1 dias</strong> (39% com menos de 72h). A agilidade de envio é o fator crítico.
             </div>
           </div>
@@ -417,7 +417,7 @@ export default async function RelatoriosPage() {
         <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] p-6 sm:p-8 shadow-[var(--shadow-card)] space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-2 border-b border-[var(--color-border)] pb-4">
             <div>
-              <p className="eyebrow text-emerald-400">Inteligência Competitiva</p>
+              <p className="eyebrow text-[var(--color-success)]">Inteligência Competitiva</p>
               <h2 className="text-2xl font-bold text-[var(--color-fg)]">
                 Estrutura de Mercado: Cauda Longa, não Monopólio
               </h2>
@@ -475,7 +475,7 @@ export default async function RelatoriosPage() {
         <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] p-6 sm:p-8 shadow-[var(--shadow-card)] space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-2 border-b border-[var(--color-border)] pb-4">
             <div>
-              <p className="eyebrow text-red-400">Infraestrutura & Pipeline</p>
+              <p className="eyebrow text-[var(--color-danger)]">Infraestrutura & Pipeline</p>
               <h2 className="text-2xl font-bold text-[var(--color-fg)]">
                 Saúde do Sincronizador Diário
               </h2>
@@ -484,26 +484,26 @@ export default async function RelatoriosPage() {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
-            <div className="rounded-xl border border-red-500/30 bg-red-950/15 p-5">
-              <span className="text-xs font-bold text-red-300">Runs Travados</span>
-              <p className="mt-2 text-3xl font-black text-red-400 tabular-nums">4</p>
-              <p className="mt-1 text-xs text-slate-300">
+            <div className="rounded-xl border border-[var(--color-danger)]/30 bg-[var(--color-bg-subtle)] p-5">
+              <span className="text-xs font-bold text-[var(--color-danger)]">Runs Travados</span>
+              <p className="mt-2 text-3xl font-black text-[var(--color-danger)] tabular-nums">4</p>
+              <p className="mt-1 text-xs text-[var(--color-fg-muted)]">
                 Execuções presas em status <code>running</code> sem finalização no banco.
               </p>
             </div>
 
-            <div className="rounded-xl border border-amber-500/30 bg-amber-950/15 p-5">
-              <span className="text-xs font-bold text-amber-300">Abertas já Vencidas</span>
-              <p className="mt-2 text-3xl font-black text-amber-400 tabular-nums">93</p>
-              <p className="mt-1 text-xs text-slate-300">
+            <div className="rounded-xl border border-[var(--color-warning)]/30 bg-[var(--color-bg-subtle)] p-5">
+              <span className="text-xs font-bold text-[var(--color-warning)]">Abertas já Vencidas</span>
+              <p className="mt-2 text-3xl font-black text-[var(--color-warning)] tabular-nums">93</p>
+              <p className="mt-1 text-xs text-[var(--color-fg-muted)]">
                 Cotações marcadas como <code>NAEN</code> cujo prazo já expirou (dado defasado).
               </p>
             </div>
 
-            <div className="rounded-xl border border-slate-500/30 bg-slate-800/30 p-5">
-              <span className="text-xs font-bold text-slate-300">Perdidas no Outage</span>
-              <p className="mt-2 text-3xl font-black text-slate-300 tabular-nums">252</p>
-              <p className="mt-1 text-xs text-slate-400">
+            <div className="rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-bg-subtle)] p-5">
+              <span className="text-xs font-bold text-[var(--color-fg-muted)]">Perdidas no Outage</span>
+              <p className="mt-2 text-3xl font-black text-[var(--color-fg-muted)] tabular-nums">252</p>
+              <p className="mt-1 text-xs text-[var(--color-fg-muted)]">
                 Cotações que venceram durante o apagão do sync de 14/08 a 18/08.
               </p>
             </div>
@@ -525,7 +525,7 @@ export default async function RelatoriosPage() {
               <h3 className="text-base font-bold text-[var(--color-fg)] flex items-center gap-2">
                 <span>🎯</span> Para o Fornecedor (Comercial)
               </h3>
-              <ul className="space-y-2 text-xs text-slate-300 leading-relaxed list-disc list-inside">
+              <ul className="space-y-2 text-xs text-[var(--color-fg-muted)] leading-relaxed list-disc list-inside">
                 <li>
                   <strong>Pare de aplicar desconto sobre a referência:</strong> Precifique pelo seu custo real e margem, pois a referência do portal é inconsistente.
                 </li>
@@ -546,7 +546,7 @@ export default async function RelatoriosPage() {
               <h3 className="text-base font-bold text-[var(--color-fg)] flex items-center gap-2">
                 <span>⚙️</span> Para a Plataforma (Engenharia)
               </h3>
-              <ul className="space-y-2 text-xs text-slate-300 leading-relaxed list-disc list-inside">
+              <ul className="space-y-2 text-xs text-[var(--color-fg-muted)] leading-relaxed list-disc list-inside">
                 <li>
                   <strong>Tratamento de pool de conexões:</strong> Adicionar <code>pool.on(&apos;error&apos;)</code> no backend para evitar que o cron morra silenciosamente.
                 </li>
@@ -570,8 +570,8 @@ export default async function RelatoriosPage() {
 
 function LiveBadge({ label }: { label: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
-      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+    <span className="inline-flex items-center gap-1.5 rounded-full badge-success px-2 py-0.5 text-[10px] font-bold">
+      <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-success)] animate-pulse" />
       {label}
     </span>
   );
@@ -579,7 +579,7 @@ function LiveBadge({ label }: { label: string }) {
 
 function SnapshotBadge({ date, label }: { date: string; label?: string }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-800/80 px-2 py-0.5 text-[10px] font-medium text-slate-300">
+    <span className="inline-flex items-center gap-1 rounded-full border badge-muted px-2 py-0.5 text-[10px] font-medium">
       <span>📌</span>
       {label ? `${label} (${date})` : `Snapshot ${date}`}
     </span>
@@ -605,23 +605,23 @@ function KpiMiniCard({
     <div
       className={`rounded-xl border p-4 ${
         highlight
-          ? "border-emerald-500/40 bg-emerald-950/20"
+          ? "border-[var(--color-success)]/40 bg-[var(--color-bg-subtle)]"
           : alert
-            ? "border-red-500/40 bg-red-950/20"
+            ? "border-[var(--color-danger)]/40 bg-[var(--color-bg-subtle)]"
             : "border-[var(--color-border)] bg-[var(--color-bg)]"
       }`}
     >
       <div className="flex items-center justify-between gap-1">
         <p className="eyebrow text-[10px] text-[var(--color-fg-muted)]">{label}</p>
         {provenance === "live" ? (
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" title="Tempo Real" />
+          <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-success)]" title="Tempo Real" />
         ) : (
-          <span className="text-[10px] text-slate-500" title="Snapshot 20/08/2026">📌</span>
+          <span className="text-[10px] text-[var(--color-fg-muted)]" title="Snapshot 20/08/2026">📌</span>
         )}
       </div>
       <p
         className={`mt-1 text-2xl font-black tabular-nums ${
-          highlight ? "text-emerald-400" : alert ? "text-red-400" : "text-[var(--color-fg)]"
+          highlight ? "text-[var(--color-success)]" : alert ? "text-[var(--color-danger)]" : "text-[var(--color-fg)]"
         }`}
       >
         {value}
