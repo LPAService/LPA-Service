@@ -6,7 +6,7 @@ import {
   formatCurrency,
   formatOpportunityValue,
   pluralize
-} from "@/components/opportunity-card";
+} from "@/lib/format/opportunity";
 
 export function getItemReferencePrice(item: OpportunityItem): number | null {
   const ref = (item as unknown as { referenceValue?: number | null }).referenceValue ?? item.unitValue;

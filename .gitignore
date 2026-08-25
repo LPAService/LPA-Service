@@ -11,3 +11,4 @@ tsconfig.tsbuildinfo
 .codex/
 research/taxonomy/node_modules/
 .vercel
+scripts/out/

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { formatDate } from "@/components/opportunity-card";
+import { formatDate } from "@/lib/format/opportunity";
 import {
   PrequoteWorksheet,
   type WorksheetRow
