@@ -4,6 +4,7 @@ import {
   buildQuotationExternalId,
   buildQuotationRecord,
   collectOpenQuotationsWithClient,
+  defaultTier1Counties,
   getQuotationStatus,
   type QuotationRepository
 } from "@/lib/collector/quotations";
@@ -26,6 +27,21 @@ const listing = {
 };
 
 describe("cotações abertas", () => {
+  it("usa os 10 municípios coletados na ordem comercial padrão", () => {
+    expect(defaultTier1Counties().map((county) => county.name)).toEqual([
+      "Ibirité",
+      "Contagem",
+      "Betim",
+      "Belo Horizonte",
+      "Ribeirão das Neves",
+      "Lagoa Santa",
+      "Nova Lima",
+      "Sarzedo",
+      "Brumadinho",
+      "Mário Campos"
+    ]);
+  });
+
   it("gera externalId e deep link autenticado", () => {
     expect(buildQuotationExternalId(listing)).toBe("12-34-56");
     expect(buildProposalUrl(listing)).toBe(

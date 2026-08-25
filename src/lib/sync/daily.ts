@@ -93,7 +93,7 @@ export async function runDailySync(
       }
     }
 
-    for (const county of rmbhCounties.counties) {
+    for (const county of rmbhCounties.collected) {
       if (now() - startedAt >= timeoutMs) {
         summary.errors.push({
           message: `Limite de tempo atingido antes de ${county.name}; próxima execução continuará pelo incremental.`
