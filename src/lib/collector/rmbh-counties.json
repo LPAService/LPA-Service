@@ -1,4 +1,17 @@
 {
+  "collected": [
+    { "idCounty": 2546, "name": "Belo Horizonte", "apiTotal": 8041 },
+    { "idCounty": 2340, "name": "Contagem", "apiTotal": 1574 },
+    { "idCounty": 2763, "name": "Ribeirão das Neves", "apiTotal": 1353 },
+    { "idCounty": 2540, "name": "Betim", "apiTotal": 1142 },
+    { "idCounty": 2209, "name": "Ibirité", "apiTotal": 658 },
+    { "idCounty": 2117, "name": "Lagoa Santa", "apiTotal": 202 },
+    { "idCounty": 2880, "name": "Nova Lima", "apiTotal": 200 },
+    { "idCounty": 2678, "name": "Sarzedo", "apiTotal": 93 },
+    { "idCounty": 2515, "name": "Brumadinho", "apiTotal": 77 },
+    { "idCounty": 2085, "name": "Mário Campos", "apiTotal": 79 }
+  ],
+  "collectedNote": "Cobertura real da coleta diária.",
   "description": "Região Metropolitana de Belo Horizonte (RMBH) — 34 municípios. Escopo comercial do produto na fase 1.",
   "source": "public/portal/filters?portalSlug=mg (idCounty oficial da API de transparência)",
   "updatedAt": "2026-08-12",
