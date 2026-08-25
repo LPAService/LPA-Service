@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { MainNav } from "@/components/main-nav";
 import { opportunitySource, quotationSource } from "@/lib/data/source";
 
 export const metadata = {
@@ -115,24 +115,7 @@ export default async function RelatoriosPage() {
               </p>
             </div>
 
-            {/* Abas de Navegação */}
-            <nav aria-label="Navegação principal" className="flex flex-wrap items-center gap-2">
-              <Link className="action-secondary text-sm" href="/">
-                Cotações abertas
-              </Link>
-              <Link className="action-secondary text-sm" href="/?view=history">
-                Histórico de compras
-              </Link>
-              <Link className="action-primary text-sm font-bold" href="/relatorios">
-                📊 Relatório & Análise
-              </Link>
-              <Link className="action-secondary text-sm" href="/fornecedores">
-                📦 Fornecedores
-              </Link>
-              <Link className="action-secondary text-sm" href="/preorcamento">
-                🧮 Pré-Orçamento
-              </Link>
-            </nav>
+            <MainNav current="relatorios" />
           </div>
         </div>
       </header>
