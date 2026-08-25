@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import type { NodePgDatabase } from "drizzle-orm/node-postgres";
+import { describe, expect, it, vi } from "vitest";
 import {
   buildProposalUrl,
   buildQuotationExternalId,
@@ -9,6 +10,8 @@ import {
   type QuotationRepository
 } from "@/lib/collector/quotations";
 import { analyzeProposalBlock } from "@/lib/collector/proposal-block";
+import { createPostgresQuotationSource } from "@/lib/data/quotation-source";
+import type * as schema from "@/lib/db/schema";
 
 const listing = {
   idSubprogram: 12,
@@ -83,6 +86,73 @@ describe("cotações abertas", () => {
     expect(record.summary).not.toBe("");
     expect(record.topItems).toContain("detergente");
     expect(record.items[0]).toMatchObject({ itemOrder: 1, referenceValue: 5 });
+  });
+
+  it("devolve itens preenchidos ao listar cotações", async () => {
+    const execute = vi.fn()
+      .mockResolvedValueOnce({ rows: [{ total: 1 }] })
+      .mockResolvedValueOnce({ rows: [{ total: 1 }] })
+      .mockResolvedValueOnce({
+        rows: [{
+          id: 1,
+          external_id: buildQuotationExternalId(listing),
+          nu_budget_order: listing.nuBudgetOrder,
+          id_subprogram: listing.idSubprogram,
+          id_school: listing.idSchool,
+          id_budget: listing.idBudget,
+          id_county: listing.idCounty,
+          county_name: listing.countyName,
+          school_name: listing.schoolName,
+          expense_group: listing.expenseGroupDescription,
+          headline: "Compra de material de limpeza",
+          summary: "Detergente para escola.",
+          top_items: ["Detergente"],
+          proposal_deadline: listing.dtProposalSubmission,
+          delivery_date: listing.dtServiceDelivery,
+          item_count: 1,
+          total_reference_value: 50,
+          budget_status: listing.budgetStatus,
+          supplier_status: listing.supplierStatus,
+          proposal_url: buildProposalUrl(listing),
+          proposal_blocked: false,
+          proposal_blocked_reason: null,
+          proposal_blocked_item_count: 0,
+          proposal_suspect: false,
+          proposal_suspect_item_count: 0,
+          raw_json: listing,
+          collected_at: "2026-08-13T12:00:00.000Z",
+          category_slug: "limpeza",
+          category_name: "Limpeza"
+        }]
+      })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [{
+          quotation_id: 1,
+          item_order: 1,
+          name: "Detergente",
+          description: "Detergente neutro",
+          unit: "UN",
+          quantity: 10,
+          reference_value: 50
+        }]
+      });
+    const database = { execute } as unknown as NodePgDatabase<typeof schema>;
+
+    const result = await createPostgresQuotationSource(database).listOpportunities();
+
+    expect(result.data[0]?.items).toEqual([{
+      order: 1,
+      name: "Detergente",
+      description: "Detergente neutro",
+      unit: "UN",
+      quantity: 10,
+      unitValue: null,
+      totalValue: null,
+      referenceValue: 5,
+      isPermanent: false,
+      expenseCategory: ""
+    }]);
   });
 
   it("não soma quantidade como valor quando itens não têm preço", () => {

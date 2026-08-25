@@ -88,7 +88,9 @@ describe("PostgresQuotationSource", () => {
 
     expect(quotation.totalValue).toBe(400000);
     expect(quotation.totalReferenceValue).toBe(400000);
-    expect(quotation.items).toEqual([]);
+    expect(quotation.items).toMatchObject([
+      { quantity: 1, unitValue: null, referenceValue: null }
+    ]);
     await expect(source.getOpportunity("quote-open-later")).resolves.toMatchObject({
       items: [{ quantity: 1, unitValue: null, referenceValue: null }]
     });
