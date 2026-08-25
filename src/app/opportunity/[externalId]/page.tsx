@@ -50,12 +50,12 @@ export default async function DetailPage({ params }: DetailPageProps) {
                   <span
                     className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${
                       opportunity.statusLabel === "Encerrando em breve"
-                        ? "border border-amber-500/40 bg-amber-500/15 text-amber-300"
+                        ? "badge-warning"
                         : opportunity.statusLabel === "Nova"
-                          ? "border border-emerald-500/40 bg-emerald-500/15 text-emerald-300"
+                          ? "badge-success"
                           : opportunity.statusLabel === "Encerrada"
-                            ? "border border-zinc-700 bg-zinc-800 text-zinc-400"
-                            : "border border-[var(--color-primary)]/40 bg-[var(--color-primary)]/15 text-[var(--color-primary)]"
+                            ? "badge-muted"
+                            : "badge-success"
                     }`}
                   >
                     {opportunity.statusLabel === "Encerrando em breve" ? "⚡ " : ""}
@@ -77,7 +77,7 @@ export default async function DetailPage({ params }: DetailPageProps) {
             </div>
 
             {/* Card de Destaque de Preço */}
-            <div className="flex flex-col justify-between gap-3 rounded-xl border-l-4 border-[var(--color-success)] bg-[var(--color-bg)] p-6 text-right shadow-[var(--shadow-card)] border border-[var(--color-border)] min-w-[280px]">
+            <div className="flex flex-col justify-between gap-3 rounded-[var(--radius-card)] border-l-4 border-[var(--color-success)] bg-[var(--color-glass)] backdrop-blur-md p-6 text-right border border-[var(--color-border)] min-w-[280px]">
               <div>
                 <span className="eyebrow text-xs text-[var(--color-fg-muted)]">
                   {isQuotation ? "Preço de referência" : "Valor homologado"}
@@ -146,7 +146,7 @@ export default async function DetailPage({ params }: DetailPageProps) {
         {/* Barra Lateral / Ações */}
         <aside className="grid min-w-0 content-start gap-6">
           {/* CTA Principal: Fazer Lance */}
-          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-6 shadow-xl space-y-4">
+          <div className="glass-panel p-6 space-y-4">
             <h2 className="text-lg font-bold text-[var(--color-fg)]">Ação da Proposta</h2>
             {canSubmitProposal ? (
               <div className="space-y-3">
@@ -171,12 +171,12 @@ export default async function DetailPage({ params }: DetailPageProps) {
                 )}
               </div>
             ) : isQuotation && opportunity.proposalBlocked ? (
-              <div className="rounded-lg border border-[var(--color-warning)] bg-amber-500/10 p-4 text-sm text-[var(--color-fg)]">
-                <p className="font-bold text-amber-300">
+              <div className="rounded-lg border border-[var(--color-warning)] bg-[var(--color-bg-subtle)] p-4 text-sm text-[var(--color-fg)]">
+                <p className="font-bold text-[var(--color-warning)]">
                   A escola indicou que não é para enviar proposta.
                 </p>
                 {opportunity.proposalBlockedReason && (
-                  <p className="mt-2 text-xs text-amber-200 whitespace-pre-wrap">
+                  <p className="mt-2 text-xs text-[var(--color-fg-muted)] whitespace-pre-wrap">
                     {opportunity.proposalBlockedReason}
                   </p>
                 )}
@@ -261,7 +261,7 @@ export default async function DetailPage({ params }: DetailPageProps) {
 
 function Panel({ children, title }: { children: React.ReactNode; title: string }) {
   return (
-    <section className="min-w-0 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-5 sm:p-6 shadow-[var(--shadow-card)]">
+    <section className="glass-panel min-w-0 p-5 sm:p-6">
       <h2 className="text-xl font-bold text-[var(--color-fg)]">{title}</h2>
       <div className="mt-5">{children}</div>
     </section>

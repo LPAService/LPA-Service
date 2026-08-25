@@ -88,7 +88,7 @@ export function SupplierItemsEditor({
   return (
     <div className="space-y-5">
       {error && (
-        <div className="rounded-lg border border-red-500/40 bg-red-950/30 p-3 text-sm font-semibold text-red-300">
+        <div className="rounded-lg border border-[var(--color-danger)]/40 bg-[var(--color-bg-subtle)] p-3 text-sm font-semibold text-[var(--color-danger)]">
           {error}
         </div>
       )}
@@ -220,7 +220,7 @@ export function SupplierItemsEditor({
                       Editar
                     </button>
                     <button
-                      className="text-xs font-semibold text-red-400 hover:underline"
+                      className="text-xs font-semibold text-[var(--color-danger)] hover:underline"
                       disabled={busy}
                       onClick={() => remove(item)}
                       type="button"

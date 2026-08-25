@@ -35,13 +35,13 @@ export default async function FornecedoresPage() {
                 Cadastre fornecedores, itens e preços reais. O pré-orçamento usa este catálogo para calcular o custo real de cada licitação.
               </p>
             </div>
-            <div className="grid grid-cols-2 divide-x divide-[var(--color-border)] self-end border-y border-[var(--color-border)]">
-              <div className="px-4 py-2">
-                <p className="text-2xl font-bold tabular-nums text-[var(--color-fg)]">{activeCount}</p>
+            <div className="grid grid-cols-2 gap-3 self-end">
+              <div className="metric-card">
+                <p className="text-2xl font-extrabold tabular-nums tracking-tight text-[var(--color-fg)]">{activeCount}</p>
                 <p className="eyebrow mt-1">ativos</p>
               </div>
-              <div className="px-4 py-2">
-                <p className="text-2xl font-bold tabular-nums text-[var(--color-fg)]">{itemCount}</p>
+              <div className="metric-card">
+                <p className="text-2xl font-extrabold tabular-nums tracking-tight text-[var(--color-fg)]">{itemCount}</p>
                 <p className="eyebrow mt-1">itens precificados</p>
               </div>
             </div>

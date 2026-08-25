@@ -70,7 +70,7 @@ export default async function PreOrcamentoPage() {
                     <div>
                       <div className="flex items-start justify-between gap-2">
                         <p className="eyebrow text-xs">{preQuote.orderId ?? preQuote.quotationExternalId}</p>
-                        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${preQuote.status === "closed" ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300" : "border-amber-500/40 bg-amber-500/15 text-amber-300"}`}>
+                        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${preQuote.status === "closed" ? "badge-success" : "badge-warning"}`}>
                           {preQuote.status === "closed" ? "FECHADO" : "RASCUNHO"}
                         </span>
                       </div>

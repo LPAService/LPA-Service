@@ -27,12 +27,12 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
   const href = `/opportunity/${opportunity.externalId}`;
   const canSubmitProposal = canSubmitQuotationProposal(opportunity);
   const quantitySummary = firstQuantitySummary(opportunity);
-  const categoryColor = "text-[var(--color-primary)] bg-[var(--color-bg)] border border-[var(--color-border)]";
+  const categoryColor = "text-[var(--color-primary)] bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-full";
 
   return (
     <>
       <article
-        className={`opportunity-card group relative flex flex-col justify-between min-w-0 gap-5 overflow-hidden bg-[var(--color-bg)] p-6 border border-[var(--color-border)] rounded-[var(--radius-card)] shadow-lg transition-all duration-300 hover:border-[var(--color-primary)]/50 ${
+        className={`opportunity-card group relative flex flex-col justify-between min-w-0 gap-5 overflow-hidden p-6 border border-[var(--color-border)] rounded-[var(--radius-card)] transition-all duration-300 hover:border-[var(--color-primary)]/50 ${
           isQuotation ? "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]" : ""
         }`}
         onClick={(event) => {
@@ -199,21 +199,21 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
 function StatusBadge({ statusLabel }: { statusLabel: string }) {
   if (statusLabel === "Encerrando em breve") {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/15 px-2.5 py-0.5 text-xs font-bold text-amber-300">
+      <span className="inline-flex items-center gap-1 rounded-full badge-warning px-2.5 py-0.5 text-xs font-bold">
         <span className="animate-pulse">⚡</span> Encerrando em breve
       </span>
     );
   }
   if (statusLabel === "Nova") {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-0.5 text-xs font-bold text-emerald-300">
+      <span className="inline-flex items-center gap-1 rounded-full badge-success px-2.5 py-0.5 text-xs font-bold">
         ✨ Nova
       </span>
     );
   }
   if (statusLabel === "Encerrada") {
     return (
-      <span className="inline-flex items-center rounded-full border border-zinc-700 bg-zinc-800 px-2.5 py-0.5 text-xs font-semibold text-zinc-400">
+      <span className="inline-flex items-center rounded-full badge-muted px-2.5 py-0.5 text-xs font-semibold">
         Encerrada
       </span>
     );
@@ -323,7 +323,7 @@ export function QuotationModal({
       <div
         aria-labelledby={titleId}
         aria-modal="true"
-        className="mx-auto flex max-h-[calc(100svh-1.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-[var(--radius-card)] bg-[var(--color-bg)] border border-[var(--color-border)] shadow-2xl sm:max-h-[calc(100vh-3rem)]"
+        className="mx-auto flex max-h-[calc(100svh-1.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-[var(--radius-card)] bg-[var(--color-glass-strong)] backdrop-blur-xl border border-[var(--color-border)] shadow-2xl sm:max-h-[calc(100vh-3rem)]"
         ref={dialogRef}
         role="dialog"
         tabIndex={-1}
@@ -376,12 +376,12 @@ export function QuotationModal({
 
           {/* Alerta de Proposta Bloqueada */}
           {data.proposalBlocked && (
-            <div className="rounded-lg border border-[var(--color-warning)] bg-amber-500/10 p-4 text-sm text-[var(--color-fg)]">
-              <p className="font-bold text-amber-300">
+            <div className="rounded-lg border border-[var(--color-warning)] bg-[var(--color-bg-subtle)] p-4 text-sm text-[var(--color-fg)]">
+              <p className="font-bold text-[var(--color-warning)]">
                 A escola indicou que não é para enviar proposta{blockedCountText(data)}.
               </p>
               <p className="mt-2 font-semibold text-[var(--color-fg-muted)]">Trecho original:</p>
-              <p className="mt-1 whitespace-pre-wrap break-words text-xs text-amber-200">
+              <p className="mt-1 whitespace-pre-wrap break-words text-xs text-[var(--color-fg-muted)]">
                 {data.proposalBlockedReason || "Trecho não informado."}
               </p>
             </div>
