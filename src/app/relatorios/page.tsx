@@ -1,5 +1,6 @@
-import { MainNav } from "@/components/main-nav";
+import Link from "next/link";
 import { opportunitySource, quotationSource } from "@/lib/data/source";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export const metadata = {
   title: "Relatórios & Diagnóstico Comercial · LPA Leo",
@@ -115,7 +116,26 @@ export default async function RelatoriosPage() {
               </p>
             </div>
 
-            <MainNav current="relatorios" />
+            {/* Abas de Navegação */}
+            <nav aria-label="Navegação principal" className="flex flex-wrap items-center gap-2">
+              <Link className="action-secondary text-sm" href="/">
+                Cotações abertas
+              </Link>
+              <Link className="action-secondary text-sm" href="/?view=history">
+                Histórico de compras
+              </Link>
+              <Link className="action-primary text-sm font-bold" href="/relatorios">
+                📊 Relatório & Análise
+              </Link>
+              <Link className="action-secondary text-sm" href="/fornecedores">
+                📦 Fornecedores
+              </Link>
+              <Link className="action-secondary text-sm" href="/preorcamento">
+                🧮 Pré-Orçamento
+              </Link>
+              <span className="ml-auto" />
+              <ThemeToggle />
+            </nav>
           </div>
         </div>
       </header>

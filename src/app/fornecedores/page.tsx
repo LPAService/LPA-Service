@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { CatalogSuppliersPanel } from "@/components/catalog/suppliers-panel";
-import { MainNav } from "@/components/main-nav";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { catalogSource } from "@/lib/data/catalog";
 
 export const metadata = {
@@ -18,7 +19,16 @@ export default async function FornecedoresPage() {
     <main className="min-h-screen bg-[var(--color-bg)] text-[var(--color-fg)]">
       <header className="border-b border-[var(--color-border)] bg-[var(--color-bg)]">
         <div className="shell py-8 sm:py-10">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <nav aria-label="Navegação principal" className="flex flex-wrap items-center gap-2">
+            <Link className="action-secondary text-sm" href="/">Cotações abertas</Link>
+            <Link className="action-secondary text-sm" href="/?view=history">Histórico de compras</Link>
+            <Link className="action-secondary text-sm" href="/relatorios">📊 Relatório & Análise</Link>
+            <Link className="action-primary text-sm font-bold" href="/fornecedores">📦 Fornecedores</Link>
+            <Link className="action-secondary text-sm" href="/preorcamento">🧮 Pré-Orçamento</Link>
+            <span className="ml-auto" />
+            <ThemeToggle />
+          </nav>
+          <div className="mt-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="eyebrow text-[var(--color-primary)]">Catálogo próprio</p>
               <h1 className="mt-2 text-4xl font-bold leading-none tracking-tighter text-[var(--color-fg)] sm:text-5xl">
@@ -38,9 +48,6 @@ export default async function FornecedoresPage() {
                 <p className="eyebrow mt-1">itens precificados</p>
               </div>
             </div>
-          </div>
-          <div className="mt-6">
-            <MainNav current="fornecedores" />
           </div>
         </div>
       </header>

@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { MainNav } from "@/components/main-nav";
 import { formatDate, formatOpportunityValue, pluralize } from "@/lib/format/opportunity";
 import { PrequoteDeleteButton } from "@/components/prequote/prequote-delete-button";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { catalogSource } from "@/lib/data/catalog";
 import { quotationSource } from "@/lib/data/source";
 import { calcPreQuoteTotals, formatBRL } from "@/lib/prequote/calc";
@@ -24,7 +24,16 @@ export default async function PreOrcamentoPage() {
     <main className="min-h-screen bg-[var(--color-bg)] text-[var(--color-fg)]">
       <header className="border-b border-[var(--color-border)] bg-[var(--color-bg)]">
         <div className="shell py-8 sm:py-10">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <nav aria-label="Navegação principal" className="flex flex-wrap items-center gap-2">
+            <Link className="action-secondary text-sm" href="/">Cotações abertas</Link>
+            <Link className="action-secondary text-sm" href="/?view=history">Histórico de compras</Link>
+            <Link className="action-secondary text-sm" href="/relatorios">📊 Relatório & Análise</Link>
+            <Link className="action-secondary text-sm" href="/fornecedores">📦 Fornecedores</Link>
+            <Link className="action-primary text-sm font-bold" href="/preorcamento">� Pré-Orçamento</Link>
+            <span className="ml-auto" />
+            <ThemeToggle />
+          </nav>
+          <div className="mt-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="eyebrow text-[var(--color-primary)]">Custo real antes do lance</p>
               <h1 className="mt-2 text-4xl font-bold leading-none tracking-tighter text-[var(--color-fg)] sm:text-5xl">
@@ -44,9 +53,6 @@ export default async function PreOrcamentoPage() {
                 <p className="eyebrow mt-1">pré-orçamentos</p>
               </div>
             </div>
-          </div>
-          <div className="mt-6">
-            <MainNav current="preorcamento" />
           </div>
         </div>
       </header>

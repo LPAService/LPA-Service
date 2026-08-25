@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { formatDate, formatOpportunityValue, pluralize } from "@/lib/format/opportunity";
 import { OpportunityPriceSection } from "@/components/price-section";
 import { ProposalActionButton } from "@/components/proposal-action-button";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { opportunitySource, quotationSource } from "@/lib/data/source";
 import { canSubmitQuotationProposal } from "@/lib/quotation-ui";
 
@@ -36,6 +37,7 @@ export default async function DetailPage({ params }: DetailPageProps) {
           >
             ← {isQuotation ? "Cotações abertas" : "Histórico de compras"}
           </Link>
+          <span className="mt-3 block sm:mt-0 sm:inline-block"><ThemeToggle /></span>
 
           <div className="mt-4 grid min-w-0 gap-6 lg:grid-cols-[1fr_auto]">
             <div className="min-w-0">
