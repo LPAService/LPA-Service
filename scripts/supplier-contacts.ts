@@ -8,6 +8,7 @@ if (existsSync(envFile) && typeof process.loadEnvFile === "function") process.lo
 const OUT_DIR = resolve(process.cwd(), "scripts/out");
 const CACHE_FILE = resolve(OUT_DIR, ".supplier-contacts-cache.json");
 const CSV_FILE = resolve(OUT_DIR, "fornecedores-contatos.csv");
+const CSV_UNIQUE_FILE = resolve(OUT_DIR, "fornecedores-contatos-unicos.csv");
 const BRASIL_API_URL = "https://brasilapi.com.br/api/cnpj/v1";
 const BING_URL = "https://www.bing.com/search";
 const USER_AGENT = "lpa-leo/0.1 (supplier contact research)";
@@ -57,6 +58,7 @@ const args = new Set(process.argv.slice(2));
 const limit = Number(process.argv.find((arg) => arg.startsWith("--limit="))?.slice(8) ?? "0");
 const webLimit = Number(process.argv.find((arg) => arg.startsWith("--web-limit="))?.slice(12) ?? "0");
 const webPass = args.has("--web-pass");
+const uniqueMode = args.has("--unique");
 const offline = args.has("--offline");
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -72,17 +74,57 @@ async function main() {
     await runReceitaPass(suppliers, cache);
   }
 
-  const csv = buildCsv(suppliers, cache);
-  writeFileSync(CSV_FILE, csv, "utf8");
+  const outputSuppliers = uniqueMode ? dedupeSuppliers(suppliers) : suppliers;
+  const csvFile = uniqueMode ? CSV_UNIQUE_FILE : CSV_FILE;
+  const csv = buildCsv(outputSuppliers, cache);
+  writeFileSync(csvFile, csv, "utf8");
   saveCache(cache);
 
-  const stats = computeStats(suppliers, cache);
-  console.log(`[contatos] CSV escrito em ${CSV_FILE}`);
+  if (uniqueMode) {
+    const duplicates = suppliers.length - outputSuppliers.length;
+    console.log(
+      `[contatos] duplicados por documento: ${duplicates} linhas removidas ` +
+        `(${suppliers.length} linhas -> ${outputSuppliers.length} documentos únicos)`
+    );
+  }
+  const stats = computeStats(outputSuppliers, cache);
+  console.log(`[contatos] CSV escrito em ${csvFile}`);
   console.log(
     `[contatos] fornecedores: ${stats.total} · com telefone: ${stats.withPhone} ` +
       `(receita ${stats.receita} + web ${stats.web}) · sem telefone: ${stats.withoutPhone}`
   );
   await pool.end();
+}
+
+function dedupeSuppliers(suppliers: SupplierRow[]): SupplierRow[] {
+  const byDocument = new Map<string, SupplierRow & { citySet: Set<string> }>();
+  for (const supplier of suppliers) {
+    const document = digitsOnly(supplier.document);
+    const existing = byDocument.get(document);
+    const citySet = existing?.citySet ?? new Set<string>();
+    for (const city of (supplier.cities ?? "").split(",")) {
+      const clean = city.trim();
+      if (clean) citySet.add(clean);
+    }
+    if (!existing) {
+      byDocument.set(document, {
+        ...supplier,
+        document,
+        orders: supplier.orders,
+        totalValue: supplier.totalValue,
+        citySet
+      });
+      continue;
+    }
+    existing.orders += supplier.orders;
+    existing.totalValue = Number(existing.totalValue ?? 0) + Number(supplier.totalValue ?? 0);
+    if (supplier.orders > existing.orders - supplier.orders) {
+      existing.name = supplier.name;
+    }
+  }
+  return [...byDocument.values()]
+    .map(({ citySet, ...row }) => ({ ...row, cities: [...citySet].join(", ") || null }))
+    .sort((a, b) => b.orders - a.orders);
 }
 
 async function loadSuppliers(limitCount: number): Promise<SupplierRow[]> {
