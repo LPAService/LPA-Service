@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { formatDate, formatOpportunityValue, pluralize } from "@/components/opportunity-card";
+import { formatDate, formatOpportunityValue, pluralize } from "@/lib/format/opportunity";
 import { PrequoteDeleteButton } from "@/components/prequote/prequote-delete-button";
 import { catalogSource } from "@/lib/data/catalog";
 import { quotationSource } from "@/lib/data/source";

@@ -6,6 +6,14 @@ import { ProposalActionButton } from "@/components/proposal-action-button";
 import type { NormalizedOpportunity, OpportunityItem } from "@/lib/contracts/opportunity";
 import { formatQuantityWithUnit } from "@/lib/quantity-format";
 import { canSubmitQuotationProposal } from "@/lib/quotation-ui";
+import {
+  cleanDisplayedDescription,
+  formatCurrency,
+  formatDate,
+  formatDateTime,
+  formatOpportunityValue,
+  pluralize
+} from "@/lib/format/opportunity";
 
 type OpportunityCardProps = { opportunity: NormalizedOpportunity };
 
@@ -518,13 +526,6 @@ function ItemMetric({ label, value, strong = false }: { label: string; value: st
   );
 }
 
-export function cleanDisplayedDescription(description: string, unitValue: number | null | undefined) {
-  if (unitValue === null || unitValue === undefined || !Number.isFinite(unitValue)) return description;
-  return description
-    .replace(/\s*(?:[-–—]\s*)?pre[cç]o\s+de\s+refer[eê]ncia\s*:?\s*r\$\s*\d{1,3}(?:\.\d{3})*,\d{2}\s*\.?\s*$/i, "")
-    .trim();
-}
-
 function getFocusable(root: HTMLElement) {
   return Array.from(
     root.querySelectorAll<HTMLElement>(
@@ -550,48 +551,11 @@ function isInteractiveCardClick(target: EventTarget | null) {
   return target instanceof HTMLElement && Boolean(target.closest(".card-link, a, button"));
 }
 
-function Fact({ label, value, className = "" }: { label: string; value: string; className?: string }) {
+function Fact({ label, value, className = "" }: { label: string; value: string, className?: string }) {
   return (
     <div className={`min-w-0 ${className}`}>
       <dt className="eyebrow">{label}</dt>
       <dd className="mt-1 break-words font-semibold text-[var(--color-fg)]">{value}</dd>
     </div>
   );
-}
-
-export function pluralize(count: number, singular: string, plural: string) {
-  return `${count} ${count === 1 ? singular : plural}`;
-}
-
-export function formatCurrency(value: number | null | undefined) {
-  if (value === null || value === undefined || !Number.isFinite(value)) return "Sem preço de referência";
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
-}
-
-export function formatOpportunityValue(opportunity: NormalizedOpportunity) {
-  if (opportunity.kind === "quotation" && (opportunity.totalValue === null || opportunity.totalValue === undefined)) {
-    return "Sem preço de referência";
-  }
-  const value = formatCurrency(opportunity.totalValue);
-  return opportunity.kind === "quotation" && opportunity.isTotalValuePartial ? `a partir de ${value}` : value;
-}
-
-export function formatDate(value: string | null | undefined) {
-  if (!value) return "Não informado";
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "Não informado";
-  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
-}
-
-export function formatDateTime(value: string | null | undefined) {
-  if (!value) return "Não informado";
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "Não informado";
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit"
-  }).format(date);
 }

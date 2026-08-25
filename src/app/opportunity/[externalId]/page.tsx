@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { formatDate, formatOpportunityValue, pluralize } from "@/components/opportunity-card";
+import { formatDate, formatOpportunityValue, pluralize } from "@/lib/format/opportunity";
 import { OpportunityPriceSection } from "@/components/price-section";
 import { ProposalActionButton } from "@/components/proposal-action-button";
 import { opportunitySource, quotationSource } from "@/lib/data/source";
