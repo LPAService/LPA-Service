@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export const config = {
-  matcher: ['/((?!api/auth|api/admin|api/cron|_next/static|_next/image|favicon.ico|login).*)'],
+  matcher: ['/((?!api/auth|api/admin|api/cron|api/notifications|_next/static|_next/image|favicon.ico|login).*)'],
 };
 
 export async function middleware(request: NextRequest) {
@@ -14,6 +14,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/api/admin') ||
     pathname.startsWith('/api/cron') ||
+    pathname.startsWith('/api/notifications') ||
     pathname.startsWith('/_next') ||
     pathname === '/favicon.ico'
   ) {

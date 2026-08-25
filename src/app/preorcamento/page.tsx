@@ -2,6 +2,7 @@ import Link from "next/link";
 import { formatDate, formatOpportunityValue, pluralize } from "@/lib/format/opportunity";
 import { PrequoteDeleteButton } from "@/components/prequote/prequote-delete-button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { NotificationBell } from "@/components/notification-bell";
 import { catalogSource } from "@/lib/data/catalog";
 import { quotationSource } from "@/lib/data/source";
 import { calcPreQuoteTotals, formatBRL } from "@/lib/prequote/calc";
@@ -31,7 +32,7 @@ export default async function PreOrcamentoPage() {
             <Link className="action-secondary text-sm" href="/fornecedores">📦 Fornecedores</Link>
             <Link className="action-primary text-sm font-bold" href="/preorcamento">� Pré-Orçamento</Link>
             <span className="ml-auto" />
-            <ThemeToggle />
+            <NotificationBell /><ThemeToggle />
           </nav>
           <div className="mt-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>

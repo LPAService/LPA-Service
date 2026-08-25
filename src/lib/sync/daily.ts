@@ -23,6 +23,12 @@ export type DailySyncSummary = {
     updated: number;
     errors: CollectionError[];
   };
+  notifications?: {
+    notificationsCreated: number;
+    emailsSent: number;
+    emailsSkipped: number;
+    errors: string[];
+  };
 };
 
 export class DailySyncAlreadyRunningError extends Error {
@@ -47,6 +53,12 @@ type DailySyncDependencies = {
     updatedCount: number;
     errors: CollectionError[];
   }>;
+  dispatchNotifications?: () => Promise<{
+    notificationsCreated: number;
+    emailsSent: number;
+    emailsSkipped: number;
+    errors: string[];
+  }>;
   now?: () => number;
   timeoutMs?: number;
 };
@@ -54,10 +66,10 @@ type DailySyncDependencies = {
 export async function runDailySync(
   dependencies?: DailySyncDependencies
 ): Promise<DailySyncSummary> {
-  const activeDependencies = dependencies ?? (await createDefaultDependencies());
-  const now = activeDependencies.now ?? Date.now;
-  const timeoutMs = activeDependencies.timeoutMs ?? DAILY_SYNC_TIMEOUT_MS;
+  const now = dependencies?.now ?? Date.now;
   const startedAt = now();
+  const activeDependencies = dependencies ?? (await createDefaultDependencies(startedAt));
+  const timeoutMs = activeDependencies.timeoutMs ?? DAILY_SYNC_TIMEOUT_MS;
   const runId = await activeDependencies.startRun();
   const summary: DailySyncSummary = {
     runId,
@@ -88,6 +100,14 @@ export async function runDailySync(
             message: `[Cotações abertas] ${error.message}`
           }))
         );
+
+        if (quotations.newCount > 0 && activeDependencies.dispatchNotifications) {
+          try {
+            summary.notifications = await activeDependencies.dispatchNotifications();
+          } catch (error) {
+            summary.errors.push({ message: `[Notificações] ${errorMessage(error)}` });
+          }
+        }
       } catch (error) {
         summary.errors.push({ message: `[Cotações abertas] ${errorMessage(error)}` });
       }
@@ -158,7 +178,7 @@ export async function listCollectionRunStatus(limit = 10) {
   }));
 }
 
-async function createDefaultDependencies(): Promise<DailySyncDependencies> {
+async function createDefaultDependencies(startedAt: number): Promise<DailySyncDependencies> {
   const { db } = await import("@/lib/db");
   const client = new CaixaEscolarClient();
 
@@ -212,6 +232,10 @@ async function createDefaultDependencies(): Promise<DailySyncDependencies> {
     },
     async collectQuotations() {
       return collectOpenQuotations();
+    },
+    async dispatchNotifications() {
+      const { dispatchQuotationNotifications } = await import("@/lib/notify/dispatch");
+      return dispatchQuotationNotifications({ since: new Date(startedAt) });
     }
   };
 }

@@ -399,3 +399,44 @@ export const preQuoteItems = pgTable(
 
   ]
 );
+
+export const notificationSubscriptions = pgTable(
+  "notification_subscriptions",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    categoryId: integer("category_id").references(() => categories.id, { onDelete: "set null" }),
+    city: text("city"),
+    school: text("school"),
+    keyword: text("keyword"),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    index("notification_subscriptions_user_idx").on(table.userId),
+    index("notification_subscriptions_category_idx").on(table.categoryId)
+  ]
+);
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    quotationId: integer("quotation_id")
+      .notNull()
+      .references(() => quotations.id, { onDelete: "cascade" }),
+    read: boolean("read").notNull().default(false),
+    emailedAt: timestamp("emailed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    uniqueIndex("notifications_user_quotation_unique").on(table.userId, table.quotationId),
+    index("notifications_user_read_idx").on(table.userId, table.read)
+  ]
+);
