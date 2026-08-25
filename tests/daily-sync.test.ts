@@ -103,7 +103,7 @@ describe("lote diário", () => {
     });
 
     expect(result.runId).toBe(99);
-    expect(result.countiesProcessed).toBeGreaterThan(1);
+    expect(result.countiesProcessed).toBe(10);
     expect(result.errors.some((error) => error.message.includes("API indisponível"))).toBe(true);
     expect(finishRun).toHaveBeenCalledWith(99, result, "completed");
   });

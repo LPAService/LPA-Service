@@ -256,8 +256,7 @@ export async function collectOpenQuotationsWithClient(
 }
 
 export function defaultTier1Counties() {
-  const priority = rmbhCounties.priority.filter((county) => county.tier === 1);
-  return [...priority].sort((left, right) => {
+  return [...rmbhCounties.collected].sort((left, right) => {
     const leftIndex = TIER1_ORDER.indexOf(left.name);
     const rightIndex = TIER1_ORDER.indexOf(right.name);
     return (leftIndex === -1 ? 99 : leftIndex) - (rightIndex === -1 ? 99 : rightIndex);
