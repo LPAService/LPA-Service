@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { opportunitySource, quotationSource } from "@/lib/data/source";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export const metadata = {
   title: "Relatórios & Diagnóstico Comercial · LPA Leo",
@@ -132,6 +133,8 @@ export default async function RelatoriosPage() {
               <Link className="action-secondary text-sm" href="/preorcamento">
                 🧮 Pré-Orçamento
               </Link>
+              <span className="ml-auto" />
+              <ThemeToggle />
             </nav>
           </div>
         </div>

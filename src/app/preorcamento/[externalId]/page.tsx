@@ -5,6 +5,7 @@ import {
   PrequoteWorksheet,
   type WorksheetRow
 } from "@/components/prequote/prequote-worksheet";
+import { ThemeToggle } from "@/components/theme-toggle";
 import type { CatalogItemLite, CatalogMatch } from "@/lib/catalog/match";
 import { matchCatalogItems } from "@/lib/catalog/match";
 import { catalogSource } from "@/lib/data/catalog";
@@ -89,6 +90,7 @@ export default async function WorksheetPage({ params }: WorksheetPageProps) {
             <Link className="action-secondary inline-flex min-h-9 items-center px-3 text-xs font-semibold" href={`/opportunity/${quotation.externalId}`}>
               Ver processo completo →
             </Link>
+            <ThemeToggle />
           </div>
           <div className="mt-4 grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto]">
             <div className="min-w-0">

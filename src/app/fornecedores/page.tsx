@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CatalogSuppliersPanel } from "@/components/catalog/suppliers-panel";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { catalogSource } from "@/lib/data/catalog";
 
 export const metadata = {
@@ -24,6 +25,8 @@ export default async function FornecedoresPage() {
             <Link className="action-secondary text-sm" href="/relatorios">📊 Relatório & Análise</Link>
             <Link className="action-primary text-sm font-bold" href="/fornecedores">📦 Fornecedores</Link>
             <Link className="action-secondary text-sm" href="/preorcamento">🧮 Pré-Orçamento</Link>
+            <span className="ml-auto" />
+            <ThemeToggle />
           </nav>
           <div className="mt-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>

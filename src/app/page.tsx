@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { OpportunityCard } from "@/components/opportunity-card";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { opportunitySource, quotationSource, sanitizePageParam } from "@/lib/data/source";
 import type { OpportunityFilters } from "@/lib/data/source";
 
@@ -40,6 +41,7 @@ export default async function Home({ searchParams }: PageProps) {
         <Link className="pill-link" href="/fornecedores">📦 Fornecedores</Link>
         <Link className="pill-link" href="/preorcamento">🧮 Pré-Orçamento</Link>
         <a className="action-secondary ml-auto hidden min-h-[38px] sm:inline-flex" href={`/api/export?${exportParams.toString()}`}>Exportar</a>
+        <ThemeToggle />
       </div>
     </nav>
 
