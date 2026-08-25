@@ -551,7 +551,7 @@ function isInteractiveCardClick(target: EventTarget | null) {
   return target instanceof HTMLElement && Boolean(target.closest(".card-link, a, button"));
 }
 
-function Fact({ label, value, className = "" }: { label: string; value: string, className?: string }) {
+function Fact({ label, value, className = "" }: { label: string; value: string; className?: string }) {
   return (
     <div className={`min-w-0 ${className}`}>
       <dt className="eyebrow">{label}</dt>
