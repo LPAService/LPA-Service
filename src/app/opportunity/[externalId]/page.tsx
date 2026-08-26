@@ -5,6 +5,7 @@ import { OpportunityPriceSection } from "@/components/price-section";
 import { ProposalActionButton } from "@/components/proposal-action-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { NotificationBell } from "@/components/notification-bell";
+import { WatchButton } from "@/components/watch-button";
 import { opportunitySource, quotationSource } from "@/lib/data/source";
 import { canSubmitQuotationProposal } from "@/lib/quotation-ui";
 
@@ -151,6 +152,17 @@ export default async function DetailPage({ params }: DetailPageProps) {
           {/* CTA Principal: Fazer Lance */}
           <div className="glass-panel p-6 space-y-4">
             <h2 className="text-lg font-bold text-[var(--color-fg)]">Ação da Proposta</h2>
+            {isQuotation && (
+              <div className="flex flex-col gap-2">
+                <WatchButton externalId={opportunity.externalId} />
+                <Link
+                  className="action-secondary inline-flex min-h-11 w-full items-center justify-center text-sm font-semibold"
+                  href={`/preorcamento/${opportunity.externalId}`}
+                >
+                  🧮 Pré-Orçamento
+                </Link>
+              </div>
+            )}
             {canSubmitProposal ? (
               <div className="space-y-3">
                 <ProposalActionButton

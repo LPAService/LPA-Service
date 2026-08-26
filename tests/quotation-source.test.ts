@@ -20,7 +20,11 @@ const migrationFiles = [
   "drizzle/0002_ordinary_proemial_gods.sql",
   "drizzle/0003_suppliers_base.sql",
   "drizzle/0004_parallel_princess_powerful.sql",
-  "drizzle/0006_faulty_nocturne.sql"
+  "drizzle/0006_faulty_nocturne.sql",
+  "drizzle/0007_clumsy_proudstar.sql",
+  "drizzle/0008_yielding_husk.sql",
+  "drizzle/0009_notifications.sql",
+  "drizzle/0010_sudden_zeigeist.sql"
 ];
 const dbTestLockKey = 941_445_002;
 
@@ -65,6 +69,45 @@ describe("PostgresQuotationSource", () => {
     });
     await expect(source.listOpportunities({ situation: "all" })).resolves.toMatchObject({
       total: 3
+    });
+  });
+
+  it("situation watched isola por usuário", async () => {
+    const [userA] = await database
+      .insert(schema.users)
+      .values({ email: "a@test.local", password: "x" })
+      .returning({ id: schema.users.id });
+    const [userB] = await database
+      .insert(schema.users)
+      .values({ email: "b@test.local", password: "x" })
+      .returning({ id: schema.users.id });
+
+    await database.insert(schema.watchedQuotations).values([
+      { userId: userA!.id, quotationExternalId: "quote-open-soon" },
+      { userId: userA!.id, quotationExternalId: "quote-closed" },
+      { userId: userB!.id, quotationExternalId: "quote-closed" }
+    ]);
+    const source = createPostgresQuotationSource(database);
+
+    await expect(source.listOpportunities({ situation: "watched", userId: userA!.id })).resolves.toMatchObject({
+      total: 2,
+      data: expect.arrayContaining([
+        expect.objectContaining({ externalId: "quote-open-soon" }),
+        expect.objectContaining({ externalId: "quote-closed" })
+      ])
+    });
+    await expect(source.listOpportunities({ situation: "watched", userId: userB!.id })).resolves.toMatchObject({
+      total: 1,
+      data: [{ externalId: "quote-closed" }]
+    });
+    await expect(source.listOpportunities({ situation: "watched" })).resolves.toMatchObject({
+      total: 0
+    });
+    await expect(source.listOpportunities({ situation: "watched", userId: userA!.id, city: "Ibirité" })).resolves.toMatchObject({
+      total: 2
+    });
+    await expect(source.listOpportunities({ situation: "watched", userId: userA!.id, city: "Contagem" })).resolves.toMatchObject({
+      total: 0
     });
   });
 

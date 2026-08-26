@@ -346,6 +346,24 @@ export const catalogItems = pgTable(
   ]
 );
 
+
+export const watchedQuotations = pgTable(
+  "watched_quotations",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    quotationExternalId: text("quotation_external_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    uniqueIndex("watched_quotations_user_external_id_unique").on(table.userId, table.quotationExternalId),
+    index("watched_quotations_user_idx").on(table.userId)
+  ]
+);
+
+
 export const preQuotes = pgTable(
   "pre_quotes",
   {

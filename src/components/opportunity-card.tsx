@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { ProposalActionButton } from "@/components/proposal-action-button";
+import { WatchButton } from "@/components/watch-button";
 import type { NormalizedOpportunity, OpportunityItem } from "@/lib/contracts/opportunity";
 import { formatQuantityWithUnit } from "@/lib/quantity-format";
 import { canSubmitQuotationProposal } from "@/lib/quotation-ui";
@@ -15,9 +16,9 @@ import {
   pluralize
 } from "@/lib/format/opportunity";
 
-type OpportunityCardProps = { opportunity: NormalizedOpportunity };
+type OpportunityCardProps = { opportunity: NormalizedOpportunity; watched?: boolean | null };
 
-export function OpportunityCard({ opportunity }: OpportunityCardProps) {
+export function OpportunityCard({ opportunity, watched = null }: OpportunityCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(
     () => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("modal") === opportunity.externalId
   );
@@ -63,10 +64,15 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
               )}
             </div>
 
-            {/* Badge de Status / Urgência */}
-            {opportunity.statusLabel && (
-              <StatusBadge statusLabel={opportunity.statusLabel} />
-            )}
+            {/* Badge de Status / Urgência + Sino de acompanhamento */}
+            <div className="flex items-center gap-2">
+              {opportunity.statusLabel && (
+                <StatusBadge statusLabel={opportunity.statusLabel} />
+              )}
+              {isQuotation && (
+                <WatchButton compact externalId={opportunity.externalId} initialWatched={watched} />
+              )}
+            </div>
           </div>
 
           {/* Título & Número do Orçamento */}
@@ -158,7 +164,16 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
         </div>
 
         {/* CTA: BOTÃO FAZER LANCE / AÇÕES */}
-        <div className="mt-4 pt-4 border-t border-[var(--color-border)]">
+        <div className="mt-4 pt-4 border-t border-[var(--color-border)] space-y-2">
+          {isQuotation && (
+            <Link
+              className="action-secondary inline-flex w-full min-h-11 items-center justify-center px-4 rounded-lg text-sm font-semibold"
+              href={`/preorcamento/${opportunity.externalId}`}
+              onClick={(event) => event.stopPropagation()}
+            >
+              🧮 Pré-Orçamento
+            </Link>
+          )}
           {canSubmitProposal ? (
             <ProposalActionButton
               className="w-full"
@@ -344,14 +359,17 @@ export function QuotationModal({
               {data.headline}
             </h2>
           </div>
-          <button
-            aria-label="Fechar detalhes"
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-[var(--color-border)] text-2xl leading-none text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)]"
-            onClick={onClose}
-            type="button"
-          >
-            ×
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <WatchButton compact externalId={data.externalId} initialWatched={null} />
+            <button
+              aria-label="Fechar detalhes"
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-[var(--color-border)] text-2xl leading-none text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)]"
+              onClick={onClose}
+              type="button"
+            >
+              ×
+            </button>
+          </div>
         </div>
 
         {/* Corpo do Modal */}
@@ -427,6 +445,12 @@ export function QuotationModal({
           </div>
 
           <div className="flex flex-col sm:flex-row items-center gap-3">
+            <Link
+              className="action-secondary inline-flex min-h-11 items-center justify-center px-4 rounded-lg text-sm font-semibold"
+              href={`/preorcamento/${data.externalId}`}
+            >
+              🧮 Pré-Orçamento
+            </Link>
             {data.proposalUrl && (
               <a
                 className="action-secondary inline-flex min-h-11 items-center justify-center px-4 rounded-lg text-sm font-semibold"

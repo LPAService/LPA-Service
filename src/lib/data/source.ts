@@ -15,7 +15,8 @@ export type OpportunityFilters = {
   periodStart?: string;
   periodEnd?: string;
   query?: string;
-  situation?: "open" | "actionable" | "blocked" | "closed" | "all";
+  situation?: "open" | "actionable" | "blocked" | "closed" | "watched" | "all";
+  userId?: number;
 };
 
 export type OpportunityPage = {

@@ -49,6 +49,23 @@ describe("OpportunityCard modal", () => {
     expect(document.body.style.overflow).toBe("");
   });
 
+  it("mostra sino de acompanhamento e link direto para pré-orçamento", async () => {
+    mockFetch(detailOpportunity());
+    render(React.createElement(OpportunityCard, { opportunity: listOpportunity() }));
+
+    const bell = button("Acompanhar cotação");
+    expect(bell.getAttribute("aria-pressed")).toBe("false");
+
+    const prequote = Array.from(container!.querySelectorAll("a")).find((item) => item.getAttribute("href") === "/preorcamento/quote-open-soon");
+    expect(prequote).toBeTruthy();
+    expect(prequote!.textContent).toContain("Pré-Orçamento");
+
+    await act(async () => {
+      prequote!.click();
+    });
+    expect(dialog()).toBeNull();
+  });
+
   it("renderiza itens longos em blocos sem tabela e remove preço repetido da descrição exibida", async () => {
     mockFetch({
       ...detailOpportunity(),
@@ -137,7 +154,7 @@ describe("OpportunityCard modal", () => {
     });
 
     expect(dialog()).toBeNull();
-    expect(fetch).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalledWith("/api/quotations/quote-open-soon");
     expect(writeText).toHaveBeenCalledWith("2026166001");
   });
 

@@ -4,12 +4,15 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { NotificationBell } from "@/components/notification-bell";
 import { opportunitySource, quotationSource, sanitizePageParam } from "@/lib/data/source";
 import type { OpportunityFilters } from "@/lib/data/source";
+import { getCurrentUserId } from "@/lib/session";
+import { watchStore } from "@/lib/watch";
 
 type PageProps = { searchParams?: Promise<Record<string, string | string[] | undefined>> };
 const PAGE_SIZE = 18;
 
 export default async function Home({ searchParams }: PageProps) {
   const params = await searchParams;
+  const currentUserId = await getCurrentUserId();
   const currentParams = new URLSearchParams();
   const cleanParams: Record<string, string | string[] | undefined> = {};
   for (const [key, value] of Object.entries(params ?? {})) {
@@ -20,12 +23,20 @@ export default async function Home({ searchParams }: PageProps) {
   const page = sanitizePageParam(cleanParams.page);
   const view = str(cleanParams.view) === "history" ? "history" : "open";
   const situation = view === "history" ? undefined : quotationSituation(str(cleanParams.situation));
-  const filters: OpportunityFilters = { city: str(cleanParams.city), category: str(cleanParams.category), expenseGroup: str(cleanParams.expenseGroup), school: str(cleanParams.school), periodStart: str(cleanParams.periodStart), periodEnd: str(cleanParams.periodEnd), query: str(cleanParams.query), situation };
+  const filters: OpportunityFilters = { city: str(cleanParams.city), category: str(cleanParams.category), expenseGroup: str(cleanParams.expenseGroup), school: str(cleanParams.school), periodStart: str(cleanParams.periodStart), periodEnd: str(cleanParams.periodEnd), query: str(cleanParams.query), situation, userId: currentUserId ?? undefined };
   const source = view === "history" ? opportunitySource : quotationSource;
   const result = await source.listOpportunities(filters, { page, pageSize: PAGE_SIZE });
+  const watchedIds = view === "history" || !currentUserId ? null : new Set(await watchStore.listWatchedExternalIds(currentUserId));
   const exportParams = new URLSearchParams();
-  for (const [key, value] of Object.entries(filters)) if (value) exportParams.set(key, value);
-  const active = Object.entries(filters).filter(([, value]) => value);
+  for (const [key, value] of Object.entries(filters)) {
+    if (typeof value !== "string" || !value) continue;
+    exportParams.set(key, value);
+  }
+  const active: Array<[string, string]> = Object.entries(filters)
+    .filter((entry): entry is [string, string] => {
+      const value = entry[1];
+      return typeof value === "string" && value.length > 0;
+    })
   return <main className="min-h-screen">
     <nav className="sticky top-0 z-50">
       <div className="shell nav-pill">
@@ -65,7 +76,8 @@ export default async function Home({ searchParams }: PageProps) {
     <section className="shell py-6">
       <div className="glass-toolbar p-4 sm:p-5">
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          <Link className={`pill-link ${view === "open" ? "active" : ""}`} href="/">Cotações abertas</Link>
+          <Link className={`pill-link ${view === "open" && situation !== "watched" ? "active" : ""}`} href="/">Cotações abertas</Link>
+          <Link className={`pill-link ${situation === "watched" ? "active" : ""}`} href="/?situation=watched">🔔 Acompanhando</Link>
           <Link className={`pill-link ${view === "history" ? "active" : ""}`} href="/?view=history">Histórico de compras</Link>
           <span className="ml-1 hidden h-6 w-px bg-[var(--color-border-strong)] sm:block" aria-hidden="true" />
           <Link className="pill-link" href="/relatorios">📊 Relatório & Análise</Link>
@@ -78,7 +90,7 @@ export default async function Home({ searchParams }: PageProps) {
             <span className="sr-only">Buscar oportunidades</span>
             <input className="field" defaultValue={filters.query} name="query" placeholder="🔎 Busque por item, escola ou fornecedor" />
           </label>
-          {view !== "history" && <Select label="Situação" name="situation" options={[["open", "Abertas"], ["closed", "Encerradas"], ["all", "Todas"]]} value={filters.situation} />}
+          {view !== "history" && <Select label="Situação" name="situation" options={[["open", "Abertas"], ["watched", "🔔 Acompanhadas"], ["closed", "Encerradas"], ["all", "Todas"]]} value={filters.situation} />}
           <Select label="Cidade" name="city" options={result.facets.cities.map(x => [x, x])} value={filters.city} />
           <Select label="Categoria" name="category" options={result.facets.categories.map(x => [x.slug, x.name])} value={filters.category} />
           <Select label="Escola" name="school" options={result.facets.schools.map(x => [x, x])} value={filters.school} />
@@ -103,16 +115,16 @@ export default async function Home({ searchParams }: PageProps) {
       </div>
       {result.data.length === 0
         ? <div className="glass-panel p-8"><h2 className="text-lg font-bold">Nenhum resultado com esses filtros</h2><p className="mt-2 text-sm text-[var(--color-fg-muted)]">Remova algum filtro ou amplie o período.</p></div>
-        : <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">{result.data.map(o => <OpportunityCard key={o.externalId} opportunity={o} />)}</div>}
+        : <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">{result.data.map(o => <OpportunityCard key={o.externalId} opportunity={o} watched={watchedIds ? watchedIds.has(o.externalId) : null} />)}</div>}
       <Pagination currentParams={currentParams} page={result.page} totalPages={result.totalPages} />
     </section>
   </main>;
 }
 const str = (value: string | string[] | undefined) => typeof value === "string" ? value : undefined;
-function quotationSituation(value: string | undefined) { return value === "closed" || value === "all" ? value : "open"; }
-function situationLabel(value: OpportunityFilters["situation"]) { return value === "closed" ? "encerradas" : value === "all" ? "todas" : "abertas"; }
-function quotationCountLabel(value: OpportunityFilters["situation"]) { return value === "closed" ? "cotações encerradas" : value === "all" ? "cotações" : "cotações abertas"; }
-function filterLabel(key: string, value: string | string[] | undefined) { if (key === "situation") return value === "closed" ? "Encerradas" : value === "all" ? "Todas" : "Abertas"; return value; }
+function quotationSituation(value: string | undefined) { return value === "closed" || value === "all" || value === "watched" ? value : "open"; }
+function situationLabel(value: OpportunityFilters["situation"]) { return value === "closed" ? "encerradas" : value === "all" ? "todas" : value === "watched" ? "acompanhadas" : "abertas"; }
+function quotationCountLabel(value: OpportunityFilters["situation"]) { return value === "closed" ? "cotações encerradas" : value === "all" ? "cotações" : value === "watched" ? "cotações acompanhadas" : "cotações abertas"; }
+function filterLabel(key: string, value: string | string[] | undefined) { if (key === "situation") return value === "closed" ? "Encerradas" : value === "all" ? "Todas" : value === "watched" ? "Acompanhadas" : "Abertas"; return value; }
 function Metric({ label, value, icon, className = "" }: { label: string; value: string; icon: string; className?: string }) { return <div className={`metric-card ${className}`}><span className="absolute right-3.5 top-3.5 text-base opacity-90" aria-hidden="true">{icon}</span><p className="text-2xl font-extrabold tabular-nums tracking-tight text-[var(--color-fg)]">{value}</p><p className="eyebrow mt-1">{label}</p></div>; }
 function Select({ label, name, options, value }: { label: string; name: string; options: string[][]; value?: string }) { return <label><span className="field-label">{label}</span><select className="field mt-1" defaultValue={value ?? ""} name={name}><option value="">Todas</option>{options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>; }
 function Pagination({ currentParams, page, totalPages }: { currentParams: URLSearchParams; page: number; totalPages: number }) { if (totalPages <= 1) return null; const prev = new URLSearchParams(currentParams); prev.set("page", `${Math.max(1,page-1)}`); const next = new URLSearchParams(currentParams); next.set("page", `${Math.min(totalPages,page+1)}`); return <nav className="mt-10 flex items-center justify-between border-t border-[var(--color-border)] pt-5"><a aria-disabled={page <= 1} className="action-secondary" href={`/?${prev}`}>← Anterior</a><p className="text-sm font-medium text-[var(--color-fg-muted)]">{page} / {totalPages}</p><a aria-disabled={page >= totalPages} className="action-secondary" href={`/?${next}`}>Próxima →</a></nav>; }

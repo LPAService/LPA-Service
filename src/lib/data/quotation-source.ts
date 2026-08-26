@@ -1,7 +1,7 @@
 import { sql, type SQL } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type { NormalizedOpportunity, OpportunityItem } from "@/lib/contracts/opportunity";
-import { categories, quotationItems, quotations } from "@/lib/db/schema";
+import { categories, quotationItems, quotations, watchedQuotations } from "@/lib/db/schema";
 import type { OpportunityFilters, OpportunitySource } from "@/lib/data/source";
 import type * as schema from "@/lib/db/schema";
 import { getQuotationStatus } from "@/lib/collector/quotations";
@@ -196,7 +196,7 @@ function buildWhere(filters: OpportunityFilters) {
   const expenseGroup = clean(filters.expenseGroup);
   const school = clean(filters.school);
   const query = clean(filters.query);
-  const situation = ["actionable", "blocked", "closed", "all"].includes(filters.situation ?? "") ? filters.situation : "open";
+  const situation = ["actionable", "blocked", "closed", "watched", "all"].includes(filters.situation ?? "") ? filters.situation : "open";
   if (city) {
     if (!rmbhCityNames.has(normalizeScopeCity(city))) conditions.push(sql`false`);
     else conditions.push(sql`lower(${quotations.countyName}) = lower(${city})`);
@@ -208,6 +208,13 @@ function buildWhere(filters: OpportunityFilters) {
   if (situation === "actionable") conditions.push(sql`${quotations.proposalDeadline} >= now() and ${quotations.proposalBlocked} = false`);
   if (situation === "blocked") conditions.push(sql`${quotations.proposalBlocked} = true`);
   if (situation === "closed") conditions.push(sql`(${quotations.proposalDeadline} is null or ${quotations.proposalDeadline} < now())`);
+  if (situation === "watched") {
+    if (filters.userId) {
+      conditions.push(sql`exists (select 1 from ${watchedQuotations} where ${watchedQuotations.quotationExternalId} = ${quotations.externalId} and ${watchedQuotations.userId} = ${filters.userId})`);
+    } else {
+      conditions.push(sql`false`);
+    }
+  }
   addPeriodCondition(conditions, filters.periodStart, quotations.proposalDeadline, false, "after");
   addPeriodCondition(conditions, filters.periodEnd, quotations.proposalDeadline, true, "before");
   if (query) {
