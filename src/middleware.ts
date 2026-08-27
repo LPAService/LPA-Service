@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { getToken } from 'next-auth/jwt';
 
 export const config = {
   matcher: ['/((?!api/auth|api/admin|api/cron|api/notifications|_next/static|_next/image|favicon.ico|login).*)'],
@@ -21,15 +22,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // check NextAuth session cookie (JWT strategy uses next-auth.session-token cookie)
-  const isSecure = request.nextUrl.protocol === 'https:';
-  const sessionTokenName = isSecure
-    ? '__Secure-next-auth.session-token'
-    : 'next-auth.session-token';
-
-  const token =
-    request.cookies.get(sessionTokenName)?.value ??
-    request.cookies.get('next-auth.session-token')?.value;
+  // validate JWT token signature using NextAuth secret
+  const token = await getToken({
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET,
+  });
 
   if (!token) {
     const loginUrl = new URL('/login', request.url);
