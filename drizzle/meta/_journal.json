@@ -78,6 +78,13 @@
       "when": 1788194695791,
       "tag": "0011_striped_bloodaxe",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1788196900000,
+      "tag": "0012_reference_products_search",
+      "breakpoints": true
     }
   ]
 }

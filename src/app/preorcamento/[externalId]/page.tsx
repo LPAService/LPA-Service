@@ -89,10 +89,19 @@ export default async function WorksheetPage({ params }: WorksheetPageProps) {
         categorySlug: quotation.category?.slug ?? null,
         categoryName: quotation.category?.name ?? null,
         expenseGroup: quotation.expenseGroup
-      }).then((referenceMatches) => ({
-        itemOrder: row.itemOrder,
-        matches: referenceMatches
-      }))
+      })
+        .catch((error: unknown) => {
+          console.error("Failed to match reference products for prequote item", {
+            error,
+            externalId: quotation.externalId,
+            itemOrder: row.itemOrder
+          });
+          return [];
+        })
+        .then((referenceMatches) => ({
+          itemOrder: row.itemOrder,
+          matches: referenceMatches
+        }))
     );
   }
   for (const { itemOrder, matches } of await Promise.all(referenceMatchJobs)) {

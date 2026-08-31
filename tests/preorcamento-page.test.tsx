@@ -4,6 +4,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import WorksheetPage from "@/app/preorcamento/[externalId]/page";
+import { matchReferenceProducts } from "@/lib/catalog/reference-match";
 import { catalogSource } from "@/lib/data/catalog";
 import { quotationSource } from "@/lib/data/source";
 
@@ -88,6 +89,74 @@ describe("WorksheetPage", () => {
     expect(buttons).toHaveLength(2);
     expect(buttons.every((button) => button.disabled)).toBe(true);
     expect(container!.textContent).toContain("PROCESSO DE REGULARIZAÇÃO NO SISTEMA, NÃO ENVIAR PROPOSTA.");
+  });
+
+  it("renderiza itens e sugestões restantes quando consulta de referência falha", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(quotationSource.getOpportunity).mockResolvedValue(
+      makeQuotation({
+        items: [
+          {
+            order: 1,
+            name: "Caderno",
+            description: "Caderno universitário",
+            unit: "UN",
+            quantity: 2,
+            unitValue: null,
+            totalValue: null,
+            referenceValue: 10
+          },
+          {
+            order: 2,
+            name: "Caneta",
+            description: "Caneta azul",
+            unit: "UN",
+            quantity: 3,
+            unitValue: null,
+            totalValue: null,
+            referenceValue: 2
+          }
+        ]
+      })
+    );
+    vi.mocked(matchReferenceProducts)
+      .mockRejectedValueOnce(new Error("relation reference_products does not exist"))
+      .mockResolvedValueOnce([
+        {
+          item: {
+            id: 10,
+            source: "cescom",
+            name: "CANETA AZUL BIC",
+            normalizedName: "caneta azul bic",
+            ean: "7890000000000",
+            brand: "BIC",
+            department: "PAPELARIA",
+            url: "https://cescom.test/caneta"
+          },
+          score: 3,
+          matchedTokens: ["caneta", "azul"]
+        }
+      ]);
+
+    try {
+      const pageComponent = await WorksheetPage({ params: Promise.resolve({ externalId: "quote-open-soon" }) });
+      render(pageComponent);
+
+      expect(container!.textContent).toContain("Caderno");
+      expect(container!.textContent).toContain("Caneta");
+      expect(container!.textContent).toContain("CANETA AZUL BIC");
+      expect(actionButtons()).toHaveLength(2);
+      expect(consoleError).toHaveBeenCalledWith(
+        "Failed to match reference products for prequote item",
+        expect.objectContaining({
+          error: expect.any(Error),
+          externalId: "quote-open-soon",
+          itemOrder: 1
+        })
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 
   function render(element: React.ReactNode) {
