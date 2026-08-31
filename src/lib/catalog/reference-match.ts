@@ -1,6 +1,12 @@
 import { sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { tokenize } from "@/lib/catalog/match";
+import {
+  firstReferenceCoreToken,
+  hasReferenceDistinctiveTokenMatch,
+  normalizeReferenceQuery,
+  referenceCoreTokens
+} from "@/lib/catalog/reference-name-match";
 import categoriesRaw from "@/lib/classification/categories.json";
 import type * as schema from "@/lib/db/schema";
 
@@ -55,7 +61,7 @@ export async function matchReferenceProducts(
   const queryTokens = tokenize(normalizedQuery);
   if (queryTokens.length === 0) return [];
 
-  const coreToken = firstCoreToken(queryTokens);
+  const coreToken = firstReferenceCoreToken(queryTokens);
   if (!coreToken) return [];
 
   const coreTokenArray = buildCoreTokenArray(queryTokens, coreToken);
@@ -135,26 +141,12 @@ export async function matchReferenceProducts(
     if (itemTokens.length === 0) continue;
     const itemTokenSet = new Set(itemTokens);
     const matchedTokens = queryTokens.filter((token) => itemTokenSet.has(token));
-    if (!hasDistinctiveTokenMatch(queryTokens, coreToken, matchedTokens)) continue;
+    if (!hasReferenceDistinctiveTokenMatch(queryTokens, coreToken, matchedTokens)) continue;
     matches.push({ item, score: row.score, matchedTokens });
     if (matches.length >= safeLimit) break;
   }
 
   return matches;
-}
-
-function normalizeReferenceQuery(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    .replace(/\b(\d+)\s*(metros?|mts?|mt|m)\b/g, "$1 metros")
-    .replace(/\b(\d+)\s*(kgs?|kg)\b/g, "$1 kg")
-    .replace(/\b(\d+)\s*(mls?|ml)\b/g, "$1 ml")
-    .replace(/\b(\d+)\s*(grs?|gramas?|g)\b/g, "$1 g")
-    .replace(/[^a-z0-9\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 function buildRankQuery(normalizedQuery: string, queryTokens: string[]) {
@@ -165,26 +157,9 @@ function buildTsQuery(queryTokens: string[]) {
   return queryTokens.map((token) => `${token}:*`).join(" | ");
 }
 
-function firstCoreToken(queryTokens: string[]) {
-  return queryTokens.find((token) => !REFERENCE_CORE_STOP_WORDS.has(token) && !/^\d+$/.test(token)) ?? null;
-}
-
 function buildCoreTokenArray(queryTokens: string[], fallbackToken: string) {
-  const coreTokens = queryTokens.filter(
-    (token) => !REFERENCE_CORE_STOP_WORDS.has(token) && !REFERENCE_ATTRIBUTE_TOKENS.has(token) && !/^\d+$/.test(token)
-  );
-  const values = coreTokens.length > 0 ? coreTokens : [fallbackToken];
+  const values = referenceCoreTokens(queryTokens, fallbackToken);
   return sql`array[${sql.join(values.map((token) => sql`${token}`), sql`, `)}]::text[]`;
-}
-
-function hasDistinctiveTokenMatch(queryTokens: string[], coreToken: string, matchedTokens: string[]) {
-  const distinctiveTokens = queryTokens.filter(
-    (token) => token !== coreToken && !REFERENCE_ATTRIBUTE_TOKENS.has(token) && !/^\d+$/.test(token)
-  );
-  if (distinctiveTokens.length === 0) return true;
-
-  const matchedTokenSet = new Set(matchedTokens);
-  return distinctiveTokens.some((token) => matchedTokenSet.has(token));
 }
 
 function blockedReferenceDomainsForContext(context: ReferenceMatchContext, queryTokens: string[]): Set<ReferenceDomain> | null {
@@ -318,37 +293,6 @@ function hasAny(values: Set<string>, candidates: string[]) {
   return candidates.some((candidate) => values.has(candidate));
 }
 
-const REFERENCE_CORE_STOP_WORDS = new Set([
-  "tipo",
-  "folha",
-  "dupla",
-  "simples",
-  "preto",
-  "preta",
-  "colorido",
-  "colorida",
-  "leve",
-  "pague",
-  "metros"
-]);
-
-const REFERENCE_ATTRIBUTE_TOKENS = new Set([
-  "branco",
-  "branca",
-  "desidratado",
-  "desidratada",
-  "forte",
-  "integral",
-  "liquido",
-  "moido",
-  "neutro",
-  "premium",
-  "tamanho",
-  "tipo",
-  "torrado",
-  "tradicional"
-]);
-
 function queryLooksLikeProduce(queryTokens: string[]) {
   return queryTokens.some((token) => REFERENCE_PRODUCE_TOKENS.has(token));
 }
@@ -365,6 +309,6 @@ const REFERENCE_PRODUCE_TOKENS = new Set([
     .filter((tokens) => tokens.length === 1)
     .map((tokens) => tokens[0]),
   ...(REFERENCE_PRODUCE_CATEGORY?.exemplos_itens ?? [])
-    .map((example) => firstCoreToken(tokenize(example)))
+    .map((example) => firstReferenceCoreToken(tokenize(example)))
     .filter((token): token is string => Boolean(token))
 ]);

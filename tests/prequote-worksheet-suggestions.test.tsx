@@ -71,7 +71,7 @@ describe("PrequoteWorksheet - Sugestões Automáticas", () => {
                 offers: [
                   {
                     provider: "realdist",
-                    title: "Caderno Espiral 96 Folhas Tilibra",
+                    title: "Caderno 96fls Espiral Tilibra",
                     price: 11.9,
                     currency: "BRL",
                     url: "https://www.realdist.com.br/caderno-96",
@@ -132,7 +132,7 @@ describe("PrequoteWorksheet - Sugestões Automáticas", () => {
                 offers: [
                   {
                     provider: "realdist",
-                    title: "Caderno Espiral 96 Folhas Tilibra",
+                    title: "Caderno 96fls Espiral Tilibra",
                     price: 11.9,
                     currency: "BRL",
                     url: "https://www.realdist.com.br/caderno-96",
@@ -169,7 +169,7 @@ describe("PrequoteWorksheet - Sugestões Automáticas", () => {
       );
     });
 
-    expect(container!.textContent).toContain("Caderno Espiral 96 Folhas Tilibra");
+    expect(container!.textContent).toContain("Caderno 96fls Espiral Tilibra");
     expect(container!.textContent).toContain(formatBRL(11.9));
     expect(container!.textContent).toContain("Real Distribuidora");
 
@@ -353,6 +353,59 @@ describe("PrequoteWorksheet - Sugestões Automáticas", () => {
     expect(container!.textContent).not.toContain("💡 Sugestões para este item");
     expect(container!.textContent).not.toContain("Nenhuma oferta encontrada.");
     expect(container!.textContent).not.toContain("Falha ao buscar preços");
+  });
+
+  it("não renderiza sugestão automática irrelevante mesmo se o batch devolver oferta crua", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        results: {
+          "Clip de papel": {
+            query: "Clip de papel",
+            provider: "realdist",
+            offers: [
+              {
+                provider: "realdist",
+                title: "Toalhas De Papel Interfolhadas Limpmax",
+                price: 15.66,
+                currency: "BRL",
+                url: "https://www.realdist.com.br/toalha-papel",
+                thumbnail: null,
+                seller: "Real Distribuidora",
+                condition: "new",
+                available: null
+              }
+            ],
+            error: null
+          } as BestPriceResult
+        }
+      })
+    });
+    global.fetch = fetchMock;
+
+    const rows: WorksheetRow[] = [
+      makeRow({ itemOrder: 1, name: "Clip de papel", unitCost: null })
+    ];
+
+    await act(async () => {
+      root!.render(
+        <PrequoteWorksheet
+          catalogItems={mockCatalogItems}
+          initialPreQuoteId={null}
+          initialRows={rows}
+          quotation={mockQuotation}
+          referenceSuggestions={{}}
+          suggestions={{}}
+        />
+      );
+    });
+
+    expect(container!.textContent).not.toContain("Toalhas De Papel Interfolhadas Limpmax");
+    expect(container!.textContent).not.toContain("💡 Sugestões para este item");
+    const usePriceButtons = Array.from(container!.querySelectorAll("button")).filter(
+      (b) => b.textContent?.trim() === "Usar preço"
+    );
+    expect(usePriceButtons).toHaveLength(0);
   });
 
   it("mantém botão '🔎 Internet' funcionando para busca manual", async () => {

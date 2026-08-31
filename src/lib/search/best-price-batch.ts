@@ -1,11 +1,18 @@
 import type { BestPriceResult } from "@/lib/search/best-price";
 import { searchBestPrice } from "@/lib/search/best-price";
+import { tokenize } from "@/lib/catalog/match";
+import {
+  firstReferenceCoreToken,
+  isRelevantReferenceTitle,
+  normalizeReferenceQuery
+} from "@/lib/catalog/reference-name-match";
 import { normalize } from "@/lib/text/normalize";
 
 export const BEST_PRICE_BATCH_LIMIT = 40;
 export const BEST_PRICE_BATCH_CONCURRENCY = 3;
 export const BEST_PRICE_BATCH_TIMEOUT_MS = 7000;
 export const BEST_PRICE_BATCH_CACHE_TTL_MS = 30 * 60 * 1000;
+export const BEST_PRICE_BATCH_RELEVANCE_CANDIDATE_LIMIT = 10;
 
 type SearchBestPriceFn = (query: string, limit: number) => Promise<BestPriceResult>;
 
@@ -83,7 +90,12 @@ export async function searchBestPriceBatch(
   }
 
   await mapWithConcurrency(uncached, concurrency, async (query) => {
-    const result = await searchWithTimeout(search, query.searchQuery, offerLimit, timeoutMs);
+    const result = await searchRelevantBestPriceWithFallback(
+      search,
+      query.searchQuery,
+      offerLimit,
+      timeoutMs
+    );
     cache.set(query.normalized, { result, expiresAt: now() + ttlMs });
     byNormalized.set(query.normalized, result);
   });
@@ -95,6 +107,48 @@ export async function searchBestPriceBatch(
     results[original.key] = { ...result, query: original.key };
   }
   return { results };
+}
+
+function filterBestPriceResultByRelevance(result: BestPriceResult, query: string): BestPriceResult {
+  return {
+    ...result,
+    offers: result.offers.filter((offer) => isRelevantReferenceTitle(query, offer.title))
+  };
+}
+
+async function searchRelevantBestPriceWithFallback(
+  search: SearchBestPriceFn,
+  query: string,
+  offerLimit: number,
+  timeoutMs: number
+): Promise<BestPriceResult> {
+  const fullResult = filterBestPriceResultByRelevance(
+    await searchWithTimeout(search, query, offerLimit, timeoutMs),
+    query
+  );
+  if (fullResult.offers.length > 0) return fullResult;
+
+  const fallbackQuery = buildCoreFallbackQuery(query);
+  if (!fallbackQuery || normalizeBatchQuery(fallbackQuery) === normalizeBatchQuery(query)) {
+    return fullResult;
+  }
+
+  const fallbackResult = filterBestPriceResultByRelevance(
+    await searchWithTimeout(search, fallbackQuery, BEST_PRICE_BATCH_RELEVANCE_CANDIDATE_LIMIT, timeoutMs),
+    query
+  );
+  if (fallbackResult.offers.length === 0) return fullResult;
+
+  return {
+    ...fallbackResult,
+    query,
+    offers: fallbackResult.offers.slice(0, offerLimit)
+  };
+}
+
+function buildCoreFallbackQuery(query: string) {
+  const tokens = tokenize(normalizeReferenceQuery(query));
+  return firstReferenceCoreToken(tokens);
 }
 
 export function clearBestPriceBatchCache() {

@@ -6,6 +6,7 @@ import type { BestPriceResult } from "@/lib/search/best-price";
 import { providerLabel } from "@/lib/search/best-price";
 import type { CatalogItemLite, CatalogMatch } from "@/lib/catalog/match";
 import type { ReferenceMatch } from "@/lib/catalog/reference-match";
+import { isRelevantReferenceTitle } from "@/lib/catalog/reference-name-match";
 import { calcPreQuoteTotals, formatBRL, formatPercent } from "@/lib/prequote/calc";
 import { ProposalActionButton } from "@/components/proposal-action-button";
 
@@ -317,7 +318,7 @@ export function PrequoteWorksheet({
             const rowSuggestions = suggestions[row.itemOrder] ?? [];
             const rowReferenceSuggestions = getUniqueReferenceMatches(referenceSuggestions[row.itemOrder] ?? []);
             const autoPriceResult = batchResults[row.name.trim()] ?? batchResults[row.name];
-            const autoRealOffer = autoPriceResult?.offers?.[0];
+            const autoRealOffer = autoPriceResult?.offers?.find((offer) => isRelevantReferenceTitle(row.name, offer.title));
             const hasAnySuggestions =
               rowSuggestions.length > 0 ||
               batchLoading ||
@@ -765,4 +766,3 @@ function getUniqueReferenceMatches(matches: ReferenceMatch[] = []): ReferenceMat
   }
   return result;
 }
-

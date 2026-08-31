@@ -100,6 +100,91 @@ describe("searchBestPriceBatch", () => {
       error: "site fora"
     });
   });
+
+  it("mantém só ofertas automáticas cujo título contém o núcleo relevante da busca", async () => {
+    const result = await searchBestPriceBatch(["Clip de papel", "Detergente liquido neutro 500ml"], {
+      search: async (query) => ({
+        query,
+        provider: "realdist",
+        offers: [
+          makeOffer("Oferta barata sem núcleo", 1),
+          makeOffer(query.startsWith("Clip") ? "Toalhas De Papel Interfolhadas Limpmax" : "Detergente liquido neutro 500ml", 15.66)
+        ],
+        error: null
+      })
+    });
+
+    expect(result.results["Clip de papel"].offers).toEqual([]);
+    expect(result.results["Detergente liquido neutro 500ml"].offers.map((offer) => offer.title)).toEqual([
+      "Detergente liquido neutro 500ml"
+    ]);
+  });
+
+  it("não promove oferta mais barata quando só token genérico casa", async () => {
+    const result = await searchBestPriceBatch(["Papel higienico folha dupla"], {
+      search: async (query) => ({
+        query,
+        provider: "realdist",
+        offers: [
+          makeOffer("Toalhas De Papel Interfolhadas Limpmax", 15.66),
+          makeOffer("Papel Higienico Folha Dupla 30m", 24.9)
+        ],
+        error: null
+      })
+    });
+
+    expect(result.results["Papel higienico folha dupla"].offers.map((offer) => offer.title)).toEqual([
+      "Papel Higienico Folha Dupla 30m"
+    ]);
+  });
+
+  it("exige que o núcleo da busca seja também o núcleo líder da oferta", async () => {
+    const result = await searchBestPriceBatch(["Cafe torrado e moido"], {
+      search: async (query) => ({
+        query,
+        provider: "realdist",
+        offers: [
+          makeOffer("Tintura Para Cabelo Cor Chocolate Cafe", 9.99),
+          makeOffer("Chocolate Tablete Neugebauer 1891 Cafe 55% Cacau", 14.02),
+          makeOffer("Cafe Melitta Tradicional 250Gr", 18.9)
+        ],
+        error: null
+      })
+    });
+
+    expect(result.results["Cafe torrado e moido"].offers.map((offer) => offer.title)).toEqual([
+      "Cafe Melitta Tradicional 250Gr"
+    ]);
+  });
+
+  it("tenta buscar pelo núcleo quando a busca completa só retorna atributos irrelevantes", async () => {
+    const calls: string[] = [];
+    const result = await searchBestPriceBatch(["Cafe torrado e moido"], {
+      search: async (query) => {
+        calls.push(query);
+        return {
+          query,
+          provider: "realdist",
+          offers:
+            query === "cafe"
+              ? [
+                  makeOffer("Chocolate Tablete Neugebauer 1891 Cafe 55% Cacau", 14.02),
+                  makeOffer("Cafe Barao Tradicional 250Gr", 223.57)
+                ]
+              : [
+                  makeOffer("Chocolate Tablete Neugebauer 1891 Cafe 55% Cacau", 14.02),
+                  makeOffer("Tintura Para Cabelo Beauty Color Chocolate Cafe", 17.15)
+                ],
+          error: null
+        };
+      }
+    });
+
+    expect(calls).toEqual(["Cafe torrado e moido", "cafe"]);
+    expect(result.results["Cafe torrado e moido"].offers.map((offer) => offer.title)).toEqual([
+      "Cafe Barao Tradicional 250Gr"
+    ]);
+  });
 });
 
 function fakeResult(query: string): BestPriceResult {
@@ -120,5 +205,19 @@ function fakeResult(query: string): BestPriceResult {
       }
     ],
     error: null
+  };
+}
+
+function makeOffer(title: string, price: number) {
+  return {
+    provider: "realdist",
+    title,
+    price,
+    currency: "BRL",
+    url: `https://www.realdist.com.br/${encodeURIComponent(title)}`,
+    thumbnail: null,
+    seller: "Real Distribuidora",
+    condition: "new",
+    available: null
   };
 }
