@@ -173,10 +173,7 @@ function blockedReferenceDomainsForContext(context: ReferenceMatchContext, query
   if (!contextText) return null;
 
   const tokens = new Set(tokenize(contextText));
-  if (
-    context.categorySlug === "frutas-e-verduras" ||
-    hasAny(tokens, ["fruta", "frutas", "verdura", "verduras", "legume", "legumes", "hortalica", "hortalicas", "hortifruti", "perecivel", "pereciveis"])
-  ) {
+  if (referenceContextTokensAreProduce(context, tokens)) {
     return new Set(["food", "cleaning", "personal-care", "stationery", "footwear", "automotive"]);
   }
 
@@ -199,6 +196,32 @@ function blockedReferenceDomainsForContext(context: ReferenceMatchContext, query
   }
 
   return null;
+}
+
+export function referenceContextIsProduce(context: ReferenceMatchContext) {
+  const contextText = normalizeReferenceQuery(
+    [context.categorySlug, context.categoryName, context.expenseGroup].filter(Boolean).join(" ")
+  );
+  return referenceContextTokensAreProduce(context, new Set(tokenize(contextText)));
+}
+
+function referenceContextTokensAreProduce(context: ReferenceMatchContext, tokens: Set<string>) {
+  return (
+    context.categorySlug === "frutas-e-verduras" ||
+    hasAny(tokens, [
+      "fruta",
+      "frutas",
+      "verdura",
+      "verduras",
+      "legume",
+      "legumes",
+      "hortalica",
+      "hortalicas",
+      "hortifruti",
+      "perecivel",
+      "pereciveis"
+    ])
+  );
 }
 
 function referenceDepartmentBlocked(department: string | null, blockedDomains: Set<ReferenceDomain> | null) {

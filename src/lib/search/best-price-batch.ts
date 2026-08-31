@@ -1,6 +1,7 @@
-import type { BestPriceResult } from "@/lib/search/best-price";
+import type { BestPriceOfferPredicate, BestPriceResult } from "@/lib/search/best-price";
 import { searchBestPrice } from "@/lib/search/best-price";
 import { tokenize } from "@/lib/catalog/match";
+import { referenceContextIsProduce, type ReferenceMatchContext } from "@/lib/catalog/reference-match";
 import {
   firstReferenceCoreToken,
   isRelevantReferenceTitle,
@@ -14,7 +15,13 @@ export const BEST_PRICE_BATCH_TIMEOUT_MS = 7000;
 export const BEST_PRICE_BATCH_CACHE_TTL_MS = 30 * 60 * 1000;
 export const BEST_PRICE_BATCH_RELEVANCE_CANDIDATE_LIMIT = 10;
 
-type SearchBestPriceFn = (query: string, limit: number) => Promise<BestPriceResult>;
+type SearchBestPriceFn = (
+  query: string,
+  limit: number,
+  isRelevantOffer?: BestPriceOfferPredicate,
+  fallbackQuery?: string | null,
+  fallbackLimit?: number
+) => Promise<BestPriceResult>;
 
 type CacheEntry = {
   expiresAt: number;
@@ -22,9 +29,17 @@ type CacheEntry = {
 };
 
 type BatchQuery = {
+  cacheKey: string;
+  context: ReferenceMatchContext;
   normalized: string;
   searchQuery: string;
 };
+
+export type SearchBestPriceBatchQuery =
+  | string
+  | ({
+      query: string;
+    } & ReferenceMatchContext);
 
 export type SearchBestPriceBatchOptions = {
   search?: SearchBestPriceFn;
@@ -49,7 +64,7 @@ export class BestPriceBatchLimitError extends Error {
 }
 
 export async function searchBestPriceBatch(
-  queries: string[],
+  queries: SearchBestPriceBatchQuery[],
   options: SearchBestPriceBatchOptions = {}
 ): Promise<BestPriceBatchResponse> {
   const now = options.now ?? Date.now;
@@ -62,14 +77,16 @@ export async function searchBestPriceBatch(
   const offerLimit = options.offerLimit ?? 5;
   const search = options.search ?? searchBestPrice;
 
-  const originals: { key: string; normalized: string }[] = [];
+  const originals: { key: string; cacheKey: string }[] = [];
   const unique = new Map<string, BatchQuery>();
   for (const rawQuery of queries) {
-    const key = rawQuery.trim();
-    const normalized = normalizeBatchQuery(rawQuery);
+    const parsed = parseBatchQuery(rawQuery);
+    const key = parsed.query.trim();
+    const normalized = normalizeBatchQuery(parsed.query);
     if (!key || !normalized) continue;
-    originals.push({ key, normalized });
-    if (!unique.has(normalized)) unique.set(normalized, { normalized, searchQuery: key });
+    const cacheKey = buildCacheKey(normalized, parsed.context);
+    originals.push({ key, cacheKey });
+    if (!unique.has(cacheKey)) unique.set(cacheKey, { cacheKey, context: parsed.context, normalized, searchQuery: key });
   }
 
   if (unique.size > BEST_PRICE_BATCH_LIMIT) {
@@ -80,39 +97,79 @@ export async function searchBestPriceBatch(
   const uncached: BatchQuery[] = [];
   const currentTime = now();
   for (const query of unique.values()) {
-    const cached = cache.get(query.normalized);
+    const cached = cache.get(query.cacheKey);
     if (cached && cached.expiresAt > currentTime) {
-      byNormalized.set(query.normalized, cached.result);
+      byNormalized.set(query.cacheKey, cached.result);
     } else {
-      if (cached) cache.delete(query.normalized);
+      if (cached) cache.delete(query.cacheKey);
       uncached.push(query);
     }
   }
 
   await mapWithConcurrency(uncached, concurrency, async (query) => {
+    if (referenceContextIsProduce(query.context)) {
+      const result = buildNoAutomaticPriceResult(query.searchQuery);
+      cache.set(query.cacheKey, { result, expiresAt: now() + ttlMs });
+      byNormalized.set(query.cacheKey, result);
+      return;
+    }
     const result = await searchRelevantBestPriceWithFallback(
       search,
       query.searchQuery,
       offerLimit,
       timeoutMs
     );
-    cache.set(query.normalized, { result, expiresAt: now() + ttlMs });
-    byNormalized.set(query.normalized, result);
+    cache.set(query.cacheKey, { result, expiresAt: now() + ttlMs });
+    byNormalized.set(query.cacheKey, result);
   });
 
   const results: Record<string, BestPriceResult> = {};
   for (const original of originals) {
-    const result = byNormalized.get(original.normalized);
+    const result = byNormalized.get(original.cacheKey);
     if (!result) continue;
     results[original.key] = { ...result, query: original.key };
   }
   return { results };
 }
 
+function parseBatchQuery(rawQuery: SearchBestPriceBatchQuery): { query: string; context: ReferenceMatchContext } {
+  if (typeof rawQuery === "string") return { query: rawQuery, context: {} };
+  return {
+    query: rawQuery.query,
+    context: {
+      categorySlug: rawQuery.categorySlug ?? null,
+      categoryName: rawQuery.categoryName ?? null,
+      expenseGroup: rawQuery.expenseGroup ?? null
+    }
+  };
+}
+
+function buildCacheKey(normalized: string, context: ReferenceMatchContext) {
+  return [
+    normalized,
+    normalizeBatchQuery(context.categorySlug ?? ""),
+    normalizeBatchQuery(context.categoryName ?? ""),
+    normalizeBatchQuery(context.expenseGroup ?? "")
+  ].join("\n");
+}
+
+function buildNoAutomaticPriceResult(query: string): BestPriceResult {
+  return {
+    query,
+    provider: "none",
+    offers: [],
+    error: null
+  };
+}
+
+function isRelevantBestPriceOffer(query: string): BestPriceOfferPredicate {
+  return (offer) => isRelevantReferenceTitle(query, offer.title);
+}
+
 function filterBestPriceResultByRelevance(result: BestPriceResult, query: string): BestPriceResult {
   return {
     ...result,
-    offers: result.offers.filter((offer) => isRelevantReferenceTitle(query, offer.title))
+    offers: result.offers.filter(isRelevantBestPriceOffer(query))
   };
 }
 
@@ -122,28 +179,22 @@ async function searchRelevantBestPriceWithFallback(
   offerLimit: number,
   timeoutMs: number
 ): Promise<BestPriceResult> {
-  const fullResult = filterBestPriceResultByRelevance(
-    await searchWithTimeout(search, query, offerLimit, timeoutMs),
-    query
-  );
-  if (fullResult.offers.length > 0) return fullResult;
-
+  const relevancePredicate = isRelevantBestPriceOffer(query);
   const fallbackQuery = buildCoreFallbackQuery(query);
-  if (!fallbackQuery || normalizeBatchQuery(fallbackQuery) === normalizeBatchQuery(query)) {
-    return fullResult;
-  }
-
-  const fallbackResult = filterBestPriceResultByRelevance(
-    await searchWithTimeout(search, fallbackQuery, BEST_PRICE_BATCH_RELEVANCE_CANDIDATE_LIMIT, timeoutMs),
+  const normalizedFallback =
+    fallbackQuery && normalizeBatchQuery(fallbackQuery) !== normalizeBatchQuery(query) ? fallbackQuery : null;
+  return filterBestPriceResultByRelevance(
+    await searchWithTimeout(
+      search,
+      query,
+      offerLimit,
+      timeoutMs,
+      relevancePredicate,
+      normalizedFallback,
+      BEST_PRICE_BATCH_RELEVANCE_CANDIDATE_LIMIT
+    ),
     query
   );
-  if (fallbackResult.offers.length === 0) return fullResult;
-
-  return {
-    ...fallbackResult,
-    query,
-    offers: fallbackResult.offers.slice(0, offerLimit)
-  };
 }
 
 function buildCoreFallbackQuery(query: string) {
@@ -166,12 +217,15 @@ async function searchWithTimeout(
   search: SearchBestPriceFn,
   query: string,
   offerLimit: number,
-  timeoutMs: number
+  timeoutMs: number,
+  isRelevantOffer?: BestPriceOfferPredicate,
+  fallbackQuery?: string | null,
+  fallbackLimit?: number
 ): Promise<BestPriceResult> {
   let timeout: ReturnType<typeof setTimeout> | null = null;
   try {
     return await Promise.race([
-      search(query, offerLimit),
+      search(query, offerLimit, isRelevantOffer, fallbackQuery, fallbackLimit),
       new Promise<BestPriceResult>((resolve) => {
         timeout = setTimeout(
           () =>

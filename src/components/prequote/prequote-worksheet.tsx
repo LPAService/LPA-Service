@@ -40,6 +40,7 @@ export type WorksheetQuotation = {
   proposalBlocked?: boolean;
   proposalBlockedReason?: string | null;
   totalReferenceValue: number | null;
+  categorySlug: string | null;
   categoryName: string | null;
 };
 
@@ -86,7 +87,14 @@ export function PrequoteWorksheet({
   useEffect(() => {
     let active = true;
     const rowsWithoutCost = initialRows.filter((r) => r.unitCost === null && r.name.trim());
-    const queries = Array.from(new Set(rowsWithoutCost.map((r) => r.name.trim()))).slice(0, 40);
+    const queries = Array.from(new Set(rowsWithoutCost.map((r) => r.name.trim())))
+      .slice(0, 40)
+      .map((query) => ({
+        query,
+        categorySlug: quotation.categorySlug,
+        categoryName: quotation.categoryName,
+        expenseGroup: quotation.expenseGroup
+      }));
 
     if (queries.length === 0) return;
 
@@ -115,7 +123,7 @@ export function PrequoteWorksheet({
     return () => {
       active = false;
     };
-  }, [initialRows]);
+  }, [initialRows, quotation.categoryName, quotation.categorySlug, quotation.expenseGroup]);
 
   const marginPercent = parseNonNegative(marginText);
   const freightCost = parseNonNegative(freightText);

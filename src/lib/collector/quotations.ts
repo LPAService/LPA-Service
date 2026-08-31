@@ -14,6 +14,9 @@ const PORTAL_BASE = "https://caixaescolar.educacao.mg.gov.br";
 const DEFAULT_PAGE_SIZE = 50;
 const DEFAULT_ITEM_PAGE_SIZE = 50;
 const TIER1_ORDER = ["Ibirité", "Contagem", "Betim", "Belo Horizonte"];
+const CATEGORIES_BY_SLUG = new Map(
+  (categoriesRaw as Array<{ slug: string; name: string }>).map((category) => [category.slug, category])
+);
 
 export type QuotationCounty = { idCounty: number; name: string };
 
@@ -466,7 +469,17 @@ export class DrizzleQuotationRepository implements QuotationRepository {
   }
 
   private async categoryId(slug: string) {
-    const result = await this.database.execute<{ id: number }>(sql`select id from categories where slug = ${slug} limit 1`);
+    const category = CATEGORIES_BY_SLUG.get(slug);
+    if (!category) return null;
+
+    const result = await this.database.execute<{ id: number }>(sql`
+      insert into categories (slug, name, active)
+      values (${category.slug}, ${category.name}, true)
+      on conflict (slug) do update set
+        name = excluded.name,
+        active = true
+      returning id
+    `);
     return result.rows[0]?.id ?? null;
   }
 }

@@ -22,6 +22,7 @@ const mockQuotation: WorksheetQuotation = {
   headline: "Material escolar",
   proposalDeadline: "2026-09-01T12:00:00.000Z",
   totalReferenceValue: 500,
+  categorySlug: "material-de-escritorio",
   categoryName: "Papelaria"
 };
 
@@ -116,7 +117,20 @@ describe("PrequoteWorksheet - Sugestões Automáticas", () => {
 
     const body = JSON.parse(batchCalls[0][1]?.body as string);
     // Somente os itens com unitCost === null são enviados
-    expect(body.queries).toEqual(["Caderno 96fls", "Borracha Branca"]);
+    expect(body.queries).toEqual([
+      {
+        query: "Caderno 96fls",
+        categorySlug: "material-de-escritorio",
+        categoryName: "Papelaria",
+        expenseGroup: "Material de Consumo"
+      },
+      {
+        query: "Borracha Branca",
+        categorySlug: "material-de-escritorio",
+        categoryName: "Papelaria",
+        expenseGroup: "Material de Consumo"
+      }
+    ]);
   });
 
   it("renderiza a oferta da Real Distribuidora com preço e botão 'Usar preço'", async () => {
@@ -406,6 +420,57 @@ describe("PrequoteWorksheet - Sugestões Automáticas", () => {
       (b) => b.textContent?.trim() === "Usar preço"
     );
     expect(usePriceButtons).toHaveLength(0);
+  });
+
+  it("envia categoria para bloquear sugestão automática de hortifruti", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        results: {
+          Cenoura: {
+            query: "Cenoura",
+            provider: "none",
+            offers: [],
+            error: null
+          } as BestPriceResult
+        }
+      })
+    });
+    global.fetch = fetchMock;
+
+    const rows: WorksheetRow[] = [
+      makeRow({ itemOrder: 1, name: "Cenoura", unitCost: null })
+    ];
+
+    await act(async () => {
+      root!.render(
+        <PrequoteWorksheet
+          catalogItems={mockCatalogItems}
+          initialPreQuoteId={null}
+          initialRows={rows}
+          quotation={{
+            ...mockQuotation,
+            categorySlug: "frutas-e-verduras",
+            categoryName: "Frutas e Verduras",
+            expenseGroup: "Gêneros Alimentícios"
+          }}
+          referenceSuggestions={{}}
+          suggestions={{}}
+        />
+      );
+    });
+
+    const batchCall = fetchMock.mock.calls.find(([url]) => url === "/api/search/best-price/batch");
+    expect(batchCall).toBeDefined();
+    expect(JSON.parse(batchCall![1]?.body as string).queries).toEqual([
+      {
+        query: "Cenoura",
+        categorySlug: "frutas-e-verduras",
+        categoryName: "Frutas e Verduras",
+        expenseGroup: "Gêneros Alimentícios"
+      }
+    ]);
+    expect(container!.textContent).not.toContain("Usar preço");
   });
 
   it("mantém botão '🔎 Internet' funcionando para busca manual", async () => {

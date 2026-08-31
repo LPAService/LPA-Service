@@ -177,6 +177,7 @@ export default async function WorksheetPage({ params }: WorksheetPageProps) {
             proposalBlocked: quotation.proposalBlocked,
             proposalBlockedReason: quotation.proposalBlockedReason,
             totalReferenceValue: quotation.totalReferenceValue ?? null,
+            categorySlug: quotation.category?.slug ?? null,
             categoryName: quotation.category?.name ?? null
           }}
           referenceSuggestions={referenceSuggestions}

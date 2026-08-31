@@ -17,6 +17,8 @@ export type BestPriceResult = {
   error: string | null;
 };
 
+export type BestPriceOfferPredicate = (offer: BestPriceOffer) => boolean;
+
 type BestPriceProvider = {
   name: string;
   label: string;
@@ -53,20 +55,32 @@ const providers: Record<string, BestPriceProvider> = {
 export function bestPriceProviderChain(): BestPriceProvider[] {
   const configured = process.env.WEB_SEARCH_PROVIDER?.trim().toLowerCase();
   if (!configured || configured === "auto") {
-    return [providers.realdist, providers.mercadolivre, providers.zoom];
+    // Mercado Livre saiu do auto: endpoint público retorna 403 sem OAuth, verificado em 2026-08-31.
+    return [providers.realdist, providers.zoom];
   }
   if (configured === "none") return [];
   const provider = providers[configured];
-  return provider ? [provider] : [providers.realdist, providers.mercadolivre, providers.zoom];
+  return provider ? [provider] : [providers.realdist, providers.zoom];
 }
 
 export function providerLabel(name: string) {
   return providers[name]?.label ?? name;
 }
 
-export async function searchBestPrice(query: string, limit = 5): Promise<BestPriceResult> {
+export async function searchBestPrice(
+  query: string,
+  limit = 5,
+  isRelevantOffer?: BestPriceOfferPredicate,
+  fallbackQuery?: string | null,
+  fallbackLimit = limit
+): Promise<BestPriceResult> {
   const cleanQuery = query.trim();
   const safeLimit = Math.min(10, Math.max(1, Math.floor(Number.isFinite(limit) ? limit : 5)));
+  const cleanFallbackQuery = fallbackQuery?.trim() ?? "";
+  const safeFallbackLimit = Math.min(
+    10,
+    Math.max(1, Math.floor(Number.isFinite(fallbackLimit) ? fallbackLimit : safeLimit))
+  );
   if (!cleanQuery) {
     return { query: "", provider: "none", offers: [], error: "Termo de busca vazio." };
   }
@@ -83,9 +97,18 @@ export async function searchBestPrice(query: string, limit = 5): Promise<BestPri
   let lastError: string | null = null;
   for (const provider of chain) {
     try {
-      const offers = await provider.search(cleanQuery, safeLimit);
+      const providerOffers = await provider.search(cleanQuery, safeLimit);
+      const offers = isRelevantOffer ? providerOffers.filter(isRelevantOffer) : providerOffers;
       if (offers.length > 0) {
         return { query: cleanQuery, provider: provider.name, offers, error: null };
+      }
+      if (isRelevantOffer && providerOffers.length > 0 && cleanFallbackQuery && cleanFallbackQuery !== cleanQuery) {
+        const fallbackOffers = (await provider.search(cleanFallbackQuery, safeFallbackLimit))
+          .filter(isRelevantOffer)
+          .slice(0, safeLimit);
+        if (fallbackOffers.length > 0) {
+          return { query: cleanQuery, provider: provider.name, offers: fallbackOffers, error: null };
+        }
       }
     } catch (error) {
       lastError = error instanceof Error ? error.message : "Falha na busca de preço.";
