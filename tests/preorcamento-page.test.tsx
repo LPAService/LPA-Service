@@ -2,7 +2,7 @@
 import React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import WorksheetPage from "@/app/preorcamento/[externalId]/page";
 import { catalogSource } from "@/lib/data/catalog";
 import { quotationSource } from "@/lib/data/source";
@@ -26,6 +26,10 @@ vi.mock("@/lib/data/source", () => ({
   }
 }));
 
+vi.mock("@/lib/catalog/reference-match", () => ({
+  matchReferenceProducts: vi.fn().mockResolvedValue([])
+}));
+
 vi.mock("@/components/notification-bell", () => ({
   NotificationBell: () => React.createElement("span", null, "Notificações")
 }));
@@ -37,12 +41,22 @@ vi.mock("@/components/theme-toggle", () => ({
 describe("WorksheetPage", () => {
   let root: Root | null = null;
   let container: HTMLDivElement | null = null;
+  let originalFetch: typeof global.fetch;
+
+  beforeEach(() => {
+    originalFetch = global.fetch;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ results: {} })
+    });
+  });
 
   afterEach(() => {
     act(() => root?.unmount());
     container?.remove();
     root = null;
     container = null;
+    global.fetch = originalFetch;
     vi.clearAllMocks();
   });
 

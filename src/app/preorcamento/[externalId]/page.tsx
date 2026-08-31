@@ -10,8 +10,11 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { NotificationBell } from "@/components/notification-bell";
 import type { CatalogItemLite, CatalogMatch } from "@/lib/catalog/match";
 import { matchCatalogItems } from "@/lib/catalog/match";
+import type { ReferenceMatch } from "@/lib/catalog/reference-match";
+import { matchReferenceProducts } from "@/lib/catalog/reference-match";
 import { catalogSource } from "@/lib/data/catalog";
 import { quotationSource } from "@/lib/data/source";
+import { db } from "@/lib/db";
 import { formatBRL } from "@/lib/prequote/calc";
 
 export const dynamic = "force-dynamic";
@@ -75,10 +78,25 @@ export default async function WorksheetPage({ params }: WorksheetPageProps) {
       }));
 
   const suggestions: Record<number, CatalogMatch[]> = {};
+  const referenceSuggestions: Record<number, ReferenceMatch[]> = {};
+  const referenceMatchJobs: Promise<{ itemOrder: number; matches: ReferenceMatch[] }>[] = [];
   for (const row of rows) {
     if (row.unitCost !== null) continue;
     const matches = matchCatalogItems(`${row.name} ${row.description}`, liteCatalogItems, 3);
     if (matches.length > 0) suggestions[row.itemOrder] = matches;
+    referenceMatchJobs.push(
+      matchReferenceProducts(db, `${row.name} ${row.description}`, 3, {
+        categorySlug: quotation.category?.slug ?? null,
+        categoryName: quotation.category?.name ?? null,
+        expenseGroup: quotation.expenseGroup
+      }).then((referenceMatches) => ({
+        itemOrder: row.itemOrder,
+        matches: referenceMatches
+      }))
+    );
+  }
+  for (const { itemOrder, matches } of await Promise.all(referenceMatchJobs)) {
+    if (matches.length > 0) referenceSuggestions[itemOrder] = matches;
   }
 
   return (
@@ -152,6 +170,7 @@ export default async function WorksheetPage({ params }: WorksheetPageProps) {
             totalReferenceValue: quotation.totalReferenceValue ?? null,
             categoryName: quotation.category?.name ?? null
           }}
+          referenceSuggestions={referenceSuggestions}
           suggestions={suggestions}
         />
       </section>

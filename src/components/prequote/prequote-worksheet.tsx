@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import type { BestPriceResult } from "@/lib/search/best-price";
 import { providerLabel } from "@/lib/search/best-price";
 import type { CatalogItemLite, CatalogMatch } from "@/lib/catalog/match";
+import type { ReferenceMatch } from "@/lib/catalog/reference-match";
 import { calcPreQuoteTotals, formatBRL, formatPercent } from "@/lib/prequote/calc";
 import { ProposalActionButton } from "@/components/proposal-action-button";
 
@@ -41,27 +42,31 @@ export type WorksheetQuotation = {
   categoryName: string | null;
 };
 
-export function PrequoteWorksheet({
-  quotation,
-  initialPreQuoteId,
-  initialRows,
-  suggestions,
-  catalogItems,
-  initialMarginPercent = 0,
-  initialFreightCost = 0,
-  initialStatus = "draft",
-  initialNotes = ""
-}: {
+type PrequoteWorksheetProps = {
   quotation: WorksheetQuotation;
   initialPreQuoteId: number | null;
   initialRows: WorksheetRow[];
+  referenceSuggestions?: Record<number, ReferenceMatch[]>;
   suggestions: Record<number, CatalogMatch[]>;
   catalogItems: CatalogItemLite[];
   initialMarginPercent?: number;
   initialFreightCost?: number;
   initialStatus?: "draft" | "closed";
   initialNotes?: string;
-}) {
+};
+
+export function PrequoteWorksheet({
+  quotation,
+  initialPreQuoteId,
+  initialRows,
+  referenceSuggestions = {},
+  suggestions,
+  catalogItems,
+  initialMarginPercent = 0,
+  initialFreightCost = 0,
+  initialStatus = "draft",
+  initialNotes = ""
+}: PrequoteWorksheetProps) {
   const [rows, setRows] = useState<WorksheetRow[]>(initialRows);
   const [preQuoteId, setPreQuoteId] = useState<number | null>(initialPreQuoteId);
   const [marginText, setMarginText] = useState(String(initialMarginPercent));
@@ -74,6 +79,42 @@ export function PrequoteWorksheet({
   const [searchingRow, setSearchingRow] = useState<number | null>(null);
   const [searchResults, setSearchResults] = useState<Record<number, BestPriceResult>>({});
   const [openSearchRow, setOpenSearchRow] = useState<number | null>(null);
+  const [batchLoading, setBatchLoading] = useState(false);
+  const [batchResults, setBatchResults] = useState<Record<string, BestPriceResult>>({});
+
+  useEffect(() => {
+    let active = true;
+    const rowsWithoutCost = initialRows.filter((r) => r.unitCost === null && r.name.trim());
+    const queries = Array.from(new Set(rowsWithoutCost.map((r) => r.name.trim()))).slice(0, 40);
+
+    if (queries.length === 0) return;
+
+    setBatchLoading(true);
+    fetch("/api/search/best-price/batch", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ queries })
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!active || !data) return;
+        if (data.results && typeof data.results === "object") {
+          setBatchResults(data.results as Record<string, BestPriceResult>);
+        }
+      })
+      .catch(() => {
+        // Silêncio em caso de erro na busca em lote
+      })
+      .finally(() => {
+        if (active) {
+          setBatchLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [initialRows]);
 
   const marginPercent = parseNonNegative(marginText);
   const freightCost = parseNonNegative(freightText);
@@ -274,6 +315,14 @@ export function PrequoteWorksheet({
             const lineRef = row.referenceUnitValue !== null ? row.referenceUnitValue * row.quantity : null;
             const lineCost = row.unitCost !== null ? row.unitCost * row.quantity : null;
             const rowSuggestions = suggestions[row.itemOrder] ?? [];
+            const rowReferenceSuggestions = getUniqueReferenceMatches(referenceSuggestions[row.itemOrder] ?? []);
+            const autoPriceResult = batchResults[row.name.trim()] ?? batchResults[row.name];
+            const autoRealOffer = autoPriceResult?.offers?.[0];
+            const hasAnySuggestions =
+              rowSuggestions.length > 0 ||
+              batchLoading ||
+              Boolean(autoRealOffer) ||
+              rowReferenceSuggestions.length > 0;
             const result = searchResults[row.itemOrder];
             const isSearching = searchingRow === row.itemOrder;
             const isSearchOpen = openSearchRow === row.itemOrder;
@@ -353,21 +402,130 @@ export function PrequoteWorksheet({
                   </div>
                 </div>
 
-                {row.unitCost === null && rowSuggestions.length > 0 && (
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wide text-[var(--color-fg-muted)]">
-                      Sugestões do catálogo:
-                    </span>
-                    {rowSuggestions.map((suggestion) => (
-                      <button
-                        className="rounded-full border border-[var(--color-border)] bg-[var(--color-bg-subtle)] px-3 py-1 text-xs font-semibold text-[var(--color-fg)] hover:border-[var(--color-primary)]/50"
-                        key={suggestion.item.id}
-                        onClick={() => pickCatalogItem(row.itemOrder, suggestion.item.id)}
-                        type="button"
-                      >
-                        {suggestion.item.supplierName} · {suggestion.item.name} — {formatBRL(suggestion.item.unitPrice)}
-                      </button>
-                    ))}
+                {row.unitCost === null && hasAnySuggestions && (
+                  <div className="mt-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)]/70 p-3 space-y-2.5">
+                    <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
+                      <span>💡 Sugestões para este item</span>
+                    </div>
+
+                    {/* a. Catálogo próprio */}
+                    {rowSuggestions.length > 0 && (
+                      <div className="space-y-1.5">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--color-fg-muted)]">
+                          Catálogo próprio:
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {rowSuggestions.map((suggestion) => (
+                            <button
+                              className="rounded-full border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1 text-xs font-semibold text-[var(--color-fg)] hover:border-[var(--color-primary)]/50 transition-colors"
+                              key={suggestion.item.id}
+                              onClick={() => pickCatalogItem(row.itemOrder, suggestion.item.id)}
+                              title={`Usar preço do catálogo: ${suggestion.item.supplierName}`}
+                              type="button"
+                            >
+                              {suggestion.item.supplierName} · {suggestion.item.name} — {formatBRL(suggestion.item.unitPrice)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* b. Real Distribuidora */}
+                    {batchLoading && (
+                      <div className="flex items-center gap-2 text-xs text-[var(--color-fg-muted)]">
+                        <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
+                        <span>Buscando preço na Real Distribuidora…</span>
+                      </div>
+                    )}
+
+                    {!batchLoading && autoRealOffer && (
+                      <div className="space-y-1.5">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--color-fg-muted)]">
+                          Oferta encontrada ({providerLabel(autoRealOffer.provider || "realdist")}):
+                        </p>
+                        <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-2.5">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="rounded bg-[var(--color-primary)]/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--color-primary)]">
+                                {providerLabel(autoRealOffer.provider || "realdist")}
+                              </span>
+                              <span className="font-semibold text-xs text-[var(--color-fg)] break-words" title={autoRealOffer.title}>
+                                {autoRealOffer.title}
+                              </span>
+                            </div>
+                            <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-[var(--color-fg-muted)]">
+                              {autoRealOffer.seller && <span>Vendido por: <strong>{autoRealOffer.seller}</strong></span>}
+                              {autoRealOffer.url && (
+                                <a
+                                  className="text-[var(--color-primary)] underline hover:opacity-80"
+                                  href={autoRealOffer.url}
+                                  rel="noreferrer"
+                                  target="_blank"
+                                >
+                                  ver anúncio ↗
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2.5 shrink-0">
+                            <span className="text-sm font-extrabold tabular-nums text-[var(--color-success)]">
+                              {formatBRL(autoRealOffer.price)}
+                            </span>
+                            <button
+                              className="action-primary !min-h-8 !px-3 !py-1 text-xs"
+                              onClick={() => applyWebOffer(row.itemOrder, autoRealOffer.title, autoRealOffer.price, autoRealOffer.url)}
+                              type="button"
+                            >
+                              Usar preço
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* c. Cescom (Identificação do produto, SEM preço) */}
+                    {rowReferenceSuggestions.length > 0 && (
+                      <div className="space-y-1.5">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--color-fg-muted)]">
+                          Identificação do produto (Cescom):
+                        </p>
+                        <div className="grid gap-1.5">
+                          {rowReferenceSuggestions.map((match) => (
+                            <div
+                              className="rounded-lg border border-dashed border-[var(--color-border)] bg-[var(--color-bg)]/80 p-2 text-xs"
+                              key={match.item.id}
+                            >
+                              <div className="flex flex-wrap items-baseline justify-between gap-1.5">
+                                <span className="font-medium text-[var(--color-fg)] break-words">
+                                  {match.item.name}
+                                </span>
+                                {match.item.url && (
+                                  <a
+                                    className="text-[11px] text-[var(--color-primary)] hover:underline shrink-0"
+                                    href={match.item.url}
+                                    rel="noreferrer"
+                                    target="_blank"
+                                  >
+                                    ver no Cescom ↗
+                                  </a>
+                                )}
+                              </div>
+                              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-[var(--color-fg-muted)]">
+                                {match.item.brand && (
+                                  <span>Marca: <strong className="text-[var(--color-fg)]">{match.item.brand}</strong></span>
+                                )}
+                                {match.item.ean && (
+                                  <span>EAN: <strong className="tabular-nums text-[var(--color-fg)]">{match.item.ean}</strong></span>
+                                )}
+                                {match.item.department && (
+                                  <span>Depto: {match.item.department}</span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -594,3 +752,17 @@ function sourceLabel(source: WorksheetRow["source"]) {
 function escapeCsv(value: string) {
   return /[";\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
 }
+
+function getUniqueReferenceMatches(matches: ReferenceMatch[] = []): ReferenceMatch[] {
+  const seen = new Set<string>();
+  const result: ReferenceMatch[] = [];
+  for (const match of matches) {
+    const key = match.item.name.trim().toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(match);
+    }
+  }
+  return result;
+}
+
