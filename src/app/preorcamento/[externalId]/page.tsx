@@ -5,6 +5,7 @@ import {
   PrequoteWorksheet,
   type WorksheetRow
 } from "@/components/prequote/prequote-worksheet";
+import { ProposalActionButton } from "@/components/proposal-action-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { NotificationBell } from "@/components/notification-bell";
 import type { CatalogItemLite, CatalogMatch } from "@/lib/catalog/match";
@@ -113,6 +114,15 @@ export default async function WorksheetPage({ params }: WorksheetPageProps) {
               <span className="text-xs tabular-nums text-[var(--color-fg-muted)]">
                 Prazo: {formatDate(quotation.proposalDeadline ?? quotation.proposalDate)}
               </span>
+              <ProposalActionButton
+                className="mt-2 w-full"
+                canSubmitProposal={quotation.canSubmitProposal}
+                disabled={quotation.proposalBlocked}
+                disabledReason={quotation.proposalBlockedReason}
+                label="Fazer lance no portal"
+                orderId={quotation.orderId}
+                proposalUrl={quotation.proposalUrl}
+              />
             </div>
           </div>
         </div>
@@ -135,6 +145,10 @@ export default async function WorksheetPage({ params }: WorksheetPageProps) {
             expenseGroup: quotation.expenseGroup,
             headline: quotation.headline,
             proposalDeadline: quotation.proposalDeadline ?? null,
+            proposalUrl: quotation.proposalUrl,
+            canSubmitProposal: quotation.canSubmitProposal,
+            proposalBlocked: quotation.proposalBlocked,
+            proposalBlockedReason: quotation.proposalBlockedReason,
             totalReferenceValue: quotation.totalReferenceValue ?? null,
             categoryName: quotation.category?.name ?? null
           }}

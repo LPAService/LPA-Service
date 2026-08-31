@@ -6,6 +6,7 @@ import type { BestPriceResult } from "@/lib/search/best-price";
 import { providerLabel } from "@/lib/search/best-price";
 import type { CatalogItemLite, CatalogMatch } from "@/lib/catalog/match";
 import { calcPreQuoteTotals, formatBRL, formatPercent } from "@/lib/prequote/calc";
+import { ProposalActionButton } from "@/components/proposal-action-button";
 
 export type WorksheetRow = {
   itemOrder: number;
@@ -32,6 +33,10 @@ export type WorksheetQuotation = {
   expenseGroup: string;
   headline: string;
   proposalDeadline: string | null;
+  proposalUrl?: string | null;
+  canSubmitProposal?: boolean;
+  proposalBlocked?: boolean;
+  proposalBlockedReason?: string | null;
   totalReferenceValue: number | null;
   categoryName: string | null;
 };
@@ -545,6 +550,15 @@ export function PrequoteWorksheet({
             <button className="action-secondary w-full" onClick={exportCsv} type="button">
               Exportar CSV
             </button>
+            <ProposalActionButton
+              className="w-full"
+              canSubmitProposal={quotation.canSubmitProposal}
+              disabled={quotation.proposalBlocked}
+              disabledReason={quotation.proposalBlockedReason}
+              label="Fazer lance no portal"
+              orderId={quotation.orderId}
+              proposalUrl={quotation.proposalUrl}
+            />
             <Link className="action-secondary inline-flex min-h-11 items-center justify-center" href="/preorcamento">
               ← Voltar para pré-orçamentos
             </Link>

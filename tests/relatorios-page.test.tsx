@@ -4,65 +4,72 @@ import { createRoot, type Root } from "react-dom/client";
 import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import RelatoriosPage from "@/app/relatorios/page";
+import { competitiveAnalytics } from "@/lib/data/analytics";
 
 const { mockSnapshot } = vi.hoisted(() => {
   return {
     mockSnapshot: {
+      summary: {
+        adjudicatedCount: 2,
+        supplierCount: 2,
+        unitPriceCount: 60,
+        expenseGroupCount: 2
+      },
       lossReasons: [
         {
           reason: "prazo_inviavel" as const,
-          count: 7448,
+          count: 12,
           pct: 41.3,
           medianGap: 0,
           explanation: "Prazo de envio no mesmo dia ou entrega em menos de 48h. Inviabilidade logística calculada."
         },
         {
           reason: "bloqueada" as const,
-          count: 2084,
+          count: 3,
           pct: 11.5,
           medianGap: null,
           explanation: "Cotações com instrução expressa de bloqueio, itens zerados ou regularização cadastral interna."
         },
         {
           reason: "incumbente" as const,
-          count: 1420,
+          count: 5,
           pct: 7.9,
           medianGap: null,
-          explanation: "96 escolas com líder cativo (>50% de participação). Barreira de entrada histórica na unidade."
+          explanation: "Escolas com líder cativo na base sincronizada."
         },
         {
           reason: "reserva_pnae" as const,
-          count: 890,
+          count: 4,
           pct: 4.9,
           medianGap: null,
           explanation: "Gêneros alimentícios dominados por cooperativas e associações de agricultura familiar com proteção legal."
         },
         {
           reason: "preco" as const,
-          count: 650,
+          count: 2,
           pct: 3.6,
           medianGap: 20.0,
-          explanation: "Diferença direta de preço unitário. Mediana de deságio dos vencedores é de 20% abaixo da referência válida."
+          explanation: "Diferença direta de preço unitário calculada pela base."
         }
       ],
       winnerPlaybook: [
         {
-          supplierName: "REGINA THIELLE ALVES SILVA",
+          supplierName: "Fornecedor Real Um",
           supplierDocument: "34.128.941/0001-80",
-          orders: 616,
-          totalValue: 1845200,
-          schools: 122,
-          expenseGroups: 9,
+          orders: 6,
+          totalValue: 18452,
+          schools: 3,
+          expenseGroups: 2,
           topGroup: "Material de Consumo Geral",
           medianTicket: 2450,
           isCooperative: false
         },
         {
-          supplierName: "ASSOCIACAO DOS TRABALHADORES RURAIS DE BETIM",
+          supplierName: "Cooperativa Real Dois",
           supplierDocument: "02.441.892/0001-34",
-          orders: 332,
-          totalValue: 1284000,
-          schools: 48,
+          orders: 4,
+          totalValue: 12840,
+          schools: 2,
           expenseGroups: 1,
           topGroup: "Gêneros Alimentícios",
           medianTicket: 3867,
@@ -71,10 +78,10 @@ const { mockSnapshot } = vi.hoisted(() => {
       ],
       priceBenchmark: [
         {
-          product: "Papel A4 Sulfite 75g/m² Branco (Pacote 500 folhas)",
+          product: "produto real homologado",
           unit: "PCT",
-          samples: 412,
-          supplierCount: 58,
+          samples: 30,
+          supplierCount: 2,
           minPrice: 21.5,
           p25: 24.8,
           median: 26.9,
@@ -98,8 +105,8 @@ const { mockSnapshot } = vi.hoisted(() => {
       categoryCompetition: [
         {
           expenseGroup: "Conservação e Pequenos Reparos",
-          orders: 1420,
-          supplierCount: 394,
+          orders: 8,
+          supplierCount: 4,
           leaderSharePct: 2.5,
           medianTicket: 3450,
           p25Ticket: 1800,
@@ -108,8 +115,8 @@ const { mockSnapshot } = vi.hoisted(() => {
         },
         {
           expenseGroup: "Material de Consumo Geral",
-          orders: 3840,
-          supplierCount: 345,
+          orders: 7,
+          supplierCount: 3,
           leaderSharePct: 4.2,
           medianTicket: 2480,
           p25Ticket: 1200,
@@ -118,8 +125,8 @@ const { mockSnapshot } = vi.hoisted(() => {
         },
         {
           expenseGroup: "Gêneros Alimentícios",
-          orders: 4576,
-          supplierCount: 248,
+          orders: 6,
+          supplierCount: 2,
           leaderSharePct: 14.7,
           medianTicket: 3850,
           p25Ticket: 1950,
@@ -129,13 +136,13 @@ const { mockSnapshot } = vi.hoisted(() => {
       ],
       incumbencyMap: [
         {
-          school: "E.E. GUIMARAES ROSA",
+          school: "E.E. REAL SINCRONIZADA",
           idSchool: 10284,
           city: "Belo Horizonte",
-          leaderSupplier: "REGINA THIELLE ALVES SILVA",
-          leaderOrders: 38,
-          totalOrders: 42,
-          leaderSharePct: 90.5
+          leaderSupplier: "Fornecedor Real Um",
+          leaderOrders: 4,
+          totalOrders: 5,
+          leaderSharePct: 80
         }
       ],
       winnerDiscount: {
@@ -175,8 +182,17 @@ vi.mock("@/lib/data/source", () => ({
   }
 }));
 
+vi.mock("@/components/notification-bell", () => ({
+  NotificationBell: () => React.createElement("span", null, "Notificações")
+}));
+
+vi.mock("@/components/theme-toggle", () => ({
+  ThemeToggle: () => React.createElement("button", { type: "button" }, "Tema")
+}));
+
 vi.mock("@/lib/data/analytics", () => ({
   competitiveAnalytics: {
+    getSummary: vi.fn().mockResolvedValue(mockSnapshot.summary),
     getLossReasons: vi.fn().mockResolvedValue(mockSnapshot.lossReasons),
     getWinnerPlaybook: vi.fn().mockResolvedValue(mockSnapshot.winnerPlaybook),
     getPriceBenchmark: vi.fn().mockResolvedValue(mockSnapshot.priceBenchmark),
@@ -213,34 +229,34 @@ describe("RelatoriosPage", () => {
 
     // KPIs de Topo
     expect(text).toContain("Compras Adjudicadas");
-    expect(text).toContain("11.876");
+    expect(text).toContain("2");
     expect(text).toContain("Fornecedores Mapeados");
-    expect(text).toContain("1.749");
+    expect(text).toContain("2");
     expect(text).toContain("Preços Unitários Reais");
-    expect(text).toContain("68.038");
+    expect(text).toContain("60");
 
     // Seção 1: Por que você perde
     expect(text).toContain("Por que você perde");
     expect(text).toContain("Prazo de Entrega Inviável");
-    expect(text).toContain("7.448");
+    expect(text).toContain("12");
     expect(text).toContain("41,3%");
     expect(text).toContain("Cotações com Bloqueio");
-    expect(text).toContain("2.084");
+    expect(text).toContain("3");
     expect(text).toContain("Escolas com Fornecedor Cativo");
     expect(text).toContain("Diferença de Preço Unitário");
 
     // Seção 2: Como os vencedores ganham (Playbook)
     expect(text).toContain("Como os vencedores ganham");
-    expect(text).toContain("REGINA THIELLE ALVES SILVA");
-    expect(text).toContain("ASSOCIACAO DOS TRABALHADORES RURAIS DE BETIM");
+    expect(text).toContain("Fornecedor Real Um");
+    expect(text).toContain("Cooperativa Real Dois");
     expect(text).toContain("Cooperativa PNAE");
 
     // Seção 3: Preço que o vencedor cobrou (Benchmark)
     expect(text).toContain("Preço que o vencedor cobrou");
-    expect(text).toContain("Papel A4 Sulfite");
+    expect(text).toContain("produto real homologado");
     expect(text).toContain("Caneta Esferográfica Azul");
     expect(text).toContain("items.unit_value");
-    expect(text).toContain("100% de Cobertura");
+    expect(text).not.toContain("100% de Cobertura");
 
     // Seção 4: Onde vale a pena disputar
     expect(text).toContain("Onde vale a pena disputar");
@@ -250,8 +266,8 @@ describe("RelatoriosPage", () => {
 
     // Seção 5: Escolas com dono
     expect(text).toContain("Escolas com dono");
-    expect(text).toContain("E.E. GUIMARAES ROSA");
-    expect(text).toContain("90,5%");
+    expect(text).toContain("E.E. REAL SINCRONIZADA");
+    expect(text).toContain("80,0%");
 
     // Seção 6: Plano de ação para o fornecedor
     expect(text).toContain("Plano de ação para o fornecedor");
@@ -259,12 +275,36 @@ describe("RelatoriosPage", () => {
     expect(text).not.toContain("Para a Plataforma (Engenharia)");
   });
 
-  it("renderiza corretamente badges e estado com snapshot auditado", async () => {
+  it("renderiza estado vazio honesto sem dados fabricados quando analytics volta vazio", async () => {
+    vi.mocked(competitiveAnalytics.getSummary).mockResolvedValue({
+      adjudicatedCount: 0,
+      supplierCount: 0,
+      unitPriceCount: 0,
+      expenseGroupCount: 0
+    });
+    vi.mocked(competitiveAnalytics.getLossReasons).mockResolvedValue([]);
+    vi.mocked(competitiveAnalytics.getWinnerPlaybook).mockResolvedValue([]);
+    vi.mocked(competitiveAnalytics.getPriceBenchmark).mockResolvedValue([]);
+    vi.mocked(competitiveAnalytics.getCategoryCompetition).mockResolvedValue([]);
+    vi.mocked(competitiveAnalytics.getIncumbencyMap).mockResolvedValue([]);
+    vi.mocked(competitiveAnalytics.getWinnerDiscount).mockResolvedValue({
+      pairs: 0,
+      medianRatio: null,
+      belowRefCount: 0,
+      sanitizedPairs: 0,
+      sanitizedMedianDiscountPct: null,
+      byGroup: []
+    });
+
     const pageComponent = await RelatoriosPage();
     render(pageComponent);
 
-    expect(container!.textContent).toContain("Auditoria Base SGD (20/08/2026)");
-    expect(container!.textContent).toContain("20/08/2026");
+    const text = container!.textContent || "";
+    expect(text).toContain("Sem histórico adjudicado sincronizado nesta base.");
+    expect(text).toContain("Esta análise depende da tabela `opportunities`");
+    expect(text).not.toContain("7.448");
+    expect(text).not.toContain("Papel A4 Sulfite");
+    expect(text).not.toContain("GUIMARAES ROSA");
   });
 
   function render(element: React.ReactNode) {

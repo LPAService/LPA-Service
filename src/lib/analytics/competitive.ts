@@ -77,6 +77,20 @@ export type WinnerDiscount = {
   byGroup: WinnerDiscountGroup[];
 };
 
+export type CompetitiveSummary = {
+  adjudicatedCount: number;
+  supplierCount: number;
+  unitPriceCount: number;
+  expenseGroupCount: number;
+};
+
+type CompetitiveSummaryRow = {
+  adjudicated_count: number;
+  supplier_count: number;
+  unit_price_count: number;
+  expense_group_count: number;
+};
+
 type LossReasonRow = {
   reason: LossReason["reason"];
   count: number;
@@ -152,6 +166,27 @@ const cityExpression = sql`coalesce(nullif(${opportunities.city}, ''), nullif(${
 
 export function createCompetitiveAnalytics(database: AnalyticsDatabase) {
   return {
+    async getSummary(): Promise<CompetitiveSummary> {
+      const result = await database.execute<CompetitiveSummaryRow>(sql`
+        select
+          count(distinct ${opportunities.id})::integer as adjudicated_count,
+          count(distinct ${opportunities.supplierDocument}) filter (where ${opportunities.supplierDocument} is not null)::integer as supplier_count,
+          count(${items.id}) filter (where ${items.unitValue} is not null and ${items.unitValue} > 0)::integer as unit_price_count,
+          count(distinct ${opportunities.expenseGroup}) filter (where ${opportunities.expenseGroup} is not null)::integer as expense_group_count
+        from ${opportunities}
+        left join ${items} on ${items.opportunityId} = ${opportunities.id}
+        left join ${schools} on ${schools.idSchool} = ${opportunities.idSchool}
+        where ${opportunityScopeWhere()}
+      `);
+      const row = result.rows[0];
+      return {
+        adjudicatedCount: row?.adjudicated_count ?? 0,
+        supplierCount: row?.supplier_count ?? 0,
+        unitPriceCount: row?.unit_price_count ?? 0,
+        expenseGroupCount: row?.expense_group_count ?? 0
+      };
+    },
+
     async getLossReasons(): Promise<LossReason[]> {
       const result = await database.execute<LossReasonRow>(sql`
         with matched as (
