@@ -71,6 +71,13 @@
       "when": 1787697251121,
       "tag": "0010_sudden_zeigeist",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1788194695791,
+      "tag": "0011_striped_bloodaxe",
+      "breakpoints": true
     }
   ]
 }

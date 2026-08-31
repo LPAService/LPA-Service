@@ -347,6 +347,29 @@ export const catalogItems = pgTable(
 );
 
 
+export const referenceProducts = pgTable(
+  "reference_products",
+  {
+    id: serial("id").primaryKey(),
+    source: text("source").notNull(),
+    externalId: text("external_id").notNull(),
+    name: text("name").notNull(),
+    normalizedName: text("normalized_name").notNull(),
+    ean: text("ean"),
+    brand: text("brand"),
+    department: text("department"),
+    packaging: text("packaging"),
+    url: text("url"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    uniqueIndex("reference_products_source_external_unique").on(table.source, table.externalId),
+    index("reference_products_normalized_name_idx").on(table.normalizedName),
+    index("reference_products_ean_idx").on(table.ean)
+  ]
+);
+
 export const watchedQuotations = pgTable(
   "watched_quotations",
   {

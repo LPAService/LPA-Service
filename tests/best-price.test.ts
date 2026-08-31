@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  bestPriceProviderChain,
   parseBrazilianPrice,
   parseMercadoLivreResponse,
+  parseRealdistSearchResponse,
   parseZoomSearchResponse,
   searchBestPrice
 } from "@/lib/search/best-price";
@@ -66,6 +68,88 @@ describe("parseMercadoLivreResponse", () => {
     expect(parseMercadoLivreResponse(null)).toEqual([]);
     expect(parseMercadoLivreResponse({ results: "nope" })).toEqual([]);
     expect(parseMercadoLivreResponse("texto")).toEqual([]);
+  });
+});
+
+describe("parseRealdistSearchResponse", () => {
+  const item = ({
+    title,
+    price,
+    href,
+    ean = "7898616520097",
+    thumbnail = "https://cdn.awsli.com.br/300x300/123/produto.jpg",
+    priceClass = "preco-promocional"
+  }: {
+    title: string;
+    price?: string;
+    href: string;
+    ean?: string;
+    thumbnail?: string;
+    priceClass?: "preco-promocional" | "preco-venda";
+  }) => `
+    <li class="listagem-item prod-id-10" data-id="10">
+      <a href="${href}" class="nome-produto cor-secundaria">${title}</a>
+      <div class="produto-sku hide">${ean}</div>
+      ${
+        price
+          ? `<strong class="${priceClass} cor-principal titulo" data-sell-price="${price}"> R$ 99,99 </strong>`
+          : ""
+      }
+      <img src="${thumbnail}" class="imagem-principal" />
+    </li>`;
+
+  it("extrai título, preço, URL absoluta, thumbnail e EAN", () => {
+    const offers = parseRealdistSearchResponse(
+      item({
+        title: "Papel Sulfite A4 &amp; Carta",
+        price: "42.31",
+        href: "/papel-sulfite-a4"
+      })
+    );
+
+    expect(offers).toHaveLength(1);
+    expect(offers[0]).toEqual({
+      provider: "realdist",
+      title: "Papel Sulfite A4 & Carta",
+      price: 42.31,
+      currency: "BRL",
+      url: "https://www.realdist.com.br/papel-sulfite-a4",
+      thumbnail: "https://cdn.awsli.com.br/300x300/123/produto.jpg",
+      seller: "Real Distribuidora",
+      condition: "new",
+      available: null,
+      ean: "7898616520097"
+    });
+  });
+
+  it("descarta template de minicart e item sem preço válido", () => {
+    const html = [
+      `<li class="listagem-item minicart-item-modelo">
+        <a href="--PRODUTO_URL--" class="nome-produto cor-secundaria">--PRODUTO_NOME--</a>
+        <strong class="preco-promocional" data-sell-price="999">--PRODUTO_PRECO_POR--</strong>
+      </li>`,
+      item({ title: "Sem preço", href: "/sem-preco" }),
+      item({ title: "Preço zero", price: "0", href: "/preco-zero" }),
+      item({ title: "Produto válido", price: "12.5", href: "https://www.realdist.com.br/produto-valido" })
+    ].join("");
+
+    const offers = parseRealdistSearchResponse(html);
+
+    expect(offers.map((offer) => offer.title)).toEqual(["Produto válido"]);
+    expect(offers[0].url).toBe("https://www.realdist.com.br/produto-valido");
+  });
+
+  it("aceita preco-venda e ordena pelo menor preço", () => {
+    const html = [
+      item({ title: "Produto caro", price: "30.10", href: "/caro" }),
+      item({ title: "Produto barato", price: "8.99", href: "/barato", priceClass: "preco-venda" }),
+      item({ title: "Produto médio", price: "15.50", href: "/medio" })
+    ].join("");
+
+    const offers = parseRealdistSearchResponse(html);
+
+    expect(offers.map((offer) => offer.title)).toEqual(["Produto barato", "Produto médio", "Produto caro"]);
+    expect(offers.map((offer) => offer.price)).toEqual([8.99, 15.5, 30.1]);
   });
 });
 
@@ -155,5 +239,34 @@ describe("searchBestPrice", () => {
 
     expect(result.query).toBe("papel a4");
     expect(result.offers).toEqual([]);
+  });
+});
+
+describe("bestPriceProviderChain", () => {
+  const original = process.env.WEB_SEARCH_PROVIDER;
+  afterEach(() => {
+    if (original === undefined) delete process.env.WEB_SEARCH_PROVIDER;
+    else process.env.WEB_SEARCH_PROVIDER = original;
+  });
+
+  it("usa Real Distribuidora antes dos provedores gerais no modo auto", () => {
+    delete process.env.WEB_SEARCH_PROVIDER;
+    expect(bestPriceProviderChain().map((provider) => provider.name)).toEqual([
+      "realdist",
+      "mercadolivre",
+      "zoom"
+    ]);
+
+    process.env.WEB_SEARCH_PROVIDER = "auto";
+    expect(bestPriceProviderChain().map((provider) => provider.name)).toEqual([
+      "realdist",
+      "mercadolivre",
+      "zoom"
+    ]);
+  });
+
+  it("aceita Real Distribuidora como provider único nomeado", () => {
+    process.env.WEB_SEARCH_PROVIDER = "realdist";
+    expect(bestPriceProviderChain().map((provider) => provider.name)).toEqual(["realdist"]);
   });
 });

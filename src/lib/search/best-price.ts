@@ -24,6 +24,8 @@ type BestPriceProvider = {
 };
 
 const MERCADO_LIVRE_API = "https://api.mercadolibre.com/sites/MLB/search";
+const REALDIST_SEARCH_URL = "https://www.realdist.com.br/buscar";
+const REALDIST_BASE_URL = "https://www.realdist.com.br";
 const ZOOM_SEARCH_URL = "https://www.zoom.com.br/search";
 const ZOOM_BASE_URL = "https://www.zoom.com.br";
 const REQUEST_TIMEOUT_MS = 8000;
@@ -31,6 +33,11 @@ const BROWSER_USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
 
 const providers: Record<string, BestPriceProvider> = {
+  realdist: {
+    name: "realdist",
+    label: "Real Distribuidora",
+    search: searchRealdist
+  },
   mercadolivre: {
     name: "mercadolivre",
     label: "Mercado Livre",
@@ -46,11 +53,11 @@ const providers: Record<string, BestPriceProvider> = {
 export function bestPriceProviderChain(): BestPriceProvider[] {
   const configured = process.env.WEB_SEARCH_PROVIDER?.trim().toLowerCase();
   if (!configured || configured === "auto") {
-    return [providers.mercadolivre, providers.zoom];
+    return [providers.realdist, providers.mercadolivre, providers.zoom];
   }
   if (configured === "none") return [];
   const provider = providers[configured];
-  return provider ? [provider] : [providers.mercadolivre, providers.zoom];
+  return provider ? [provider] : [providers.realdist, providers.mercadolivre, providers.zoom];
 }
 
 export function providerLabel(name: string) {
@@ -128,6 +135,70 @@ export function parseMercadoLivreResponse(payload: unknown): BestPriceOffer[] {
       available: readNumber(row.available_quantity)
     });
   }
+  return offers;
+}
+
+async function searchRealdist(query: string, limit: number): Promise<BestPriceOffer[]> {
+  const url = new URL(REALDIST_SEARCH_URL);
+  url.searchParams.set("q", query);
+  const html = await fetchText(url.toString());
+  const offers = parseRealdistSearchResponse(html);
+  return offers.slice(0, limit);
+}
+
+export type RealdistBestPriceOffer = BestPriceOffer & {
+  ean: string | null;
+};
+
+export function parseRealdistSearchResponse(html: string): RealdistBestPriceOffer[] {
+  if (!html || typeof html !== "string") return [];
+  const htmlWithoutTemplates = html.replace(/<li\b(?=[^>]*\bminicart-item-modelo\b)[\s\S]*?<\/li>/gi, "");
+  const items = htmlWithoutTemplates.split(/<(?:li|div)\b(?=[^>]*\blistagem-item\b)/i);
+  const offers: RealdistBestPriceOffer[] = [];
+  for (const item of items.slice(1)) {
+    const chunk = item;
+    if (!chunk || chunk.includes("--PRODUTO_")) continue;
+    const href = readFirstGroup(
+      chunk,
+      /<a\b(?=[^>]*\bnome-produto\b)[^>]*\bhref=["']([^"']+)["'][^>]*>/i
+    );
+    const titleHtml = readFirstGroup(
+      chunk,
+      /<a\b(?=[^>]*\bnome-produto\b)[^>]*>([\s\S]*?)<\/a>/i
+    );
+    const priceValue =
+      readFirstGroup(
+        chunk,
+        /<(?:strong|span|div)\b(?=[^>]*\bpreco-promocional\b)[^>]*\bdata-sell-price=["']([^"']+)["'][^>]*>/i
+      ) ??
+      readFirstGroup(
+        chunk,
+        /<(?:strong|span|div)\b(?=[^>]*\bpreco-venda\b)[^>]*\bdata-sell-price=["']([^"']+)["'][^>]*>/i
+      );
+    const price = priceValue ? Number(priceValue) : null;
+    if (!href || !titleHtml || !Number.isFinite(price) || price === null || price <= 0) continue;
+    const thumbnail = readFirstGroup(
+      chunk,
+      /<img\b(?=[^>]*\bimagem-principal\b)[^>]*\bsrc=["']([^"']+)["'][^>]*>/i
+    );
+    const eanHtml = readFirstGroup(
+      chunk,
+      /<div\b(?=[^>]*\bproduto-sku\b)[^>]*>([\s\S]*?)<\/div>/i
+    );
+    offers.push({
+      provider: "realdist",
+      title: decodeEntities(stripTags(titleHtml)).trim(),
+      price: Math.round(price * 100) / 100,
+      currency: "BRL",
+      url: new URL(decodeEntities(href), REALDIST_BASE_URL).toString(),
+      thumbnail: thumbnail ? decodeEntities(thumbnail) : null,
+      seller: "Real Distribuidora",
+      condition: "new",
+      available: null,
+      ean: eanHtml ? decodeEntities(stripTags(eanHtml)).trim() || null : null
+    });
+  }
+  offers.sort((a, b) => a.price - b.price);
   return offers;
 }
 
