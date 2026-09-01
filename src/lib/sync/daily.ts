@@ -19,9 +19,13 @@ export type DailySyncSummary = {
   countiesProcessed: number;
   quotationRun?: {
     found: number;
+    fetched?: number;
+    skipped?: number;
     new: number;
     updated: number;
     errors: CollectionError[];
+    status?: string;
+    resumeCursor?: unknown;
   };
   notifications?: {
     notificationsCreated: number;
@@ -49,9 +53,13 @@ type DailySyncDependencies = {
   }>;
   collectQuotations?: () => Promise<{
     found: number;
+    fetchedCount?: number;
+    skippedCount?: number;
     newCount: number;
     updatedCount: number;
     errors: CollectionError[];
+    status?: string;
+    resumeCursor?: unknown;
   }>;
   dispatchNotifications?: () => Promise<{
     notificationsCreated: number;
@@ -87,9 +95,13 @@ export async function runDailySync(
         const quotations = await activeDependencies.collectQuotations();
         summary.quotationRun = {
           found: quotations.found,
+          fetched: quotations.fetchedCount ?? 0,
+          skipped: quotations.skippedCount ?? 0,
           new: quotations.newCount,
           updated: quotations.updatedCount,
-          errors: quotations.errors
+          errors: quotations.errors,
+          status: quotations.status,
+          resumeCursor: quotations.resumeCursor
         };
         summary.found += quotations.found;
         summary.new += quotations.newCount;
@@ -231,7 +243,10 @@ async function createDefaultDependencies(startedAt: number): Promise<DailySyncDe
       });
     },
     async collectQuotations() {
-      return collectOpenQuotations();
+      return collectOpenQuotations({
+        timeBudgetMs: Math.max(30_000, DAILY_SYNC_TIMEOUT_MS - (Date.now() - startedAt)),
+        timeBudgetReserveMs: 20_000
+      });
     },
     async dispatchNotifications() {
       const { dispatchQuotationNotifications } = await import("@/lib/notify/dispatch");

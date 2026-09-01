@@ -253,7 +253,8 @@ export const collectionRuns = pgTable(
     newCount: integer("new_count").notNull().default(0),
     updatedCount: integer("updated_count").notNull().default(0),
     errorCount: integer("error_count").notNull().default(0),
-    errors: jsonb("errors").notNull().default([])
+    errors: jsonb("errors").notNull().default([]),
+    cursor: jsonb("cursor")
   },
   (table) => [
     index("collection_runs_started_at_idx").on(table.startedAt),

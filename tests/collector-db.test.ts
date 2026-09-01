@@ -30,7 +30,8 @@ const fixturesRoot = findFixturesRoot();
 const migrationFiles = [
   "drizzle/0000_exotic_hedge_knight.sql",
   "drizzle/0001_curly_lady_deathstrike.sql",
-  "drizzle/0002_ordinary_proemial_gods.sql"
+  "drizzle/0002_ordinary_proemial_gods.sql",
+  "drizzle/0014_open_quotation_cursor.sql"
 ];
 
 function readFixture<T>(name: string): T {

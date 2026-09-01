@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, desc, eq, lt, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import categoriesRaw from "@/lib/classification/categories.json";
 import { classifyOpportunity } from "@/lib/parsing/normalize";
@@ -13,7 +13,24 @@ const API_BASE = "https://api.caixaescolar.educacao.mg.gov.br";
 const PORTAL_BASE = "https://caixaescolar.educacao.mg.gov.br";
 const DEFAULT_PAGE_SIZE = 50;
 const DEFAULT_ITEM_PAGE_SIZE = 50;
+const DEFAULT_TIME_BUDGET_MS = 240_000;
+const DEFAULT_TIME_BUDGET_RESERVE_MS = 15_000;
 const TIER1_ORDER = ["Ibirité", "Contagem", "Betim", "Belo Horizonte"];
+const REQUIRED_CHANGE_SIGNAL_KEYS = ["dtProposalSubmission", "budgetStatus", "supplierStatus"] as const;
+const CHANGE_SIGNAL_KEYS = [
+  "idSupplier",
+  "idCounty",
+  "countyName",
+  "schoolName",
+  "expenseGroupDescription",
+  "expenseGroupRootId",
+  "dtProposalSubmission",
+  "dtServiceDelivery",
+  "budgetStatus",
+  "supplierStatus",
+  "nuBudgetOrder",
+  "year"
+] as const;
 const CATEGORIES_BY_SLUG = new Map(
   (categoriesRaw as Array<{ slug: string; name: string }>).map((category) => [category.slug, category])
 );
@@ -28,16 +45,23 @@ export type CollectQuotationsOptions = {
   itemPageSize?: number;
   fetchFn?: typeof fetch;
   sleepFn?: (ms: number) => Promise<void>;
+  resume?: boolean;
+  timeBudgetMs?: number;
+  timeBudgetReserveMs?: number;
+  nowFn?: () => number;
 };
 
 export type QuotationCollectionResult = {
   runId: number;
-  status: "completed" | "failed";
+  status: "completed" | "partial" | "failed";
   found: number;
+  fetchedCount: number;
+  skippedCount: number;
   newCount: number;
   updatedCount: number;
   errorCount: number;
   errors: Array<{ externalId?: string; message: string }>;
+  resumeCursor: QuotationResumeCursor | null;
 };
 
 export type SummaryRecord = {
@@ -95,6 +119,12 @@ type ItemRecord = {
 type Paginated<T> = {
   data: T[];
   meta?: { totalItems?: number; totalPages?: number; currentPage?: number };
+};
+
+export type QuotationResumeCursor = {
+  countyId: number;
+  countyName: string;
+  page: number;
 };
 
 export class AuthenticatedSgdClient {
@@ -236,23 +266,69 @@ export async function collectOpenQuotationsWithClient(
   repository: QuotationRepository,
   options: CollectQuotationsOptions = {}
 ): Promise<QuotationCollectionResult> {
-  const runId = await repository.startRun(options.dryRun ? "open_quotations_dry_run" : "open_quotations");
-  const result: QuotationCollectionResult = { runId, status: "completed", found: 0, newCount: 0, updatedCount: 0, errorCount: 0, errors: [] };
+  const mode = options.dryRun ? "open_quotations_dry_run" : "open_quotations";
+  const runId = await repository.startRun(mode);
+  const result: QuotationCollectionResult = {
+    runId,
+    status: "completed",
+    found: 0,
+    fetchedCount: 0,
+    skippedCount: 0,
+    newCount: 0,
+    updatedCount: 0,
+    errorCount: 0,
+    errors: [],
+    resumeCursor: null
+  };
   const counties = options.counties ?? defaultTier1Counties();
   let processed = 0;
+  const now = options.nowFn ?? Date.now;
+  const startedAt = now();
+  const timeBudgetMs = options.timeBudgetMs ?? DEFAULT_TIME_BUDGET_MS;
+  const reserveMs = options.timeBudgetReserveMs ?? DEFAULT_TIME_BUDGET_RESERVE_MS;
+  const previousCursor = options.resume === false ? null : await repository.getResumeCursor(mode, runId);
+  const start = findResumeStart(counties, previousCursor);
+
+  async function finishPartial(cursor: QuotationResumeCursor, message: string) {
+    result.status = "partial";
+    result.resumeCursor = cursor;
+    result.errors.push({ message });
+    result.errorCount = result.errors.length;
+    await repository.saveCursor(runId, cursor);
+    await repository.finishRun(runId, result);
+    return result;
+  }
+
+  function shouldStop() {
+    return timeBudgetMs > 0 && now() - startedAt >= Math.max(0, timeBudgetMs - reserveMs);
+  }
 
   try {
-    for (const county of counties) {
+    for (let countyIndex = start.countyIndex; countyIndex < counties.length; countyIndex += 1) {
+      const county = counties[countyIndex];
+      let page = countyIndex === start.countyIndex ? start.page : 1;
       try {
-        for (let page = 1; ; page += 1) {
+        for (; ; page += 1) {
+          const currentCursor = { countyId: county.idCounty, countyName: county.name, page };
+          if (shouldStop()) {
+            return finishPartial(currentCursor, `Orçamento de tempo atingido antes de ${county.name} página ${page}; próxima execução continuará deste cursor.`);
+          }
           const listing = await client.listOpenQuotations(county, page, options.pageSize ?? DEFAULT_PAGE_SIZE);
           if (listing.data.length === 0) break;
           for (const record of listing.data) {
             if (options.maxRecords && processed >= options.maxRecords) break;
+            if (shouldStop()) {
+              return finishPartial(currentCursor, `Orçamento de tempo atingido em ${county.name} página ${page}; próxima execução relerá a página e pulará cotações inalteradas.`);
+            }
             const externalId = buildQuotationExternalId(record);
             result.found += 1;
             processed += 1;
             try {
+              if (!await repository.shouldFetchQuotation(record)) {
+                result.skippedCount += 1;
+                continue;
+              }
+              result.fetchedCount += 1;
               const detail = await client.getBudgetDetail(record);
               const items = await fetchQuotationItems(client, record, options.itemPageSize ?? DEFAULT_ITEM_PAGE_SIZE);
               const quotation = buildQuotationRecord(record, detail, items);
@@ -267,12 +343,18 @@ export async function collectOpenQuotationsWithClient(
             }
           }
           if ((options.maxRecords && processed >= options.maxRecords) || page >= (listing.meta?.totalPages ?? page)) break;
+          await repository.saveCursor(runId, { countyId: county.idCounty, countyName: county.name, page: page + 1 });
         }
+        const nextCounty = counties[countyIndex + 1];
+        await repository.saveCursor(runId, nextCounty ? { countyId: nextCounty.idCounty, countyName: nextCounty.name, page: 1 } : null);
       } catch (error) {
         result.errorCount += 1;
         result.errors.push({ message: `[${county.name}] ${errorMessage(error)}` });
       }
     }
+    result.errorCount = result.errors.length;
+    result.resumeCursor = null;
+    await repository.saveCursor(runId, null);
     await repository.finishRun(runId, result);
     return result;
   } catch (error) {
@@ -307,6 +389,16 @@ export function selectCounties(input?: string) {
 
 export function buildQuotationExternalId(record: Pick<SummaryRecord, "idSubprogram" | "idSchool" | "idBudget">) {
   return `${record.idSubprogram}-${record.idSchool}-${record.idBudget}`;
+}
+
+export function shouldRefreshQuotationFromListing(current: SummaryRecord, storedRawJson: unknown) {
+  const currentFingerprint = buildListingChangeFingerprint(current, true);
+  if (!currentFingerprint) return true;
+  const previousListing = readStoredListing(storedRawJson);
+  if (!previousListing) return true;
+  const previousFingerprint = buildListingChangeFingerprint(previousListing, true);
+  if (!previousFingerprint) return true;
+  return JSON.stringify(currentFingerprint) !== JSON.stringify(previousFingerprint);
 }
 
 export function buildProposalUrl(record: Pick<SummaryRecord, "idSubprogram" | "idSchool" | "idBudget">) {
@@ -418,6 +510,9 @@ function mapQuotationItem(item: ItemRecord) {
 export type QuotationRepository = {
   startRun(mode: string): Promise<number>;
   finishRun(runId: number, result: QuotationCollectionResult): Promise<void>;
+  getResumeCursor(mode: string, currentRunId: number): Promise<QuotationResumeCursor | null>;
+  saveCursor(runId: number, cursor: QuotationResumeCursor | null): Promise<void>;
+  shouldFetchQuotation(record: SummaryRecord): Promise<boolean>;
   upsertQuotation(record: QuotationRecord): Promise<"new" | "updated">;
 };
 
@@ -439,6 +534,29 @@ export class DrizzleQuotationRepository implements QuotationRepository {
       errorCount: result.errorCount,
       errors: result.errors
     }).where(eq(collectionRuns.id, runId));
+  }
+
+  async getResumeCursor(mode: string, currentRunId: number) {
+    const [row] = await this.database
+      .select({ cursor: collectionRuns.cursor })
+      .from(collectionRuns)
+      .where(and(eq(collectionRuns.mode, mode), lt(collectionRuns.id, currentRunId)))
+      .orderBy(desc(collectionRuns.id))
+      .limit(1);
+    return parseResumeCursor(row?.cursor);
+  }
+
+  async saveCursor(runId: number, cursor: QuotationResumeCursor | null) {
+    await this.database.update(collectionRuns).set({ cursor }).where(eq(collectionRuns.id, runId));
+  }
+
+  async shouldFetchQuotation(record: SummaryRecord) {
+    const [existing] = await this.database
+      .select({ rawJson: quotations.rawJson })
+      .from(quotations)
+      .where(eq(quotations.externalId, buildQuotationExternalId(record)))
+      .limit(1);
+    return existing ? shouldRefreshQuotationFromListing(record, existing.rawJson) : true;
   }
 
   async upsertQuotation(record: QuotationRecord) {
@@ -508,6 +626,49 @@ export class DrizzleQuotationRepository implements QuotationRepository {
     `);
     return result.rows[0]?.id ?? null;
   }
+}
+
+function findResumeStart(counties: QuotationCounty[], cursor: QuotationResumeCursor | null) {
+  if (!cursor) return { countyIndex: 0, page: 1 };
+  const countyIndex = counties.findIndex((county) => county.idCounty === cursor.countyId);
+  if (countyIndex === -1) return { countyIndex: 0, page: 1 };
+  return { countyIndex, page: Math.max(1, cursor.page) };
+}
+
+function parseResumeCursor(value: unknown): QuotationResumeCursor | null {
+  if (!value || typeof value !== "object") return null;
+  const cursor = value as Partial<QuotationResumeCursor>;
+  if (
+    typeof cursor.countyId !== "number" ||
+    typeof cursor.countyName !== "string" ||
+    typeof cursor.page !== "number" ||
+    cursor.page < 1
+  ) {
+    return null;
+  }
+  return { countyId: cursor.countyId, countyName: cursor.countyName, page: Math.floor(cursor.page) };
+}
+
+function readStoredListing(rawJson: unknown): Partial<SummaryRecord> | null {
+  if (!rawJson || typeof rawJson !== "object") return null;
+  const listing = (rawJson as { listing?: unknown }).listing;
+  if (listing && typeof listing === "object") return listing as Partial<SummaryRecord>;
+  return "idSubprogram" in rawJson && "idSchool" in rawJson && "idBudget" in rawJson ? rawJson as Partial<SummaryRecord> : null;
+}
+
+function buildListingChangeFingerprint(record: Partial<SummaryRecord>, requireSignals: boolean) {
+  if (requireSignals && REQUIRED_CHANGE_SIGNAL_KEYS.some((key) => record[key] === undefined || record[key] === null)) return null;
+  return Object.fromEntries(CHANGE_SIGNAL_KEYS.map((key) => [key, normalizeSignalValue(record[key])]));
+}
+
+function normalizeSignalValue(value: unknown) {
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    const date = new Date(trimmed);
+    return Number.isFinite(date.getTime()) && /\d{4}-\d{2}-\d{2}/.test(trimmed) ? date.toISOString() : trimmed;
+  }
+  return value ?? null;
 }
 
 function parseDate(value: unknown) {

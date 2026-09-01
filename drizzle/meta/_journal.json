@@ -92,6 +92,13 @@
       "when": 1788264060000,
       "tag": "0013_proposal_losses",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1788267600000,
+      "tag": "0014_open_quotation_cursor",
+      "breakpoints": true
     }
   ]
 }

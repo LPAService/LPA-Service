@@ -7,6 +7,7 @@ import {
   collectOpenQuotationsWithClient,
   defaultTier1Counties,
   getQuotationStatus,
+  shouldRefreshQuotationFromListing,
   type QuotationRepository
 } from "@/lib/collector/quotations";
 import { analyzeProposalBlock } from "@/lib/collector/proposal-block";
@@ -241,8 +242,80 @@ describe("cotações abertas", () => {
     });
 
     expect(result1).toMatchObject({ found: 2, newCount: 1, updatedCount: 0, errorCount: 1 });
-    expect(result2).toMatchObject({ found: 2, newCount: 0, updatedCount: 1, errorCount: 1 });
+    expect(result2).toMatchObject({ found: 2, fetchedCount: 1, skippedCount: 1, newCount: 0, updatedCount: 0, errorCount: 1 });
     expect(repo.rows.size).toBe(1);
+  });
+
+  it("pula detalhe e itens quando a listagem não mudou", async () => {
+    const repo = new FakeQuotationRepository();
+    repo.rows.set(buildQuotationExternalId(listing), { rawJson: { listing } });
+    const client = new CountingQuotationClient([{ countyId: 2209, page: 1, records: [listing], totalPages: 1 }]);
+
+    const result = await collectOpenQuotationsWithClient(client, repo, {
+      counties: [{ idCounty: 2209, name: "Ibirité" }],
+      sleepFn: async () => undefined
+    });
+
+    expect(result).toMatchObject({ found: 1, fetchedCount: 0, skippedCount: 1, newCount: 0, updatedCount: 0, errorCount: 0 });
+    expect(client.detailCalls).toBe(0);
+    expect(client.itemCalls).toBe(0);
+  });
+
+  it("rebusca quando um sinal confiável da listagem mudou", async () => {
+    const repo = new FakeQuotationRepository();
+    repo.rows.set(buildQuotationExternalId(listing), {
+      rawJson: { listing: { ...listing, dtProposalSubmission: "2026-08-19T12:00:00.000Z" } }
+    });
+    const client = new CountingQuotationClient([{ countyId: 2209, page: 1, records: [listing], totalPages: 1 }]);
+
+    const result = await collectOpenQuotationsWithClient(client, repo, {
+      counties: [{ idCounty: 2209, name: "Ibirité" }],
+      sleepFn: async () => undefined
+    });
+
+    expect(shouldRefreshQuotationFromListing(listing, { listing: { ...listing, dtProposalSubmission: "2026-08-19T12:00:00.000Z" } })).toBe(true);
+    expect(result).toMatchObject({ found: 1, fetchedCount: 1, skippedCount: 0, newCount: 0, updatedCount: 1, errorCount: 0 });
+    expect(client.detailCalls).toBe(1);
+    expect(client.itemCalls).toBe(1);
+  });
+
+  it("salva cursor por página e continua dele na próxima execução", async () => {
+    const counties = [
+      { idCounty: 2209, name: "Ibirité" },
+      { idCounty: 2017, name: "Contagem" }
+    ];
+    const repo = new FakeQuotationRepository();
+    const firstClient = new CountingQuotationClient([
+      { countyId: 2209, page: 1, records: [listing], totalPages: 2 },
+      { countyId: 2209, page: 2, records: [{ ...listing, idBudget: 57 }], totalPages: 2 },
+      { countyId: 2017, page: 1, records: [{ ...listing, idBudget: 58, idCounty: 2017, countyName: "Contagem" }], totalPages: 1 }
+    ]);
+    const firstTicks = [0, 0, 0, 2];
+    const result1 = await collectOpenQuotationsWithClient(firstClient, repo, {
+      counties,
+      sleepFn: async () => undefined,
+      timeBudgetMs: 1,
+      timeBudgetReserveMs: 0,
+      nowFn: () => firstTicks.shift() ?? 2
+    });
+
+    expect(result1).toMatchObject({ status: "partial", resumeCursor: { countyId: 2209, countyName: "Ibirité", page: 2 } });
+    expect(firstClient.listCalls).toEqual([{ countyId: 2209, page: 1 }]);
+
+    const secondClient = new CountingQuotationClient([
+      { countyId: 2209, page: 1, records: [listing], totalPages: 2 },
+      { countyId: 2209, page: 2, records: [{ ...listing, idBudget: 57 }], totalPages: 2 },
+      { countyId: 2017, page: 1, records: [{ ...listing, idBudget: 58, idCounty: 2017, countyName: "Contagem" }], totalPages: 1 }
+    ]);
+    const result2 = await collectOpenQuotationsWithClient(secondClient, repo, {
+      counties,
+      sleepFn: async () => undefined,
+      nowFn: () => 0
+    });
+
+    expect(secondClient.listCalls[0]).toEqual({ countyId: 2209, page: 2 });
+    expect(result2.status).toBe("completed");
+    expect(result2.resumeCursor).toBeNull();
   });
 });
 
@@ -272,13 +345,66 @@ class FakeQuotationClient {
 }
 
 class FakeQuotationRepository implements QuotationRepository {
-  rows = new Map<string, unknown>();
+  rows = new Map<string, { externalId?: string; rawJson?: unknown }>();
+  cursor = new Map<number, unknown>();
   private run = 0;
   async startRun() { return ++this.run; }
   async finishRun() {}
+  async getResumeCursor(_mode: string, currentRunId: number) {
+    return this.cursor.get(currentRunId - 1) as Awaited<ReturnType<QuotationRepository["getResumeCursor"]>> ?? null;
+  }
+  async saveCursor(runId: number, cursor: unknown) {
+    this.cursor.set(runId, cursor);
+  }
+  async shouldFetchQuotation(record: typeof listing) {
+    const row = this.rows.get(buildQuotationExternalId(record));
+    return row ? shouldRefreshQuotationFromListing(record, row.rawJson) : true;
+  }
   async upsertQuotation(record: { externalId: string }) {
     const exists = this.rows.has(record.externalId);
     this.rows.set(record.externalId, record);
     return exists ? "updated" as const : "new" as const;
+  }
+}
+
+type ListingPage = {
+  countyId: number;
+  page: number;
+  records: Array<typeof listing>;
+  totalPages: number;
+};
+
+class CountingQuotationClient {
+  detailCalls = 0;
+  itemCalls = 0;
+  listCalls: Array<{ countyId: number; page: number }> = [];
+
+  constructor(private readonly pages: ListingPage[]) {}
+
+  async listOpenQuotations(county: { idCounty: number }, page: number) {
+    this.listCalls.push({ countyId: county.idCounty, page });
+    const match = this.pages.find((entry) => entry.countyId === county.idCounty && entry.page === page);
+    return {
+      data: match?.records ?? [],
+      meta: { totalPages: match?.totalPages ?? page }
+    };
+  }
+
+  async getBudgetDetail(record: typeof listing) {
+    this.detailCalls += 1;
+    return {
+      schoolName: record.schoolName,
+      countyName: record.countyName,
+      expenseGroupDescription: record.expenseGroupDescription,
+      initiativeDescription: "Compra de material escolar"
+    };
+  }
+
+  async listBudgetItems() {
+    this.itemCalls += 1;
+    return {
+      data: [{ nuItemOrder: 1, txBudgetItemType: "Caderno", txDescription: "Caderno", txBudgetItemUnit: "UN", nuQuantity: 1, nuReferralValue: 10 }],
+      meta: { totalPages: 1 }
+    };
   }
 }
