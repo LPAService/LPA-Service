@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createStatusHandler, createSyncHandler } from "@/lib/sync/handlers";
+import { createLossesHandler, createStatusHandler, createSyncHandler } from "@/lib/sync/handlers";
 import {
   DailySyncAlreadyRunningError,
   runDailySync,
@@ -87,6 +87,46 @@ describe("rotas de sync diário", () => {
   });
 });
 
+describe("rota de coleta de perdas", () => {
+  it("retorna 401 sem segredo", async () => {
+    process.env.CRON_SECRET = "segredo";
+    const runLosses = vi.fn(async () => ({
+      runId: 43,
+      status: "completed" as const,
+      found: 13,
+      newCount: 13,
+      updatedCount: 0,
+      errorCount: 0,
+      errors: []
+    }));
+    const response = await createLossesHandler(runLosses)(request("/api/cron/losses"));
+
+    expect(response.status).toBe(401);
+    expect(runLosses).not.toHaveBeenCalled();
+  });
+
+  it("executa a coleta de perdas com segredo", async () => {
+    process.env.CRON_SECRET = "segredo";
+    const result = {
+      runId: 43,
+      status: "completed" as const,
+      found: 13,
+      newCount: 2,
+      updatedCount: 11,
+      errorCount: 0,
+      errors: []
+    };
+    const runLosses = vi.fn(async () => result);
+    const response = await createLossesHandler(runLosses)(
+      request("/api/cron/losses?secret=segredo")
+    );
+
+    expect(response.status).toBe(200);
+    expect(runLosses).toHaveBeenCalledOnce();
+    await expect(response.json()).resolves.toEqual(result);
+  });
+});
+
 describe("lote diário", () => {
   it("continua após falha de município e agrega resumo", async () => {
     const finishRun = vi.fn(async () => undefined);
@@ -108,18 +148,21 @@ describe("lote diário", () => {
     expect(finishRun).toHaveBeenCalledWith(99, result, "completed");
   });
 
-  it("continua quando coleta de perdas falha", async () => {
+  it("não chama coleta de perdas", async () => {
     const finishRun = vi.fn(async () => undefined);
+    const collectProposalLosses = vi.fn(async () => {
+      throw new Error("perdas não deveriam rodar no sync diário");
+    });
     const result = await runDailySync({
       startRun: async () => 100,
       finishRun,
       collectQuotations: async () => ({ found: 2, newCount: 1, updatedCount: 1, errors: [] }),
-      collectProposalLosses: async () => {
-        throw new Error("perdas indisponíveis");
-      },
+      collectProposalLosses,
       collectCounty: async () => ({ found: 0, newCount: 0, updatedCount: 0, errors: [] }),
       now: () => 0,
       timeoutMs: 1000
+    } as Parameters<typeof runDailySync>[0] & {
+      collectProposalLosses: typeof collectProposalLosses;
     });
 
     expect(result).toMatchObject({
@@ -129,9 +172,8 @@ describe("lote diário", () => {
       updated: 1,
       quotationRun: { found: 2, new: 1, updated: 1 }
     });
-    expect(result.errors).toEqual([
-      { message: "[Perdas de propostas] perdas indisponíveis" }
-    ]);
+    expect(collectProposalLosses).not.toHaveBeenCalled();
+    expect(result.errors).toEqual([]);
     expect(finishRun).toHaveBeenCalledWith(100, result, "completed");
   });
 });

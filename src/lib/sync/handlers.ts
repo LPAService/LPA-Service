@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { collectProposalLosses, type ProposalLossCollectionResult } from "@/lib/collector/proposal-losses";
 import { hasCronSecret } from "@/lib/sync/auth";
 import {
   DailySyncAlreadyRunningError,
@@ -8,6 +9,7 @@ import {
 } from "@/lib/sync/daily";
 
 type SyncRunner = () => Promise<DailySyncSummary>;
+type LossesRunner = () => Promise<ProposalLossCollectionResult>;
 type StatusLoader = (limit?: number) => ReturnType<typeof listCollectionRunStatus>;
 
 export function createSyncHandler(runSync: SyncRunner = runDailySync) {
@@ -25,6 +27,23 @@ export function createSyncHandler(runSync: SyncRunner = runDailySync) {
           { status: 409 }
         );
       }
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : String(error) },
+        { status: 500 }
+      );
+    }
+  };
+}
+
+export function createLossesHandler(runLosses: LossesRunner = collectProposalLosses) {
+  return async function handler(request: NextRequest) {
+    if (!hasCronSecret(request)) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    }
+
+    try {
+      return NextResponse.json(await runLosses());
+    } catch (error) {
       return NextResponse.json(
         { error: error instanceof Error ? error.message : String(error) },
         { status: 500 }
