@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { quotationSource } from "@/lib/data/source";
-import { competitiveAnalytics } from "@/lib/data/analytics";
+import { competitiveAnalytics, proposalLossAnalytics } from "@/lib/data/analytics";
 import type {
   LossReason,
   WinnerPlaybookEntry,
@@ -8,7 +8,10 @@ import type {
   CategoryCompetition,
   IncumbencyMapEntry,
   WinnerDiscount,
-  CompetitiveSummary
+  CompetitiveSummary,
+  ProposalLossListItem,
+  ProposalLossGroupAggregate,
+  ProposalLossWinnerRanking
 } from "@/lib/data/analytics";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { NotificationBell } from "@/components/notification-bell";
@@ -47,6 +50,20 @@ function formatPercent(value: number | null | undefined): string {
   return `${value.toFixed(1).replace(".", ",")}%`;
 }
 
+function formatDate(value: Date | string | null | undefined): string {
+  if (!value) return "—";
+  const date = typeof value === "string" ? new Date(value) : value;
+  if (!Number.isFinite(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
+}
+
+function computeMedian(values: number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
 export default async function RelatoriosPage() {
   let liveOpenCount: number | null = null;
   let liveTotalCount: number | null = null;
@@ -64,33 +81,104 @@ export default async function RelatoriosPage() {
   let incumbencyMap: IncumbencyMapEntry[] = [];
   let winnerDiscount: WinnerDiscount | null = null;
 
+  let proposalLossesList: ProposalLossListItem[] = [];
+  let lossesByGroup: ProposalLossGroupAggregate[] = [];
+  let winningCompetitors: ProposalLossWinnerRanking[] = [];
+
   try {
-    const [openRes, allRes, summaryRes, reasons, playbook, prices, categories, incumbency, discount] =
-      await Promise.all([
-        quotationSource.listOpportunities({ situation: "open" }, { page: 1, pageSize: 1 }),
-        quotationSource.listOpportunities({ situation: "all" }, { page: 1, pageSize: 1 }),
-        competitiveAnalytics.getSummary(),
-        competitiveAnalytics.getLossReasons(),
-        competitiveAnalytics.getWinnerPlaybook(10),
-        competitiveAnalytics.getPriceBenchmark(10),
-        competitiveAnalytics.getCategoryCompetition(),
-        competitiveAnalytics.getIncumbencyMap(8),
-        competitiveAnalytics.getWinnerDiscount()
-      ]);
+    const [
+      openRes,
+      allRes,
+      summaryRes,
+      reasons,
+      playbook,
+      prices,
+      categories,
+      incumbency,
+      discount,
+      lossItems,
+      lossGroups,
+      lossWinners
+    ] = await Promise.allSettled([
+      quotationSource.listOpportunities({ situation: "open" }, { page: 1, pageSize: 1 }),
+      quotationSource.listOpportunities({ situation: "all" }, { page: 1, pageSize: 1 }),
+      competitiveAnalytics.getSummary(),
+      competitiveAnalytics.getLossReasons(),
+      competitiveAnalytics.getWinnerPlaybook(10),
+      competitiveAnalytics.getPriceBenchmark(10),
+      competitiveAnalytics.getCategoryCompetition(),
+      competitiveAnalytics.getIncumbencyMap(8),
+      competitiveAnalytics.getWinnerDiscount(),
+      proposalLossAnalytics.listLosses(100),
+      proposalLossAnalytics.getLossesByExpenseGroup(),
+      proposalLossAnalytics.getWinningCompetitors(10)
+    ]);
 
-    liveOpenCount = openRes.total;
-    liveTotalCount = allRes.total;
-    summary = summaryRes;
+    if (openRes.status === "fulfilled") liveOpenCount = openRes.value.total;
+    if (allRes.status === "fulfilled") liveTotalCount = allRes.value.total;
+    if (summaryRes.status === "fulfilled") summary = summaryRes.value;
 
-    lossReasons = reasons ?? [];
-    winnerPlaybook = playbook ?? [];
-    priceBenchmark = prices ?? [];
-    categoryCompetition = categories ?? [];
-    incumbencyMap = incumbency ?? [];
-    winnerDiscount = discount && discount.pairs > 0 ? discount : null;
+    if (reasons.status === "fulfilled") lossReasons = reasons.value ?? [];
+    if (playbook.status === "fulfilled") winnerPlaybook = playbook.value ?? [];
+    if (prices.status === "fulfilled") priceBenchmark = prices.value ?? [];
+    if (categories.status === "fulfilled") categoryCompetition = categories.value ?? [];
+    if (incumbency.status === "fulfilled") incumbencyMap = incumbency.value ?? [];
+    if (discount.status === "fulfilled" && discount.value && discount.value.pairs > 0) {
+      winnerDiscount = discount.value;
+    }
+
+    if (lossItems.status === "fulfilled") proposalLossesList = lossItems.value ?? [];
+    if (lossGroups.status === "fulfilled") lossesByGroup = lossGroups.value ?? [];
+    if (lossWinners.status === "fulfilled") winningCompetitors = lossWinners.value ?? [];
   } catch (error) {
     console.error("Erro ao carregar dados dinâmicos para relatórios:", error);
   }
+
+  const totalLossCount = proposalLossesList.length;
+
+  const lossesWithKnownWinner = proposalLossesList.filter(
+    (item): item is ProposalLossListItem & { winnerTotal: number; lossGapPercent: number } =>
+      item.winnerTotal !== null &&
+      item.lossGapPercent !== null &&
+      typeof item.winnerTotal === "number" &&
+      typeof item.lossGapPercent === "number"
+  );
+
+  const moreExpensiveThanWinnerCount = lossesWithKnownWinner.filter(
+    (item) => item.ourTotal > item.winnerTotal
+  ).length;
+
+  const priceLossPct =
+    lossesWithKnownWinner.length > 0
+      ? (moreExpensiveThanWinnerCount / lossesWithKnownWinner.length) * 100
+      : null;
+
+  const validGaps = lossesWithKnownWinner.map((item) => item.lossGapPercent);
+  const overallMedianGap = computeMedian(validGaps);
+
+  const sortedLosses = [...proposalLossesList].sort((a, b) => {
+    if (a.lossGapPercent === null && b.lossGapPercent === null) return 0;
+    if (a.lossGapPercent === null) return 1;
+    if (b.lossGapPercent === null) return -1;
+    return a.lossGapPercent - b.lossGapPercent;
+  });
+
+  const competitiveDisputes = sortedLosses.filter(
+    (item): item is ProposalLossListItem & { winnerTotal: number; lossGapPercent: number } =>
+      item.lossGapPercent !== null && item.winnerTotal !== null && item.lossGapPercent <= 100
+  );
+  const minCompetitiveLoss = competitiveDisputes.length > 0 ? competitiveDisputes[0] : null;
+
+  const pricingErrorLosses = sortedLosses.filter(
+    (item): item is ProposalLossListItem & { winnerTotal: number; lossGapPercent: number } =>
+      item.lossGapPercent !== null && item.winnerTotal !== null && item.lossGapPercent > 100
+  );
+  const minPricingError = pricingErrorLosses.length > 0 ? pricingErrorLosses[0] : null;
+  const maxPricingError = pricingErrorLosses.length > 0 ? pricingErrorLosses[pricingErrorLosses.length - 1] : null;
+
+  const directDisputeLosses = proposalLossesList.filter((item) => item.competitorCount === 2);
+  const topLossGroup = lossesByGroup.length > 0 ? lossesByGroup[0] : null;
+  const topWinningCompetitor = winningCompetitors.length > 0 ? winningCompetitors[0] : null;
 
   const generalistWinner = winnerPlaybook.find((row) => !row.isCooperative);
   const cooperativeWinner = winnerPlaybook.find((row) => row.isCooperative);
@@ -204,6 +292,394 @@ export default async function RelatoriosPage() {
             sub="Grupos de compra mapeados"
             value={formatOptionalNumber(summary.expenseGroupCount)}
           />
+        </section>
+
+        {/* SEÇÃO: Aprenda com as perdas (Diagnóstico de Propostas Perdidas) */}
+        <section className="rounded-2xl border-2 border-[var(--color-danger)]/40 bg-[var(--color-bg)] p-6 sm:p-8 shadow-xl space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-2 border-b border-[var(--color-border)] pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="eyebrow text-[var(--color-danger)]">Raio-X de Propostas Perdidas</span>
+                {totalLossCount > 0 && (
+                  <span className="rounded-full bg-[var(--color-danger)]/15 px-2.5 py-0.5 text-[10px] font-bold text-[var(--color-danger)]">
+                    {priceLossPct !== null ? `${formatPercent(priceLossPct)} Perdidas no Preço` : `${formatNumber(totalLossCount)} Perdas Registradas`}
+                  </span>
+                )}
+              </div>
+              <h2 className="mt-1 text-2xl font-black tracking-tight text-[var(--color-fg)] sm:text-3xl">
+                Aprenda com as perdas
+              </h2>
+            </div>
+            <p className="text-xs text-[var(--color-fg-muted)]">
+              Diagnóstico detalhado dos seus lances recusados: por que perdeu, distância para o vencedor e calibração comercial
+            </p>
+          </div>
+
+          {totalLossCount === 0 ? (
+            <EmptyState mensagem="Nenhuma proposta perdida registrada no banco até o momento. Conforme novas propostas forem sincronizadas e analisadas, o diagnóstico detalhado de perdas aparecerá aqui." />
+          ) : (
+            <>
+              {/* KPIs de Resumo das Perdas */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <KpiMiniCard
+                  alert
+                  label="Fato Central da Auditoria"
+                  sub={
+                    lossesWithKnownWinner.length > 0
+                      ? `Em ${formatNumber(moreExpensiveThanWinnerCount)} de ${formatNumber(lossesWithKnownWinner.length)} propostas com vencedor conhecido, ficamos acima do menor preço.`
+                      : "Sem propostas com vencedor conhecido registradas."
+                  }
+                  value={priceLossPct !== null ? `${formatPercent(priceLossPct)} no Preço` : "—"}
+                />
+                <KpiMiniCard
+                  highlight
+                  label="Diferença Mediana"
+                  sub={
+                    overallMedianGap !== null
+                      ? `Nossos lances ficaram em média +${formatPercent(overallMedianGap)} acima do preço homologado vencedor.`
+                      : "Sem histórico suficiente para cálculo da mediana."
+                  }
+                  value={overallMedianGap !== null ? `+${formatPercent(overallMedianGap)}` : "—"}
+                />
+                <KpiMiniCard
+                  alert={pricingErrorLosses.length > 0}
+                  label="Erros de Precificação (> 100%)"
+                  sub={
+                    maxPricingError
+                      ? `Diferença extrema de até +${formatPercent(maxPricingError.lossGapPercent)}. Diferença de valor expressiva demais para ser disputa de margem.`
+                      : "Processos com diferença superior a 100% em relação ao vencedor."
+                  }
+                  value={`${formatNumber(pricingErrorLosses.length)} processos`}
+                />
+                <KpiMiniCard
+                  label="Disputas Diretas (1x1)"
+                  sub="Processos com apenas 2 concorrentes onde o resultado foi decidido no preço final."
+                  value={`${formatNumber(directDisputeLosses.length)} processos`}
+                />
+              </div>
+
+              {/* Grid 2 colunas: Onde mais se perde & Quem mais vence contra nós */}
+              <div className="grid gap-6 lg:grid-cols-2">
+                {/* Onde mais se perde por grupo */}
+                <div className="flex flex-col justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-5 space-y-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="eyebrow text-xs text-[var(--color-primary)]">Concentração por Categoria</span>
+                      <span className="text-[11px] text-[var(--color-fg-muted)]">{formatNumber(lossesByGroup.length)} grupos mapeados</span>
+                    </div>
+                    <h3 className="text-base font-bold text-[var(--color-fg)]">
+                      Onde mais se perde (por grupo de despesa)
+                    </h3>
+                    <p className="text-xs text-[var(--color-fg-muted)]">
+                      Volume de lances perdidos e diferença mediana por categoria
+                    </p>
+                  </div>
+
+                  {lossesByGroup.length === 0 ? (
+                    <EmptyState mensagem="Sem dados de grupos de despesa para propostas perdidas." />
+                  ) : (
+                    <div className="overflow-x-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)]">
+                      <table className="w-full text-left text-xs">
+                        <thead className="border-b border-[var(--color-border)] bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]">
+                          <tr>
+                            <th className="p-2.5 font-bold uppercase">Grupo de Despesa</th>
+                            <th className="p-2.5 font-bold uppercase text-center">Perdas</th>
+                            <th className="p-2.5 font-bold uppercase text-right">Diferença Mediana (%)</th>
+                            <th className="p-2.5 font-bold uppercase text-right">Diferença Mediana (R$)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[var(--color-border)] font-medium">
+                          {lossesByGroup.map((row) => (
+                            <tr className="hover:bg-[var(--color-bg-subtle)]/50 transition-colors" key={row.expenseGroup}>
+                              <td className="p-2.5 font-bold text-[var(--color-fg)]">{row.expenseGroup}</td>
+                              <td className="p-2.5 text-center font-black tabular-nums text-[var(--color-danger)]">
+                                {formatNumber(row.lossCount)}
+                              </td>
+                              <td className="p-2.5 text-right font-semibold tabular-nums text-[var(--color-fg)]">
+                                {row.medianPriceGapPct !== null ? `+${formatPercent(row.medianPriceGapPct)}` : "—"}
+                              </td>
+                              <td className="p-2.5 text-right font-mono tabular-nums text-[var(--color-fg-muted)]">
+                                {row.medianPriceGapAmount !== null ? `+${formatCurrency(row.medianPriceGapAmount)}` : "—"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {topLossGroup && (
+                    <div className="border-t border-[var(--color-border)] pt-2 text-[11px] text-[var(--color-fg-muted)]">
+                      💡 <strong>Destaque de Categoria:</strong> <strong>{topLossGroup.expenseGroup}</strong> concentra {formatNumber(topLossGroup.lossCount)} das {formatNumber(totalLossCount)} perdas
+                      {topLossGroup.medianPriceGapPct !== null ? ` (diferença mediana de +${formatPercent(topLossGroup.medianPriceGapPct)})` : ""}.
+                    </div>
+                  )}
+                </div>
+
+                {/* Quem mais vence contra nós */}
+                <div className="flex flex-col justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-5 space-y-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="eyebrow text-xs text-[var(--color-danger)]">Adversários Mais Frequentes</span>
+                      <span className="text-[11px] text-[var(--color-fg-muted)]">{formatNumber(winningCompetitors.length)} concorrentes</span>
+                    </div>
+                    <h3 className="text-base font-bold text-[var(--color-fg)]">
+                      Quem mais vence contra nós
+                    </h3>
+                    <p className="text-xs text-[var(--color-fg-muted)]">
+                      Concorrentes que mais levaram processos disputados pela sua empresa
+                    </p>
+                  </div>
+
+                  {winningCompetitors.length === 0 ? (
+                    <EmptyState mensagem="Sem concorrentes vencedores registrados." />
+                  ) : (
+                    <div className="overflow-x-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)]">
+                      <table className="w-full text-left text-xs">
+                        <thead className="border-b border-[var(--color-border)] bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]">
+                          <tr>
+                            <th className="p-2.5 font-bold uppercase">Concorrente Vencedor</th>
+                            <th className="p-2.5 font-bold uppercase text-center">Vitórias</th>
+                            <th className="p-2.5 font-bold uppercase text-center">Preços Conhecidos</th>
+                            <th className="p-2.5 font-bold uppercase text-right">Ticket Mediano</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[var(--color-border)] font-medium">
+                          {winningCompetitors.map((row) => (
+                            <tr className="hover:bg-[var(--color-bg-subtle)]/50 transition-colors" key={row.winnerSupplierId}>
+                              <td className="p-2.5 font-bold text-[var(--color-fg)]">
+                                {row.winnerName || `Fornecedor #${row.winnerSupplierId}`}
+                              </td>
+                              <td className="p-2.5 text-center font-black tabular-nums text-[var(--color-danger)]">
+                                {formatNumber(row.wins)}
+                              </td>
+                              <td className="p-2.5 text-center tabular-nums text-[var(--color-fg-muted)]">
+                                {formatNumber(row.knownWinnerTotalCount)} / {formatNumber(row.wins)}
+                              </td>
+                              <td className="p-2.5 text-right font-semibold tabular-nums text-[var(--color-success)]">
+                                {formatCurrency(row.medianWinnerTotal)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {topWinningCompetitor && (
+                    <div className="border-t border-[var(--color-border)] pt-2 text-[11px] text-[var(--color-fg-muted)]">
+                      💡 <strong>Líder de Vitórias Diretas:</strong> <strong>{topWinningCompetitor.winnerName || `Fornecedor #${topWinningCompetitor.winnerSupplierId}`}</strong> venceu {formatNumber(topWinningCompetitor.wins)} vezes contra sua proposta.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Bloco Diagnóstico: Disputas Comerciais vs Erros de Precificação */}
+              <div className="grid gap-4 sm:grid-cols-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-5">
+                <div className="space-y-2 border-b sm:border-b-0 sm:border-r border-[var(--color-border)] pb-4 sm:pb-0 sm:pr-4">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-amber-500/20 text-amber-400 font-bold text-xs">⚡</span>
+                    <h4 className="font-bold text-sm text-[var(--color-fg)]">Disputas Comerciais (Diferença ≤ 100%)</h4>
+                  </div>
+                  <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">
+                    {minCompetitiveLoss ? (
+                      <>
+                        Processos com margem competitiva real. A menor diferença registrada foi de{" "}
+                        <strong>+{formatPercent(minCompetitiveLoss.lossGapPercent)}</strong> (pedido <code>{minCompetitiveLoss.orderId}</code>).
+                        Pequenos ajustes de margem ou cotação direta com fornecedores permitem reverter esses resultados.
+                      </>
+                    ) : (
+                      "Nenhuma disputa comercial na faixa de até 100% de diferença registrada até o momento."
+                    )}
+                  </p>
+                </div>
+
+                <div className="space-y-2 sm:pl-2">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-rose-500/20 text-rose-400 font-bold text-xs">⚠️</span>
+                    <h4 className="font-bold text-sm text-rose-400">Distorções de Precificação (Diferença &gt; 100%)</h4>
+                  </div>
+                  <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">
+                    {pricingErrorLosses.length > 0 && maxPricingError ? (
+                      <>
+                        {minPricingError && minPricingError !== maxPricingError ? (
+                          <>
+                            Diferenças entre <strong>+{formatPercent(minPricingError.lossGapPercent)}</strong> e{" "}
+                            <strong>+{formatPercent(maxPricingError.lossGapPercent)}</strong>{" "}
+                          </>
+                        ) : (
+                          <>Diferença de <strong>+{formatPercent(maxPricingError.lossGapPercent)}</strong> </>
+                        )}
+                        (ex: nosso {formatCurrency(maxPricingError.ourTotal)} vs vencedor {formatCurrency(maxPricingError.winnerTotal)} no pedido <code>{maxPricingError.orderId}</code>).
+                        A diferença de valor é expressiva demais para ser disputa de margem.
+                      </>
+                    ) : (
+                      "Nenhum caso com diferença superior a 100% registrado até o momento."
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {/* Tabela Detalhada de Perdas */}
+              <div className="space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                  <h3 className="text-base font-bold text-[var(--color-fg)] flex items-center gap-2">
+                    <span>📋</span> Lista Detalhada das Perdas (Ordenada por Diferença)
+                  </h3>
+                  <span className="text-xs text-[var(--color-fg-muted)]">
+                    Da menor margem registrada aos maiores desvios
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)]">
+                  <table className="w-full text-left text-xs">
+                    <thead className="border-b border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-fg-muted)]">
+                      <tr>
+                        <th className="p-3 font-bold uppercase">Pedido / Prazo</th>
+                        <th className="p-3 font-bold uppercase">Escola & Município</th>
+                        <th className="p-3 font-bold uppercase">Grupo de Despesa</th>
+                        <th className="p-3 font-bold uppercase text-right">Nosso Valor</th>
+                        <th className="p-3 font-bold uppercase text-right">Valor Vencedor</th>
+                        <th className="p-3 font-bold uppercase text-center">Diferença %</th>
+                        <th className="p-3 font-bold uppercase text-center">Nossa Posição</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--color-border)] font-medium">
+                      {sortedLosses.map((row) => {
+                        const isPricingError = row.lossGapPercent !== null && row.lossGapPercent > 100;
+                        const isDirectDispute = row.competitorCount === 2;
+
+                        return (
+                          <tr
+                            className={`hover:bg-[var(--color-bg)]/60 transition-colors ${
+                              isPricingError ? "bg-rose-500/[0.04] dark:bg-rose-950/20" : ""
+                            }`}
+                            key={row.orderId}
+                          >
+                            {/* Pedido */}
+                            <td className="p-3">
+                              <div className="font-mono font-bold text-[var(--color-fg)]">
+                                {row.orderId}
+                              </div>
+                              <span className="text-[10px] text-[var(--color-fg-muted)] block">
+                                {formatDate(row.proposalDeadline)}
+                              </span>
+                            </td>
+
+                            {/* Escola & Município */}
+                            <td className="p-3">
+                              <div className="font-semibold text-[var(--color-fg)] max-w-xs truncate" title={row.schoolName}>
+                                {row.schoolName}
+                              </div>
+                              <div className="text-[11px] text-[var(--color-fg-muted)]">
+                                {row.countyName || "Minas Gerais"}
+                              </div>
+                            </td>
+
+                            {/* Grupo */}
+                            <td className="p-3 text-[var(--color-fg-muted)]">
+                              {row.expenseGroup}
+                            </td>
+
+                            {/* Nosso Valor */}
+                            <td className="p-3 text-right font-bold text-[var(--color-fg)] tabular-nums">
+                              {formatCurrency(row.ourTotal)}
+                            </td>
+
+                            {/* Valor Vencedor */}
+                            <td className="p-3 text-right tabular-nums">
+                              {row.winnerTotal !== null ? (
+                                <div>
+                                  <span className="font-bold text-[var(--color-success)]">
+                                    {formatCurrency(row.winnerTotal)}
+                                  </span>
+                                  <span
+                                    className="block text-[10px] text-[var(--color-fg-muted)] truncate max-w-[140px] ml-auto"
+                                    title={row.winnerName || ""}
+                                  >
+                                    {row.winnerName || `Fornecedor #${row.winnerSupplierId}`}
+                                  </span>
+                                </div>
+                              ) : (
+                                <div>
+                                  <span className="italic text-[var(--color-fg-muted)]">
+                                    Valor do vencedor não informado
+                                  </span>
+                                  {row.winnerName && (
+                                    <span className="block text-[10px] text-[var(--color-fg-muted)] truncate max-w-[140px] ml-auto">
+                                      {row.winnerName}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Diferença % */}
+                            <td className="p-3 text-center">
+                              {row.lossGapPercent !== null ? (
+                                isPricingError ? (
+                                  <div>
+                                    <span className="inline-flex items-center gap-1 rounded-md border border-rose-500/40 bg-rose-500/15 px-2 py-0.5 text-xs font-black text-rose-400 tabular-nums">
+                                      ⚠️ +{formatPercent(row.lossGapPercent)}
+                                    </span>
+                                    <span className="block text-[10px] font-bold text-rose-400 mt-0.5">
+                                      Erro de Precificação
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div>
+                                    <span className="inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-xs font-bold text-amber-400 tabular-nums">
+                                      +{formatPercent(row.lossGapPercent)}
+                                    </span>
+                                    {row.winnerTotal !== null && (
+                                      <span className="block text-[10px] text-[var(--color-fg-muted)] tabular-nums mt-0.5">
+                                        +{formatCurrency(row.ourTotal - row.winnerTotal)}
+                                      </span>
+                                    )}
+                                  </div>
+                                )
+                              ) : (
+                                <span className="text-[var(--color-fg-muted)] font-mono">—</span>
+                              )}
+                            </td>
+
+                            {/* Posição / Concorrentes */}
+                            <td className="p-3 text-center">
+                              {row.ourRank !== null && row.competitorCount > 0 ? (
+                                isDirectDispute ? (
+                                  <div>
+                                    <span className="font-black text-[var(--color-danger)] tabular-nums text-xs">
+                                      {row.ourRank}º de {row.competitorCount}
+                                    </span>
+                                    <span className="block text-[10px] font-bold text-rose-400">
+                                      Disputa 1x1
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div>
+                                    <span className="font-bold text-[var(--color-fg)] tabular-nums text-xs">
+                                      {row.ourRank}º de {row.competitorCount}
+                                    </span>
+                                    <span className="block text-[10px] text-[var(--color-fg-muted)]">
+                                      concorrentes
+                                    </span>
+                                  </div>
+                                )
+                              ) : (
+                                <span className="text-[var(--color-fg-muted)] tabular-nums">
+                                  {row.competitorCount ? `${row.competitorCount} conc.` : "—"}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
         </section>
 
         {/* SEÇÃO: Por que você perde (Maior Peso Visual) */}

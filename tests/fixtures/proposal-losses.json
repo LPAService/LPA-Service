@@ -1,0 +1,115 @@
+{
+  "losses": [
+    {
+      "summary": {
+        "idSubprogram": 1,
+        "idSchool": 101,
+        "idBudget": 7780,
+        "idSupplier": 111892,
+        "nuBudgetOrder": "2026177780",
+        "schoolName": "EE A",
+        "countyName": "Belo Horizonte",
+        "expenseGroupDescription": "Material de Consumo Geral",
+        "dtProposalSubmission": "2026-08-20T12:00:00.000Z",
+        "supplierStatus": "RECU",
+        "budgetStatus": "FINA"
+      },
+      "detail": {
+        "estimatedValue": 12000,
+        "idSupplierProposalWinner": 200001,
+        "schoolName": "EE A",
+        "countyName": "Belo Horizonte",
+        "expenseGroupDescription": "Material de Consumo Geral"
+      },
+      "proposals": [
+        { "idSupplier": 200001, "idSupplierWinner": 200001, "txFantasyName": "MUNDO ESCOLAR", "totalPropose": 9135.08, "personType": "J" },
+        { "idSupplier": 200002, "idSupplierWinner": 200001, "txFantasyName": "Concorrente B", "totalPropose": 9500, "personType": "J" },
+        { "idSupplier": 200003, "idSupplierWinner": 200001, "txFantasyName": "Concorrente C", "totalPropose": 10000, "personType": "J" },
+        { "idSupplier": 200004, "idSupplierWinner": 200001, "txFantasyName": "Concorrente D", "totalPropose": 10500, "personType": "J" },
+        { "idSupplier": 111892, "idSupplierWinner": 200001, "txFantasyName": "spl serviços", "totalPropose": 10965.9, "personType": "J" },
+        { "idSupplier": 200005, "idSupplierWinner": 200001, "txFantasyName": "Concorrente E", "totalPropose": 12000, "personType": "J" }
+      ]
+    },
+    {
+      "summary": {
+        "idSubprogram": 1,
+        "idSchool": 102,
+        "idBudget": 2267,
+        "idSupplier": 111892,
+        "nuBudgetOrder": "2026162267",
+        "schoolName": "EE B",
+        "countyName": "Belo Horizonte",
+        "expenseGroupDescription": "Material de Consumo Geral",
+        "dtProposalSubmission": "2026-08-21T12:00:00.000Z",
+        "supplierStatus": "RECU",
+        "budgetStatus": "FINA"
+      },
+      "detail": {
+        "estimatedValue": 16000,
+        "idSupplierProposalWinner": 200010,
+        "schoolName": "EE B",
+        "countyName": "Belo Horizonte",
+        "expenseGroupDescription": "Material de Consumo Geral"
+      },
+      "proposals": [
+        { "idSupplier": 200010, "idSupplierWinner": 200010, "txFantasyName": "JLB", "totalPropose": 4680.46, "personType": "J" },
+        { "idSupplier": 200011, "idSupplierWinner": 200010, "txFantasyName": "Concorrente F", "totalPropose": 8000, "personType": "J" },
+        { "idSupplier": 200012, "idSupplierWinner": 200010, "txFantasyName": "Concorrente G", "totalPropose": 12000, "personType": "J" },
+        { "idSupplier": 200013, "idSupplierWinner": 200010, "txFantasyName": "Concorrente H", "totalPropose": 15000, "personType": "J" },
+        { "idSupplier": 111892, "idSupplierWinner": 200010, "txFantasyName": "spl serviços", "totalPropose": 15443.07, "personType": "J" }
+      ]
+    },
+    {
+      "summary": {
+        "idSubprogram": 1,
+        "idSchool": 103,
+        "idBudget": 4089,
+        "idSupplier": 111892,
+        "nuBudgetOrder": "2026164089",
+        "schoolName": "EE C",
+        "countyName": "Ibirité",
+        "expenseGroupDescription": "Gêneros Alimentícios",
+        "dtProposalSubmission": "2026-08-22T12:00:00.000Z",
+        "supplierStatus": "RECU",
+        "budgetStatus": "FINA"
+      },
+      "detail": {
+        "estimatedValue": 42000,
+        "idSupplierProposalWinner": 200020,
+        "schoolName": "EE C",
+        "countyName": "Ibirité",
+        "expenseGroupDescription": "Gêneros Alimentícios"
+      },
+      "proposals": [
+        { "idSupplier": 200020, "idSupplierWinner": 200020, "txFantasyName": "Fornecedor alimentos", "totalPropose": 17720.1, "personType": "J" },
+        { "idSupplier": 111892, "idSupplierWinner": 200020, "txFantasyName": "spl serviços", "totalPropose": 39604.56, "personType": "J" }
+      ]
+    },
+    {
+      "summary": {
+        "idSubprogram": 1,
+        "idSchool": 104,
+        "idBudget": 1050,
+        "idSupplier": 111892,
+        "nuBudgetOrder": "2026171050",
+        "schoolName": "EE D",
+        "countyName": "Contagem",
+        "expenseGroupDescription": "Serviços",
+        "dtProposalSubmission": "2026-08-23T12:00:00.000Z",
+        "supplierStatus": "RECU",
+        "budgetStatus": "FINA"
+      },
+      "detail": {
+        "estimatedValue": 300,
+        "idSupplierProposalWinner": 999999,
+        "schoolName": "EE D",
+        "countyName": "Contagem",
+        "expenseGroupDescription": "Serviços"
+      },
+      "proposals": [
+        { "idSupplier": 111892, "idSupplierWinner": 999999, "txFantasyName": "spl serviços", "totalPropose": 200, "personType": "J" },
+        { "idSupplier": 200030, "idSupplierWinner": 999999, "txFantasyName": "Concorrente I", "totalPropose": 250, "personType": "J" }
+      ]
+    }
+  ]
+}

@@ -4,6 +4,7 @@ import {
   index,
   integer,
   jsonb,
+  numeric,
   pgTable,
   serial,
   text,
@@ -139,6 +140,37 @@ export const quotations = pgTable(
     index("quotations_category_id_idx").on(table.categoryId),
     index("quotations_proposal_deadline_idx").on(table.proposalDeadline),
     index("quotations_supplier_status_idx").on(table.supplierStatus)
+  ]
+);
+
+export const proposalLosses = pgTable(
+  "proposal_losses",
+  {
+    id: serial("id").primaryKey(),
+    orderId: text("order_id").notNull(),
+    idSubprogram: integer("id_subprogram").notNull(),
+    idSchool: integer("id_school").notNull(),
+    idBudget: integer("id_budget").notNull(),
+    schoolName: text("school_name").notNull(),
+    countyName: text("county_name"),
+    expenseGroup: text("expense_group").notNull(),
+    proposalDeadline: timestamp("proposal_deadline", { withTimezone: true }),
+    ourSupplierId: integer("our_supplier_id").notNull(),
+    ourTotal: numeric("our_total", { precision: 14, scale: 2, mode: "number" }).notNull(),
+    winnerSupplierId: integer("winner_supplier_id").notNull(),
+    winnerName: text("winner_name"),
+    winnerTotal: numeric("winner_total", { precision: 14, scale: 2, mode: "number" }),
+    competitorCount: integer("competitor_count").notNull(),
+    ourRank: integer("our_rank"),
+    estimatedValue: numeric("estimated_value", { precision: 14, scale: 2, mode: "number" }),
+    rawJson: jsonb("raw_json").notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    uniqueIndex("proposal_losses_order_id_unique").on(table.orderId),
+    index("proposal_losses_expense_group_idx").on(table.expenseGroup),
+    index("proposal_losses_proposal_deadline_idx").on(table.proposalDeadline)
   ]
 );
 

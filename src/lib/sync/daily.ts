@@ -2,6 +2,7 @@ import { and, desc, eq, gt, sql } from "drizzle-orm";
 import { CaixaEscolarClient } from "@/lib/collector/client";
 import { collectOpportunities, type CollectionError } from "@/lib/collector/collect";
 import { collectOpenQuotations } from "@/lib/collector/quotations";
+import { collectProposalLosses as collectRejectedProposalLosses } from "@/lib/collector/proposal-losses";
 import rmbhCounties from "@/lib/collector/rmbh-counties.json";
 import { collectionRuns } from "@/lib/db/schema";
 
@@ -18,6 +19,12 @@ export type DailySyncSummary = {
   durationMs: number;
   countiesProcessed: number;
   quotationRun?: {
+    found: number;
+    new: number;
+    updated: number;
+    errors: CollectionError[];
+  };
+  proposalLossRun?: {
     found: number;
     new: number;
     updated: number;
@@ -48,6 +55,12 @@ type DailySyncDependencies = {
     errors: CollectionError[];
   }>;
   collectQuotations?: () => Promise<{
+    found: number;
+    newCount: number;
+    updatedCount: number;
+    errors: CollectionError[];
+  }>;
+  collectProposalLosses?: () => Promise<{
     found: number;
     newCount: number;
     updatedCount: number;
@@ -110,6 +123,29 @@ export async function runDailySync(
         }
       } catch (error) {
         summary.errors.push({ message: `[Cotações abertas] ${errorMessage(error)}` });
+      }
+    }
+
+    if (activeDependencies.collectProposalLosses) {
+      try {
+        const proposalLosses = await activeDependencies.collectProposalLosses();
+        summary.proposalLossRun = {
+          found: proposalLosses.found,
+          new: proposalLosses.newCount,
+          updated: proposalLosses.updatedCount,
+          errors: proposalLosses.errors
+        };
+        summary.found += proposalLosses.found;
+        summary.new += proposalLosses.newCount;
+        summary.updated += proposalLosses.updatedCount;
+        summary.errors.push(
+          ...proposalLosses.errors.map((error) => ({
+            ...error,
+            message: `[Perdas de propostas] ${error.message}`
+          }))
+        );
+      } catch (error) {
+        summary.errors.push({ message: `[Perdas de propostas] ${errorMessage(error)}` });
       }
     }
 
@@ -232,6 +268,9 @@ async function createDefaultDependencies(startedAt: number): Promise<DailySyncDe
     },
     async collectQuotations() {
       return collectOpenQuotations();
+    },
+    async collectProposalLosses() {
+      return collectRejectedProposalLosses();
     },
     async dispatchNotifications() {
       const { dispatchQuotationNotifications } = await import("@/lib/notify/dispatch");

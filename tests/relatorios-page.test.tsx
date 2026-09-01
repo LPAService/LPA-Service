@@ -4,9 +4,9 @@ import { createRoot, type Root } from "react-dom/client";
 import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import RelatoriosPage from "@/app/relatorios/page";
-import { competitiveAnalytics } from "@/lib/data/analytics";
+import { competitiveAnalytics, proposalLossAnalytics } from "@/lib/data/analytics";
 
-const { mockSnapshot } = vi.hoisted(() => {
+const { mockSnapshot, mockLossSnapshot } = vi.hoisted(() => {
   return {
     mockSnapshot: {
       summary: {
@@ -153,6 +153,97 @@ const { mockSnapshot } = vi.hoisted(() => {
         sanitizedMedianDiscountPct: 20.0,
         byGroup: []
       }
+    },
+    mockLossSnapshot: {
+      losses: [
+        {
+          orderId: "2026169900",
+          idSubprogram: 548,
+          idSchool: 8043,
+          idBudget: 340615,
+          schoolName: "EE NILO MAURICIO TRINDADE FIGUEIREDO",
+          countyName: "Belo Horizonte",
+          expenseGroup: "Material de Consumo Geral",
+          proposalDeadline: new Date("2026-08-11T14:39:42.000Z"),
+          ourSupplierId: 111892,
+          ourTotal: 2260.4,
+          winnerSupplierId: 42153,
+          winnerName: "LMG TECHNOLOGY",
+          winnerTotal: 2096.6,
+          competitorCount: 9,
+          ourRank: 6,
+          estimatedValue: 2500,
+          lossGapPercent: 7.8
+        },
+        {
+          orderId: "2026165221",
+          idSubprogram: 548,
+          idSchool: 8043,
+          idBudget: 340615,
+          schoolName: "EE SANDOVAL SOARES DE AZEVEDO",
+          countyName: "Ibirité",
+          expenseGroup: "Gêneros Alimentícios",
+          proposalDeadline: new Date("2026-08-11T14:39:42.000Z"),
+          ourSupplierId: 111892,
+          ourTotal: 4112.0,
+          winnerSupplierId: 42153,
+          winnerName: "ECOHORTI",
+          winnerTotal: 3168.0,
+          competitorCount: 2,
+          ourRank: 2,
+          estimatedValue: 4000,
+          lossGapPercent: 29.8
+        },
+        {
+          orderId: "2026162267",
+          idSubprogram: 702,
+          idSchool: 11059,
+          idBudget: 338718,
+          schoolName: "EE IMPERATRIZ PIMENTA",
+          countyName: "Ibirité",
+          expenseGroup: "Material de Consumo Geral",
+          proposalDeadline: new Date("2026-08-09T15:48:53.000Z"),
+          ourSupplierId: 111892,
+          ourTotal: 15443.07,
+          winnerSupplierId: 46722,
+          winnerName: "JLB PRODUTOS DE LIMPEZA",
+          winnerTotal: 4680.46,
+          competitorCount: 5,
+          ourRank: 5,
+          estimatedValue: 289,
+          lossGapPercent: 229.9
+        }
+      ],
+      lossesByGroup: [
+        {
+          expenseGroup: "Gêneros Alimentícios",
+          lossCount: 8,
+          medianPriceGapPct: 29.8,
+          medianPriceGapAmount: 1200.0
+        },
+        {
+          expenseGroup: "Material de Consumo Geral",
+          lossCount: 4,
+          medianPriceGapPct: 39.5,
+          medianPriceGapAmount: 1185.0
+        }
+      ],
+      winningCompetitors: [
+        {
+          winnerSupplierId: 42153,
+          winnerName: "S&S Comercial",
+          wins: 3,
+          knownWinnerTotalCount: 3,
+          medianWinnerTotal: 2887.5
+        },
+        {
+          winnerSupplierId: 46722,
+          winnerName: "JLB PRODUTOS DE LIMPEZA",
+          wins: 1,
+          knownWinnerTotalCount: 1,
+          medianWinnerTotal: 4680.46
+        }
+      ]
     }
   };
 });
@@ -199,6 +290,11 @@ vi.mock("@/lib/data/analytics", () => ({
     getCategoryCompetition: vi.fn().mockResolvedValue(mockSnapshot.categoryCompetition),
     getIncumbencyMap: vi.fn().mockResolvedValue(mockSnapshot.incumbencyMap),
     getWinnerDiscount: vi.fn().mockResolvedValue(mockSnapshot.winnerDiscount)
+  },
+  proposalLossAnalytics: {
+    listLosses: vi.fn().mockResolvedValue(mockLossSnapshot.losses),
+    getLossesByExpenseGroup: vi.fn().mockResolvedValue(mockLossSnapshot.lossesByGroup),
+    getWinningCompetitors: vi.fn().mockResolvedValue(mockLossSnapshot.winningCompetitors)
   }
 }));
 
@@ -214,7 +310,7 @@ describe("RelatoriosPage", () => {
     vi.restoreAllMocks();
   });
 
-  it("renderiza a nova narrativa de inteligência competitiva e onde estão as vitórias", async () => {
+  it("renderiza a nova narrativa de inteligência competitiva e a seção Aprenda com as perdas", async () => {
     const pageComponent = await RelatoriosPage();
     render(pageComponent);
 
@@ -234,6 +330,35 @@ describe("RelatoriosPage", () => {
     expect(text).toContain("2");
     expect(text).toContain("Preços Unitários Reais");
     expect(text).toContain("60");
+
+    // Seção: Aprenda com as perdas
+    expect(text).toContain("Aprenda com as perdas");
+    expect(text).toContain("Raio-X de Propostas Perdidas");
+    expect(text).toContain("100,0% Perdidas no Preço");
+    expect(text).toContain("Fato Central da Auditoria");
+    expect(text).toContain("100,0% no Preço");
+    expect(text).toContain("+29,8%");
+    expect(text).toContain("Erros de Precificação (> 100%)");
+    expect(text).toContain("Disputas Diretas (1x1)");
+
+    // Sub-análises: Grupos e Vencedores
+    expect(text).toContain("Onde mais se perde (por grupo de despesa)");
+    expect(text).toContain("Gêneros Alimentícios");
+    expect(text).toContain("Quem mais vence contra nós");
+    expect(text).toContain("S&S Comercial");
+
+    // Guia diagnóstico e Tabela Detalhada
+    expect(text).toContain("Disputas Comerciais (Diferença ≤ 100%)");
+    expect(text).toContain("Distorções de Precificação (Diferença > 100%)");
+    expect(text).toContain("Lista Detalhada das Perdas (Ordenada por Diferença)");
+    expect(text).toContain("2026169900");
+    expect(text).toContain("EE NILO MAURICIO TRINDADE FIGUEIREDO");
+    expect(text).toContain("LMG TECHNOLOGY");
+    expect(text).toContain("2026162267");
+    expect(text).toContain("JLB PRODUTOS DE LIMPEZA");
+    expect(text).toContain("+229,9%");
+    expect(text).toContain("Erro de Precificação");
+    expect(text).toContain("Disputa 1x1");
 
     // Seção 1: Por que você perde
     expect(text).toContain("Por que você perde");
@@ -275,6 +400,49 @@ describe("RelatoriosPage", () => {
     expect(text).not.toContain("Para a Plataforma (Engenharia)");
   });
 
+  it("renderiza proposta com winnerTotal nulo sem inventar números nem quebrar", async () => {
+    vi.mocked(proposalLossAnalytics.listLosses).mockResolvedValue([
+      {
+        orderId: "2026171050",
+        idSubprogram: 548,
+        idSchool: 8043,
+        idBudget: 340615,
+        schoolName: "EE PROFESSOR CARLOS LUCIO DE ASSIS",
+        countyName: "Betim",
+        expenseGroup: "Material de Consumo Geral",
+        proposalDeadline: new Date("2026-08-11T14:39:42.000Z"),
+        ourSupplierId: 111892,
+        ourTotal: 4185.0,
+        winnerSupplierId: 999999,
+        winnerName: null,
+        winnerTotal: null,
+        competitorCount: 14,
+        ourRank: 5,
+        estimatedValue: 3500,
+        lossGapPercent: null
+      }
+    ]);
+    vi.mocked(proposalLossAnalytics.getLossesByExpenseGroup).mockResolvedValue([
+      {
+        expenseGroup: "Material de Consumo Geral",
+        lossCount: 1,
+        medianPriceGapPct: null,
+        medianPriceGapAmount: null
+      }
+    ]);
+    vi.mocked(proposalLossAnalytics.getWinningCompetitors).mockResolvedValue([]);
+
+    const pageComponent = await RelatoriosPage();
+    render(pageComponent);
+
+    const text = container!.textContent || "";
+    expect(text).toContain("2026171050");
+    expect(text).toContain("EE PROFESSOR CARLOS LUCIO DE ASSIS");
+    expect(text).toContain("Valor do vencedor não informado");
+    expect(text).not.toContain("NaN");
+    expect(text).not.toContain("undefined");
+  });
+
   it("renderiza estado vazio honesto sem dados fabricados quando analytics volta vazio", async () => {
     vi.mocked(competitiveAnalytics.getSummary).mockResolvedValue({
       adjudicatedCount: 0,
@@ -295,6 +463,9 @@ describe("RelatoriosPage", () => {
       sanitizedMedianDiscountPct: null,
       byGroup: []
     });
+    vi.mocked(proposalLossAnalytics.listLosses).mockResolvedValue([]);
+    vi.mocked(proposalLossAnalytics.getLossesByExpenseGroup).mockResolvedValue([]);
+    vi.mocked(proposalLossAnalytics.getWinningCompetitors).mockResolvedValue([]);
 
     const pageComponent = await RelatoriosPage();
     render(pageComponent);
@@ -302,6 +473,7 @@ describe("RelatoriosPage", () => {
     const text = container!.textContent || "";
     expect(text).toContain("Sem histórico adjudicado sincronizado nesta base.");
     expect(text).toContain("Esta análise depende da tabela `opportunities`");
+    expect(text).toContain("Nenhuma proposta perdida registrada no banco até o momento.");
     expect(text).not.toContain("7.448");
     expect(text).not.toContain("Papel A4 Sulfite");
     expect(text).not.toContain("GUIMARAES ROSA");

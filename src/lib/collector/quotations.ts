@@ -40,10 +40,11 @@ export type QuotationCollectionResult = {
   errors: Array<{ externalId?: string; message: string }>;
 };
 
-type SummaryRecord = {
+export type SummaryRecord = {
   idSubprogram: number;
   idSchool: number;
   idBudget: number;
+  idSupplier?: number | null;
   idCounty?: number | null;
   countyName?: string | null;
   schoolName?: string | null;
@@ -57,7 +58,7 @@ type SummaryRecord = {
   year?: string | number | null;
 };
 
-type DetailRecord = {
+export type DetailRecord = {
   schoolName?: string | null;
   countyName?: string | null;
   subprogramName?: string | null;
@@ -66,7 +67,17 @@ type DetailRecord = {
   expenseGroupDescription?: string | null;
   initiativeDescription?: string | null;
   estimatedValue?: number | string | null;
+  idSupplierProposalWinner?: number | null;
+  txAnalystJustification?: string | null;
   status?: string | null;
+};
+
+export type BudgetProposalRecord = {
+  idSupplier?: number | null;
+  idSupplierWinner?: number | null;
+  txFantasyName?: string | null;
+  totalPropose?: number | string | null;
+  personType?: string | null;
 };
 
 type ItemRecord = {
@@ -131,6 +142,14 @@ export class AuthenticatedSgdClient {
     });
   }
 
+  async listRejectedQuotations(page: number, limit = DEFAULT_PAGE_SIZE) {
+    return this.getJson<Paginated<SummaryRecord>>("/budget-proposal/summary-by-supplier-profile", {
+      "filter.supplierStatus": "$eq:RECU",
+      page,
+      limit
+    });
+  }
+
   async getBudgetDetail(record: SummaryRecord) {
     return this.getJson<DetailRecord>(`/budget/by-subprogram/${record.idSubprogram}/by-school/${record.idSchool}/by-budget/${record.idBudget}`);
   }
@@ -140,6 +159,13 @@ export class AuthenticatedSgdClient {
       page,
       limit
     });
+  }
+
+  async listBudgetProposals(record: SummaryRecord, limit = 200) {
+    const response = await this.getJson<BudgetProposalRecord[] | Paginated<BudgetProposalRecord>>(`/budget-proposal/by-subprogram/${record.idSubprogram}/by-school/${record.idSchool}/by-budget/${record.idBudget}`, {
+      limit
+    });
+    return Array.isArray(response) ? response : response.data;
   }
 
   private async getJson<T>(path: string, params: Record<string, unknown> = {}) {

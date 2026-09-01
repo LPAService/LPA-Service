@@ -107,4 +107,31 @@ describe("lote diário", () => {
     expect(result.errors.some((error) => error.message.includes("API indisponível"))).toBe(true);
     expect(finishRun).toHaveBeenCalledWith(99, result, "completed");
   });
+
+  it("continua quando coleta de perdas falha", async () => {
+    const finishRun = vi.fn(async () => undefined);
+    const result = await runDailySync({
+      startRun: async () => 100,
+      finishRun,
+      collectQuotations: async () => ({ found: 2, newCount: 1, updatedCount: 1, errors: [] }),
+      collectProposalLosses: async () => {
+        throw new Error("perdas indisponíveis");
+      },
+      collectCounty: async () => ({ found: 0, newCount: 0, updatedCount: 0, errors: [] }),
+      now: () => 0,
+      timeoutMs: 1000
+    });
+
+    expect(result).toMatchObject({
+      runId: 100,
+      found: 2,
+      new: 1,
+      updated: 1,
+      quotationRun: { found: 2, new: 1, updated: 1 }
+    });
+    expect(result.errors).toEqual([
+      { message: "[Perdas de propostas] perdas indisponíveis" }
+    ]);
+    expect(finishRun).toHaveBeenCalledWith(100, result, "completed");
+  });
 });
