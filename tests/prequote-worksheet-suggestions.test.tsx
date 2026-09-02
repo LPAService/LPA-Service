@@ -538,6 +538,123 @@ describe("PrequoteWorksheet - Sugestões Automáticas", () => {
     expect(container!.textContent).toContain("Resma Papel Sulfite A4 Report 500 Fls");
     expect(container!.textContent).toContain(formatBRL(26.5));
   });
+
+  describe("Categorias de Serviço / Locação (ocultação de busca automática)", () => {
+    it.each(["servicos", "transporte", "capacitacao-formacao"])(
+      "para categoria '%s': oculta busca internet, não dispara batch search e exibe aviso único",
+      async (categorySlug) => {
+        const fetchMock = vi.fn().mockImplementation((url: string) => {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ results: {} })
+          });
+        });
+        global.fetch = fetchMock;
+
+        const rows: WorksheetRow[] = [
+          makeRow({ itemOrder: 1, name: "Serviço de Pintura", unitCost: null }),
+          makeRow({ itemOrder: 2, name: "Serviço de Limpeza de Caixa D'Água", unitCost: null }),
+          makeRow({ itemOrder: 3, name: "Transporte Escolar Linha 01", unitCost: null })
+        ];
+
+        await act(async () => {
+          root!.render(
+            <PrequoteWorksheet
+              catalogItems={mockCatalogItems}
+              initialPreQuoteId={null}
+              initialRows={rows}
+              quotation={{
+                ...mockQuotation,
+                categorySlug,
+                categoryName: "Serviços em Geral",
+                expenseGroup: "Serviços Operacionais Contínuos"
+              }}
+              referenceSuggestions={{}}
+              suggestions={{}}
+            />
+          );
+        });
+
+        // 1. NÃO deve disparar batch search
+        const batchCalls = fetchMock.mock.calls.filter(([url]) => url === "/api/search/best-price/batch");
+        expect(batchCalls).toHaveLength(0);
+
+        // 2. NÃO deve mostrar o botão "🔎 Internet"
+        const internetButtons = Array.from(container!.querySelectorAll("button")).filter(
+          (b) => b.textContent?.includes("Internet")
+        );
+        expect(internetButtons).toHaveLength(0);
+
+        // 3. NÃO deve mostrar área de resultados da internet nem aviso de "Nenhuma oferta encontrada"
+        expect(container!.textContent).not.toContain("Resultados da internet");
+        expect(container!.textContent).not.toContain("Nenhuma oferta encontrada para este item.");
+
+        // 4. Mostra o aviso EXATAMENTE UMA VEZ na página
+        const expectedNotice =
+          "Itens de serviço/locação não têm busca automática de preço. O valor vem do contato direto com fornecedores.";
+        expect(container!.textContent).toContain(expectedNotice);
+
+        const noticeOccurrences = (container!.textContent?.match(new RegExp(expectedNotice.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")) || []).length;
+        expect(noticeOccurrences).toBe(1);
+
+        // 5. Permite preenchimento manual normal e mantém o resumo lateral
+        expect(container!.textContent).toContain("Resumo do Pré-Orçamento");
+        expect(container!.textContent).toContain("Custo dos itens");
+        expect(container!.textContent).toContain("Itens sem preço");
+      }
+    );
+
+    it("para categoria de produto não-serviço: mostra busca internet e NÃO mostra aviso de serviço", async () => {
+      const fetchMock = vi.fn().mockImplementation((url: string) => {
+        if (url === "/api/search/best-price/batch") {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ results: {} })
+          });
+        }
+        return Promise.reject(new Error("Unexpected url: " + url));
+      });
+      global.fetch = fetchMock;
+
+      const rows: WorksheetRow[] = [
+        makeRow({ itemOrder: 1, name: "Caderno Escolar 96fls", unitCost: null }),
+        makeRow({ itemOrder: 2, name: "Caneta Esferográfica Azul", unitCost: null })
+      ];
+
+      await act(async () => {
+        root!.render(
+          <PrequoteWorksheet
+            catalogItems={mockCatalogItems}
+            initialPreQuoteId={null}
+            initialRows={rows}
+            quotation={{
+              ...mockQuotation,
+              categorySlug: "material-de-escritorio",
+              categoryName: "Material de Escritório",
+              expenseGroup: "Material de Consumo Geral"
+            }}
+            referenceSuggestions={{}}
+            suggestions={{}}
+          />
+        );
+      });
+
+      // 1. Dispara busca em lote
+      const batchCalls = fetchMock.mock.calls.filter(([url]) => url === "/api/search/best-price/batch");
+      expect(batchCalls).toHaveLength(1);
+
+      // 2. Mostra botões "🔎 Internet" para os itens
+      const internetButtons = Array.from(container!.querySelectorAll("button")).filter(
+        (b) => b.textContent?.includes("Internet")
+      );
+      expect(internetButtons).toHaveLength(2);
+
+      // 3. NÃO deve mostrar o aviso de serviço/locação
+      expect(container!.textContent).not.toContain(
+        "Itens de serviço/locação não têm busca automática de preço. O valor vem do contato direto com fornecedores."
+      );
+    });
+  });
 });
 
 function makeRow(patch: Partial<WorksheetRow> = {}): WorksheetRow {

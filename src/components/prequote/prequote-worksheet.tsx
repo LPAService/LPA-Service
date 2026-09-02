@@ -44,6 +44,12 @@ export type WorksheetQuotation = {
   categoryName: string | null;
 };
 
+export const SERVICE_CATEGORIES = new Set<string>([
+  "servicos",
+  "transporte",
+  "capacitacao-formacao"
+]);
+
 type PrequoteWorksheetProps = {
   quotation: WorksheetQuotation;
   initialPreQuoteId: number | null;
@@ -69,6 +75,7 @@ export function PrequoteWorksheet({
   initialStatus = "draft",
   initialNotes = ""
 }: PrequoteWorksheetProps) {
+  const isServiceCategory = Boolean(quotation.categorySlug && SERVICE_CATEGORIES.has(quotation.categorySlug));
   const [rows, setRows] = useState<WorksheetRow[]>(initialRows);
   const [preQuoteId, setPreQuoteId] = useState<number | null>(initialPreQuoteId);
   const [marginText, setMarginText] = useState(String(initialMarginPercent));
@@ -85,6 +92,7 @@ export function PrequoteWorksheet({
   const [batchResults, setBatchResults] = useState<Record<string, BestPriceResult>>({});
 
   useEffect(() => {
+    if (isServiceCategory) return;
     let active = true;
     const rowsWithoutCost = initialRows.filter((r) => r.unitCost === null && r.name.trim());
     const queries = Array.from(new Set(rowsWithoutCost.map((r) => r.name.trim())))
@@ -123,7 +131,7 @@ export function PrequoteWorksheet({
     return () => {
       active = false;
     };
-  }, [initialRows, quotation.categoryName, quotation.categorySlug, quotation.expenseGroup]);
+  }, [initialRows, isServiceCategory, quotation.categoryName, quotation.categorySlug, quotation.expenseGroup]);
 
   const marginPercent = parseNonNegative(marginText);
   const freightCost = parseNonNegative(freightText);
@@ -315,6 +323,11 @@ export function PrequoteWorksheet({
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)]">
       <div className="grid min-w-0 gap-4 content-start">
+        {isServiceCategory && (
+          <div className="rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-5 text-sm leading-relaxed text-[var(--color-fg-muted)]">
+            Itens de serviço/locação não têm busca automática de preço. O valor vem do contato direto com fornecedores.
+          </div>
+        )}
         {rows.length === 0 ? (
           <div className="rounded-xl border border-dashed border-[var(--color-border)] p-10 text-center text-sm text-[var(--color-fg-muted)]">
             Esta cotação não possui itens publicados no portal. Sem itens não há o que pré-orçar.
@@ -326,11 +339,12 @@ export function PrequoteWorksheet({
             const rowSuggestions = suggestions[row.itemOrder] ?? [];
             const rowReferenceSuggestions = getUniqueReferenceMatches(referenceSuggestions[row.itemOrder] ?? []);
             const autoPriceResult = batchResults[row.name.trim()] ?? batchResults[row.name];
-            const autoRealOffer = autoPriceResult?.offers?.find((offer) => isRelevantReferenceTitle(row.name, offer.title));
+            const autoRealOffer = !isServiceCategory
+              ? autoPriceResult?.offers?.find((offer) => isRelevantReferenceTitle(row.name, offer.title))
+              : null;
             const hasAnySuggestions =
               rowSuggestions.length > 0 ||
-              batchLoading ||
-              Boolean(autoRealOffer) ||
+              (!isServiceCategory && (batchLoading || Boolean(autoRealOffer))) ||
               rowReferenceSuggestions.length > 0;
             const result = searchResults[row.itemOrder];
             const isSearching = searchingRow === row.itemOrder;
@@ -362,7 +376,13 @@ export function PrequoteWorksheet({
                   {lineRef !== null && <span className="font-normal"> (linha: {formatBRL(lineRef)})</span>}
                 </p>
 
-                <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_9.5rem_9.5rem]">
+                <div
+                  className={`mt-4 grid gap-3 ${
+                    isServiceCategory
+                      ? "sm:grid-cols-[minmax(0,1fr)_12rem]"
+                      : "sm:grid-cols-[minmax(0,1fr)_9.5rem_9.5rem]"
+                  }`}
+                >
                   <label>
                     <span className="field-label">Item do catálogo</span>
                     <select
@@ -398,17 +418,19 @@ export function PrequoteWorksheet({
                       value={row.unitCost ?? ""}
                     />
                   </label>
-                  <div className="flex items-end">
-                    <button
-                      className="action-secondary inline-flex min-h-11 w-full items-center justify-center gap-1.5 text-sm font-semibold"
-                      disabled={isSearching}
-                      onClick={() => searchWeb(row.itemOrder)}
-                      title="Busca o menor preço na internet para este item"
-                      type="button"
-                    >
-                      {isSearching ? "Buscando…" : "🔎 Internet"}
-                    </button>
-                  </div>
+                  {!isServiceCategory && (
+                    <div className="flex items-end">
+                      <button
+                        className="action-secondary inline-flex min-h-11 w-full items-center justify-center gap-1.5 text-sm font-semibold"
+                        disabled={isSearching}
+                        onClick={() => searchWeb(row.itemOrder)}
+                        title="Busca o menor preço na internet para este item"
+                        type="button"
+                      >
+                        {isSearching ? "Buscando…" : "🔎 Internet"}
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {row.unitCost === null && hasAnySuggestions && (
@@ -440,14 +462,14 @@ export function PrequoteWorksheet({
                     )}
 
                     {/* b. Real Distribuidora */}
-                    {batchLoading && (
+                    {!isServiceCategory && batchLoading && (
                       <div className="flex items-center gap-2 text-xs text-[var(--color-fg-muted)]">
                         <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
                         <span>Buscando preço na Real Distribuidora…</span>
                       </div>
                     )}
 
-                    {!batchLoading && autoRealOffer && (
+                    {!isServiceCategory && !batchLoading && autoRealOffer && (
                       <div className="space-y-1.5">
                         <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--color-fg-muted)]">
                           Oferta encontrada ({providerLabel(autoRealOffer.provider || "realdist")}):
@@ -559,7 +581,7 @@ export function PrequoteWorksheet({
                   </p>
                 )}
 
-                {isSearchOpen && (
+                {!isServiceCategory && isSearchOpen && (
                   <div className="mt-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-4">
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-fg-muted)]">
