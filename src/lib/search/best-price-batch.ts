@@ -243,7 +243,12 @@ export function semanticBestPriceMatch(
     return false;
   }
 
-  if (itemCategorySlug === "transporte" && hasLooseTransportQualifier(offerTitle)) {
+  if (
+    itemCategorySlug === "transporte" &&
+    productCategorySlug &&
+    !categorySlugsAreCompatible(itemCategorySlug, productCategorySlug) &&
+    hasLooseTransportQualifier(offerTitle)
+  ) {
     return false;
   }
 
@@ -279,7 +284,7 @@ function extractNounCandidates(
   if (itemCategorySlug === "transporte") {
     const transportNouns = termsPresentInText(normalized, TRANSPORT_NOUN_TERMS);
     if (transportNouns.size > 0) return transportNouns;
-    if (side === "item" && tokenSet.has("transporte")) return new Set(TRANSPORT_NOUN_TERMS);
+    if (side === "item" && tokenSet.has("transporte")) return new Set<string>();
     return new Set([...knownNouns, ...genericNouns.filter((token) => token !== "transporte")]);
   }
 

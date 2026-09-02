@@ -375,12 +375,20 @@ describe("searchBestPriceBatch", () => {
     ).toBe(false);
   });
 
-  it("descarta transporte usado só como qualificador no título da oferta", async () => {
+  it("descarta transporte como qualificador só quando título tem produto incompatível", async () => {
+    expect(
+      semanticBestPriceMatch("Servico de transporte escolar", "Porta Escova Perfeito Para Transporte Em Servico", {
+        categorySlug: "transporte"
+      })
+    ).toBe(false);
+  });
+
+  it("não descarta título genérico de serviços só por transporte como qualificador", async () => {
     expect(
       semanticBestPriceMatch("Servico de transporte escolar", "Servicos para transporte escolar", {
         categorySlug: "transporte"
       })
-    ).toBe(false);
+    ).toBe(true);
   });
 });
 
