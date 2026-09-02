@@ -7,6 +7,7 @@ import {
   isRelevantReferenceTitle,
   normalizeReferenceQuery
 } from "@/lib/catalog/reference-name-match";
+import categoriesRaw from "@/lib/classification/categories.json";
 import { normalize } from "@/lib/text/normalize";
 
 export const BEST_PRICE_BATCH_LIMIT = 40;
@@ -35,6 +36,11 @@ type BatchQuery = {
   searchQuery: string;
 };
 
+type CategoryNode = {
+  slug: string;
+  parent: string | null;
+};
+
 export type SearchBestPriceBatchQuery =
   | string
   | ({
@@ -55,6 +61,8 @@ export type BestPriceBatchResponse = {
 };
 
 const cache = new Map<string, CacheEntry>();
+const categories = categoriesRaw as CategoryNode[];
+const categoriesBySlug = new Map(categories.map((category) => [category.slug, category]));
 
 export class BestPriceBatchLimitError extends Error {
   constructor(limit: number) {
@@ -107,7 +115,7 @@ export async function searchBestPriceBatch(
   }
 
   await mapWithConcurrency(uncached, concurrency, async (query) => {
-    if (referenceContextIsProduce(query.context)) {
+    if (automaticPriceBlockedByProduceContext(query.context)) {
       const result = buildNoAutomaticPriceResult(query.searchQuery);
       cache.set(query.cacheKey, { result, expiresAt: now() + ttlMs });
       byNormalized.set(query.cacheKey, result);
@@ -116,6 +124,7 @@ export async function searchBestPriceBatch(
     const result = await searchRelevantBestPriceWithFallback(
       search,
       query.searchQuery,
+      query.context,
       offerLimit,
       timeoutMs
     );
@@ -162,24 +171,39 @@ function buildNoAutomaticPriceResult(query: string): BestPriceResult {
   };
 }
 
-function isRelevantBestPriceOffer(query: string): BestPriceOfferPredicate {
-  return (offer) => isRelevantReferenceTitle(query, offer.title);
+function automaticPriceBlockedByProduceContext(context: ReferenceMatchContext) {
+  const categorySlug = knownCategorySlug(context.categorySlug);
+  const contextText = normalizeBatchQuery([context.categorySlug, context.categoryName].filter(Boolean).join(" "));
+  return (
+    categorySlug !== "nao-pereciveis" &&
+    !contextText.includes("nao pereciveis") &&
+    referenceContextIsProduce(context)
+  );
 }
 
-function filterBestPriceResultByRelevance(result: BestPriceResult, query: string): BestPriceResult {
+function isRelevantBestPriceOffer(query: string, context: ReferenceMatchContext = {}): BestPriceOfferPredicate {
+  return (offer) => isRelevantReferenceTitle(query, offer.title) && semanticBestPriceMatch(query, offer.title, context);
+}
+
+function filterBestPriceResultByRelevance(
+  result: BestPriceResult,
+  query: string,
+  context: ReferenceMatchContext
+): BestPriceResult {
   return {
     ...result,
-    offers: result.offers.filter(isRelevantBestPriceOffer(query))
+    offers: result.offers.filter(isRelevantBestPriceOffer(query, context))
   };
 }
 
 async function searchRelevantBestPriceWithFallback(
   search: SearchBestPriceFn,
   query: string,
+  context: ReferenceMatchContext,
   offerLimit: number,
   timeoutMs: number
 ): Promise<BestPriceResult> {
-  const relevancePredicate = isRelevantBestPriceOffer(query);
+  const relevancePredicate = isRelevantBestPriceOffer(query, context);
   const fallbackQuery = buildCoreFallbackQuery(query);
   const normalizedFallback =
     fallbackQuery && normalizeBatchQuery(fallbackQuery) !== normalizeBatchQuery(query) ? fallbackQuery : null;
@@ -193,8 +217,37 @@ async function searchRelevantBestPriceWithFallback(
       normalizedFallback,
       BEST_PRICE_BATCH_RELEVANCE_CANDIDATE_LIMIT
     ),
-    query
+    query,
+    context
   );
+}
+
+export function semanticBestPriceMatch(
+  itemText: string,
+  offerTitle: string,
+  context: ReferenceMatchContext = {}
+) {
+  const itemCategorySlug = knownCategorySlug(context.categorySlug);
+  const itemNouns = extractNounCandidates(itemText, itemCategorySlug, "item");
+  const titleNouns = extractNounCandidates(offerTitle, itemCategorySlug, "title");
+  if (itemNouns.size > 0 && titleNouns.size > 0 && !tokenSetsIntersect(itemNouns, titleNouns)) {
+    return false;
+  }
+
+  const productCategorySlug = inferProductCategorySlug(offerTitle);
+  if (
+    itemCategorySlug &&
+    productCategorySlug &&
+    !categorySlugsAreCompatible(itemCategorySlug, productCategorySlug)
+  ) {
+    return false;
+  }
+
+  if (itemCategorySlug === "transporte" && hasLooseTransportQualifier(offerTitle)) {
+    return false;
+  }
+
+  return true;
 }
 
 function buildCoreFallbackQuery(query: string) {
@@ -212,6 +265,224 @@ function normalizeBatchQuery(value: string) {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+function extractNounCandidates(
+  text: string,
+  itemCategorySlug: string | null,
+  side: "item" | "title"
+) {
+  const normalized = normalizeReferenceQuery(text);
+  const tokenSet = new Set(tokenize(normalized));
+  const knownNouns = knownNounsInText(normalized);
+  const genericNouns = [...tokenSet].filter((token) => !NON_NOUN_TOKENS.has(token) && !/^\d+$/.test(token));
+
+  if (itemCategorySlug === "transporte") {
+    const transportNouns = termsPresentInText(normalized, TRANSPORT_NOUN_TERMS);
+    if (transportNouns.size > 0) return transportNouns;
+    if (side === "item" && tokenSet.has("transporte")) return new Set(TRANSPORT_NOUN_TERMS);
+    return new Set([...knownNouns, ...genericNouns.filter((token) => token !== "transporte")]);
+  }
+
+  return new Set([...knownNouns, ...genericNouns]);
+}
+
+function knownNounsInText(normalizedText: string) {
+  const nouns = new Set<string>();
+  for (const terms of Object.values(STRONG_PRODUCT_CATEGORY_TERMS)) {
+    for (const term of terms) {
+      if (!normalizedTextHasTerm(normalizedText, term)) continue;
+      for (const token of tokenize(term)) {
+        if (!NON_NOUN_TOKENS.has(token)) nouns.add(token);
+      }
+    }
+  }
+  return nouns;
+}
+
+function inferProductCategorySlug(title: string) {
+  const normalizedTitle = normalizeReferenceQuery(title);
+  let bestSlug: string | null = null;
+  let bestScore = 0;
+  let tied = false;
+
+  for (const [slug, terms] of Object.entries(STRONG_PRODUCT_CATEGORY_TERMS)) {
+    let score = 0;
+    for (const term of terms) {
+      if (!normalizedTextHasTerm(normalizedTitle, term)) continue;
+      score += tokenize(term).length || 1;
+    }
+    if (score === 0) continue;
+    if (score > bestScore) {
+      bestSlug = slug;
+      bestScore = score;
+      tied = false;
+    } else if (score === bestScore) {
+      tied = true;
+    }
+  }
+
+  return tied ? null : bestSlug;
+}
+
+function knownCategorySlug(slug: string | null | undefined) {
+  if (!slug) return null;
+  const normalizedSlug = normalizeBatchQuery(slug).replace(/\s+/g, "-");
+  return categoriesBySlug.has(normalizedSlug) ? normalizedSlug : null;
+}
+
+function categorySlugsAreCompatible(itemSlug: string, productSlug: string) {
+  if (itemSlug === productSlug) return true;
+  return ancestorsForCategory(itemSlug).has(productSlug) || ancestorsForCategory(productSlug).has(itemSlug);
+}
+
+function ancestorsForCategory(slug: string) {
+  const ancestors = new Set<string>();
+  let current = categoriesBySlug.get(slug);
+  while (current?.parent) {
+    ancestors.add(current.parent);
+    current = categoriesBySlug.get(current.parent);
+  }
+  return ancestors;
+}
+
+function hasLooseTransportQualifier(title: string) {
+  const tokens = normalizeReferenceQuery(title).split(/\s+/).filter(Boolean);
+  return tokens.some((token, index) => {
+    if (index === 0 || !TRANSPORT_TOKENS.has(token)) return false;
+    const previousToken = tokens[index - 1];
+    if (previousToken === "de" && SERVICE_TOKENS.has(tokens[index - 2])) return false;
+    return TRANSPORT_QUALIFIER_PREPOSITIONS.has(previousToken);
+  });
+}
+
+function termsPresentInText(normalizedText: string, terms: readonly string[]) {
+  const present = new Set<string>();
+  for (const term of terms) {
+    if (!normalizedTextHasTerm(normalizedText, term)) continue;
+    for (const token of tokenize(term)) present.add(token);
+  }
+  return present;
+}
+
+function normalizedTextHasTerm(normalizedText: string, term: string) {
+  const normalizedTerm = normalizeReferenceQuery(term);
+  return new RegExp(`(^|\\s)${escapeRegExp(normalizedTerm)}(\\s|$)`).test(normalizedText);
+}
+
+function tokenSetsIntersect(left: Set<string>, right: Set<string>) {
+  for (const leftToken of left) {
+    for (const rightToken of right) {
+      if (tokensMatch(leftToken, rightToken)) return true;
+    }
+  }
+  return false;
+}
+
+function tokensMatch(left: string, right: string) {
+  return left === right || left.startsWith(right) || right.startsWith(left);
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+const TRANSPORT_NOUN_TERMS = [
+  "onibus",
+  "micro onibus",
+  "fretamento",
+  "veiculo",
+  "van",
+  "motorista",
+  "caminhao"
+];
+
+const STRONG_PRODUCT_CATEGORY_TERMS: Record<string, string[]> = {
+  transporte: [
+    "onibus",
+    "micro onibus",
+    "fretamento",
+    "veiculo",
+    "van",
+    "motorista",
+    "caminhao",
+    "gasolina",
+    "diesel",
+    "etanol",
+    "pneu"
+  ],
+  "limpeza-higiene": [
+    "porta escova",
+    "escova",
+    "escova de dente",
+    "sabonete",
+    "pasta de dente",
+    "fio dental",
+    "desinfetante",
+    "detergente",
+    "agua sanitaria",
+    "papel higienico",
+    "vassoura",
+    "rodo",
+    "balde",
+    "esponja"
+  ],
+  utensilios: ["faca", "faqueiro", "panela", "talher", "garfo", "colher", "prato", "copo", "jarra"],
+  construcao: ["cimento", "areia", "brita", "tijolo", "telha", "argamassa", "tinta", "janela", "parafuso"],
+  "nao-pereciveis": ["cafe", "arroz", "feijao", "acucar", "oleo", "macarrao", "farinha", "sal"],
+  "frutas-e-verduras": ["cenoura", "banana", "maca", "laranja", "tomate", "cebola", "batata", "alface"],
+  "material-de-escritorio": ["papel", "resma", "caneta", "lapis", "borracha", "caderno", "clips", "pasta"],
+  eletronicos: ["televisao", "tv", "geladeira", "fogao", "liquidificador", "ventilador"],
+  informatica: ["computador", "notebook", "monitor", "mouse", "teclado", "impressora", "roteador"]
+};
+
+const TRANSPORT_TOKENS = new Set(["transporte", "transportes"]);
+const TRANSPORT_QUALIFIER_PREPOSITIONS = new Set(["para", "em", "de", "a", "com"]);
+const SERVICE_TOKENS = new Set(["servico", "servicos"]);
+
+const NON_NOUN_TOKENS = new Set([
+  "servico",
+  "servicos",
+  "contratacao",
+  "contratar",
+  "aquisicao",
+  "fornecimento",
+  "prestacao",
+  "eventual",
+  "continuo",
+  "continua",
+  "perfeito",
+  "perfeita",
+  "industrial",
+  "novo",
+  "nova",
+  "escolar",
+  "educativo",
+  "educativa",
+  "educativos",
+  "educativas",
+  "atividades",
+  "atividade",
+  "fins",
+  "estudante",
+  "estudantes",
+  "aluno",
+  "alunos",
+  "lugar",
+  "lugares",
+  "proteca",
+  "protecao",
+  "unidades",
+  "unidade",
+  "embalagem",
+  "preco",
+  "unitario",
+  "unitaria",
+  "tradicional",
+  "torrado",
+  "moido",
+  "extra",
+  "forte"
+]);
 
 async function searchWithTimeout(
   search: SearchBestPriceFn,

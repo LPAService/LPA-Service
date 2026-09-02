@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   BestPriceBatchLimitError,
   clearBestPriceBatchCache,
+  semanticBestPriceMatch,
   searchBestPriceBatch
 } from "@/lib/search/best-price-batch";
 import type { BestPriceOffer, BestPriceResult } from "@/lib/search/best-price";
@@ -162,6 +163,29 @@ describe("searchBestPriceBatch", () => {
     });
   });
 
+  it("não bloqueia preço automático para não perecíveis", async () => {
+    let calls = 0;
+    const result = await searchBestPriceBatch(
+      [
+        {
+          query: "Cafe torrado e moido 500g",
+          categorySlug: "nao-pereciveis",
+          categoryName: "Não Perecíveis",
+          expenseGroup: "Gêneros Alimentícios"
+        }
+      ],
+      {
+        search: async (query) => {
+          calls += 1;
+          return fakeResult(query);
+        }
+      }
+    );
+
+    expect(calls).toBe(1);
+    expect(result.results["Cafe torrado e moido 500g"].offers).toHaveLength(1);
+  });
+
   it("inclui contexto no cache da busca automática", async () => {
     let calls = 0;
     const options = {
@@ -186,8 +210,8 @@ describe("searchBestPriceBatch", () => {
       [
         {
           query: "Cenoura",
-          categorySlug: "material-de-escritorio",
-          categoryName: "Material de Escritório",
+          categorySlug: "alimentos",
+          categoryName: "Alimentos",
           expenseGroup: "Material de Consumo"
         }
       ],
@@ -303,6 +327,60 @@ describe("searchBestPriceBatch", () => {
     expect(result.results["Cafe torrado e moido"].offers.map((offer) => offer.title)).toEqual([
       "Cafe Barao Tradicional 250Gr"
     ]);
+  });
+
+  it("rejeita oferta automática quando substantivo de transporte não bate com produto", async () => {
+    const result = await searchBestPriceBatch(
+      [
+        {
+          query: "Servico de transporte eventual para estudantes",
+          categorySlug: "transporte",
+          categoryName: "Transporte"
+        }
+      ],
+      {
+        search: async (query, _limit, isRelevantOffer) => {
+          const offers = [
+            makeOffer("Servicos de Transporte Porta Escova Perfeito Para Transporte Em Servico", 34.2),
+            makeOffer("Servicos Transporte Fretamento Onibus Escolar", 450)
+          ];
+          return {
+            query,
+            provider: "zoom",
+            offers: isRelevantOffer ? offers.filter(isRelevantOffer) : offers,
+            error: null
+          };
+        }
+      }
+    );
+
+    expect(result.results["Servico de transporte eventual para estudantes"].offers.map((offer) => offer.title)).toEqual([
+      "Servicos Transporte Fretamento Onibus Escolar"
+    ]);
+  });
+
+  it("mantém oferta automática quando substantivo principal bate", async () => {
+    expect(
+      semanticBestPriceMatch("Onibus de 45 lugares para transporte escolar", "Onibus Escolar Volare 45 Lugares", {
+        categorySlug: "transporte"
+      })
+    ).toBe(true);
+  });
+
+  it("rejeita oferta automática quando categoria forte do produto diverge da categoria do item", async () => {
+    expect(
+      semanticBestPriceMatch("Cafe torrado e moido 500g", "Cafe Barao Tradicional 500Gr", {
+        categorySlug: "transporte"
+      })
+    ).toBe(false);
+  });
+
+  it("descarta transporte usado só como qualificador no título da oferta", async () => {
+    expect(
+      semanticBestPriceMatch("Servico de transporte escolar", "Servicos para transporte escolar", {
+        categorySlug: "transporte"
+      })
+    ).toBe(false);
   });
 });
 

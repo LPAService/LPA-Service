@@ -176,4 +176,31 @@ describe("lote diário", () => {
     expect(result.errors).toEqual([]);
     expect(finishRun).toHaveBeenCalledWith(100, result, "completed");
   });
+
+  it("registra falha da carga Cescom sem derrubar o sync", async () => {
+    const finishRun = vi.fn(async () => undefined);
+    const loadReferenceCatalog = vi.fn(async () => {
+      throw new Error("catálogo indisponível");
+    });
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    try {
+      const result = await runDailySync({
+        startRun: async () => 101,
+        finishRun,
+        collectQuotations: async () => ({ found: 2, newCount: 1, updatedCount: 1, errors: [] }),
+        loadReferenceCatalog,
+        collectCounty: async () => ({ found: 0, newCount: 0, updatedCount: 0, errors: [] }),
+        now: () => 0,
+        timeoutMs: 1000
+      });
+
+      expect(loadReferenceCatalog).toHaveBeenCalledOnce();
+      expect(result.quotationRun).toMatchObject({ found: 2, new: 1, updated: 1 });
+      expect(result.errors).toEqual([{ message: "[Catálogo Cescom] catálogo indisponível" }]);
+      expect(finishRun).toHaveBeenCalledWith(101, result, "completed");
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
 });

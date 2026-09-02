@@ -2,6 +2,7 @@ import { and, desc, eq, gt, sql } from "drizzle-orm";
 import { CaixaEscolarClient } from "@/lib/collector/client";
 import { collectOpportunities, type CollectionError } from "@/lib/collector/collect";
 import { collectOpenQuotations } from "@/lib/collector/quotations";
+import type { CescomCatalogLoadResult } from "@/lib/catalog/cescom-loader";
 import rmbhCounties from "@/lib/collector/rmbh-counties.json";
 import { collectionRuns } from "@/lib/db/schema";
 
@@ -33,6 +34,7 @@ export type DailySyncSummary = {
     emailsSkipped: number;
     errors: string[];
   };
+  referenceCatalog?: CescomCatalogLoadResult;
 };
 
 export class DailySyncAlreadyRunningError extends Error {
@@ -67,6 +69,7 @@ type DailySyncDependencies = {
     emailsSkipped: number;
     errors: string[];
   }>;
+  loadReferenceCatalog?: () => Promise<CescomCatalogLoadResult>;
   now?: () => number;
   timeoutMs?: number;
 };
@@ -122,6 +125,15 @@ export async function runDailySync(
         }
       } catch (error) {
         summary.errors.push({ message: `[Cotações abertas] ${errorMessage(error)}` });
+      }
+    }
+
+    if (activeDependencies.loadReferenceCatalog) {
+      try {
+        summary.referenceCatalog = await activeDependencies.loadReferenceCatalog();
+      } catch (error) {
+        console.error("Failed to load Cescom reference catalog during daily sync", { error });
+        summary.errors.push({ message: `[Catálogo Cescom] ${errorMessage(error)}` });
       }
     }
 
@@ -251,6 +263,10 @@ async function createDefaultDependencies(startedAt: number): Promise<DailySyncDe
     async dispatchNotifications() {
       const { dispatchQuotationNotifications } = await import("@/lib/notify/dispatch");
       return dispatchQuotationNotifications({ since: new Date(startedAt) });
+    },
+    async loadReferenceCatalog() {
+      const { loadCescomCatalog } = await import("@/lib/catalog/cescom-loader");
+      return loadCescomCatalog(db);
     }
   };
 }
