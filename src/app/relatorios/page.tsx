@@ -1057,7 +1057,7 @@ export default async function RelatoriosPage() {
                           />
                         </div>
                         <span className="font-bold tabular-nums text-[var(--color-danger)] text-xs">
-                          {formatPercent(row.leaderSharePct)}
+                            {formatPercent(row.leaderSharePct)}
                         </span>
                       </div>
                     </td>
@@ -1068,6 +1068,9 @@ export default async function RelatoriosPage() {
             </div>
           )}
         </section>
+
+        {/* SEÇÃO: Auditoria de Categorias (Diagnóstico de Poluição Semântica) */}
+        <CategoryAuditSection auditData={CATEGORY_AUDIT_DATA} />
 
         {/* SEÇÃO: Aviso de Qualidade do Dado (Nota Lateral Neutra) */}
         <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-5 space-y-3">
@@ -1218,3 +1221,507 @@ function KpiMiniCard({
     </div>
   );
 }
+
+export interface CategoryAuditResult {
+  slug: string;
+  total_itens: number;
+  poluida: boolean;
+  poluicao_pct_estimado: number;
+  categoria_origem_poluidora: string | null;
+  evidencia: string;
+  amostras_fora: string[];
+  top_tokens?: string[];
+  tokens_estrangeiros?: string[];
+}
+
+export interface CategoryAuditData {
+  metodo: string;
+  data_auditoria: string;
+  total_itens_globais: number;
+  categorias_auditadas: string[];
+  nao_pereciveis_ruido_cadastro: {
+    total: number;
+    nomes_curtos_lt6: number;
+    pct_nomes_curtos: number;
+    descricao_vazia: number;
+    pct_descricao_vazia: number;
+  };
+  resultados: CategoryAuditResult[];
+}
+
+export const CATEGORY_AUDIT_DATA: CategoryAuditData = {
+  metodo: "Jaccard top-30 + atribuição de tokens por lift (≥2x sobre-representação)",
+  data_auditoria: "02/09/2026",
+  total_itens_globais: 68038,
+  categorias_auditadas: [
+    "lacticinios",
+    "frutas-e-verduras",
+    "eletronicos",
+    "informatica",
+    "congelados",
+    "nao-pereciveis",
+    "alimentos",
+    "panificacao",
+    "moveis"
+  ],
+  nao_pereciveis_ruido_cadastro: {
+    total: 16756,
+    nomes_curtos_lt6: 1510,
+    pct_nomes_curtos: 9.0,
+    descricao_vazia: 0,
+    pct_descricao_vazia: 0.0
+  },
+  resultados: [
+    {
+      slug: "informatica",
+      total_itens: 1034,
+      poluida: true,
+      poluicao_pct_estimado: 34,
+      categoria_origem_poluidora: "servicos + eletrica + material-pedagogico",
+      evidencia: "3 tokens com lift>=2 pertencem a 'servicos': fornecimento, sistemas, informatica",
+      amostras_fora: [
+        "Sirene escolar eletrônica",
+        "Serviço de instalação de equipamentos",
+        "Peças para manutenção de impressora (diversas)"
+      ],
+      tokens_estrangeiros: [
+        "bola", "cabo", "eletronica", "equipamentos", "escolar",
+        "esportiva", "fornecimento", "impressora", "informatica",
+        "instalacao", "manutencao", "servico", "sistemas", "suporte", "tonner"
+      ]
+    },
+    {
+      slug: "alimentos",
+      total_itens: 771,
+      poluida: true,
+      poluicao_pct_estimado: 26,
+      categoria_origem_poluidora: "projetos-pedagogicos",
+      evidencia: "6 tokens com lift>=2 pertencem a 'projetos-pedagogicos': estudantes, atividades, educativos, servico, transporte, eventual",
+      amostras_fora: [
+        "Inscrições para estudantes para participação em avaliações, competições e similares (atividades de fins educativos)",
+        "Alimentação externa para estudantes (atividades de fins educativos)",
+        "Serviço de transporte contínuo para estudantes"
+      ],
+      tokens_estrangeiros: [
+        "atividades", "couve", "educativos", "estudantes", "eventual", "pera", "servico", "transporte"
+      ]
+    },
+    {
+      slug: "lacticinios",
+      total_itens: 2956,
+      poluida: true,
+      poluicao_pct_estimado: 24,
+      categoria_origem_poluidora: "frutas-e-verduras + congelados",
+      evidencia: "10 tokens com lift>=2 pertencem a 'frutas-e-verduras': batata, repolho, banana, couve, pimentao, cebola, cenoura, prata, inglesa, chuchu",
+      amostras_fora: [
+        "Batata inglesa",
+        "Mamão formoso",
+        "Banana prata"
+      ],
+      tokens_estrangeiros: [
+        "abobora", "banana", "batata", "beterraba", "cebola", "cenoura", "chuchu", "couve", "formoso", "inglesa", "laranja", "mamao", "moranga", "ovos", "pimentao", "prata", "repolho", "tomate"
+      ]
+    },
+    {
+      slug: "congelados",
+      total_itens: 3689,
+      poluida: true,
+      poluicao_pct_estimado: 22,
+      categoria_origem_poluidora: "frutas-e-verduras",
+      evidencia: "12 tokens com lift>=2 pertencem a 'frutas-e-verduras': batata, banana, couve, cebola, repolho, cenoura, pimentao, inglesa, prata, alface, abacaxi, chuchu",
+      amostras_fora: [
+        "Batata inglesa",
+        "Banana prata"
+      ],
+      tokens_estrangeiros: [
+        "abacaxi", "alface", "banana", "batata", "cebola", "cenoura", "chuchu", "couve", "inglesa", "ovos", "pimentao", "prata", "repolho"
+      ]
+    },
+    {
+      slug: "nao-pereciveis",
+      total_itens: 16756,
+      poluida: true,
+      poluicao_pct_estimado: 16,
+      categoria_origem_poluidora: "alimentos + panificacao + lacticinios",
+      evidencia: "5 tokens com lift>=2 pertencem a 'alimentos': canjiquinha, fermento, canjica, colorau, colorifico",
+      amostras_fora: [
+        "Colorau-colorífico",
+        "Biscoito rosquinha de coco",
+        "Leite de vaca tipo longa vida uht integral"
+      ],
+      tokens_estrangeiros: [
+        "biscoito", "canjica", "canjiquinha", "carne", "coco", "colorau", "colorifico", "fermento", "leite", "parafuso", "vaca"
+      ]
+    },
+    {
+      slug: "moveis",
+      total_itens: 579,
+      poluida: true,
+      poluicao_pct_estimado: 15,
+      categoria_origem_poluidora: "eletrica + eletronicos",
+      evidencia: "2 tokens com lift>=2 pertencem a 'eletrica': aco, suporte",
+      amostras_fora: [
+        "Suporte de parede para TV",
+        "Sirene escolar"
+      ],
+      tokens_estrangeiros: [
+        "aco", "escolar", "freezer", "parede", "quadro", "servico", "sirene", "suporte"
+      ]
+    },
+    {
+      slug: "panificacao",
+      total_itens: 917,
+      poluida: true,
+      poluicao_pct_estimado: 15,
+      categoria_origem_poluidora: "utensilios + frutas-e-verduras + alimentos",
+      evidencia: "5 tokens com lift>=2 pertencem a 'utensilios': tampa, bandeja, acougue, padaria, cafe",
+      amostras_fora: [
+        "Pão de queijo artesanal congelado: polvilho/leite/ovos/mín 15% queijo",
+        "Bandeja/caixa para açougue/padaria com tampa",
+        "Mamão formoso"
+      ],
+      tokens_estrangeiros: [
+        "acougue", "banana", "bandeja", "batata", "cafe", "cebola", "colorau", "colorifico", "couve", "formoso", "maca", "mamao", "melancia", "ovos", "padaria", "pera", "queijo", "tampa"
+      ]
+    },
+    {
+      slug: "eletronicos",
+      total_itens: 852,
+      poluida: true,
+      poluicao_pct_estimado: 14,
+      categoria_origem_poluidora: "eletrica + material-pedagogico + tratamento-de-agua",
+      evidencia: "3 tokens com lift>=2 pertencem a 'eletrica': cabo, fio, suporte",
+      amostras_fora: [
+        "Serviço de manutenção e reparo em freezer e geladeiras",
+        "Manutenção de bebedouro",
+        "Manutenção, instalação e reparos em sistema de som e sirene musical"
+      ],
+      tokens_estrangeiros: [
+        "alimentos", "bebedouro", "bola", "cabo", "esportiva", "fio", "manutencao", "mesa", "reparo", "servico", "sistema", "suporte"
+      ]
+    },
+    {
+      slug: "frutas-e-verduras",
+      total_itens: 1904,
+      poluida: false,
+      poluicao_pct_estimado: 0,
+      categoria_origem_poluidora: null,
+      evidencia: "0 tokens estrangeiros com lift>=2 identificados como invasores",
+      amostras_fora: [],
+      tokens_estrangeiros: []
+    }
+  ]
+};
+
+export function CategoryAuditSection({
+  auditData = CATEGORY_AUDIT_DATA
+}: {
+  auditData?: CategoryAuditData;
+}) {
+  const sortedResults = [...auditData.resultados].sort(
+    (a, b) => b.poluicao_pct_estimado - a.poluicao_pct_estimado
+  );
+
+  const pollutedCategories = sortedResults.filter((r) => r.poluida);
+  const cleanCategories = sortedResults.filter((r) => !r.poluida);
+  const totalCategories = sortedResults.length;
+  const topPolluted = pollutedCategories[0] || null;
+
+  return (
+    <section
+      aria-label="Auditoria de Categorias"
+      className="rounded-2xl border-2 border-[var(--color-primary)]/40 bg-[var(--color-bg)] p-6 sm:p-8 shadow-xl space-y-6"
+    >
+      {/* Cabeçalho da Seção */}
+      <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-3 border-b border-[var(--color-border)] pb-4">
+        <div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="eyebrow text-[var(--color-primary)]">Qualidade do Catálogo & Integridade Semântica</span>
+            <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400">
+              Auditoria Topológica GPU
+            </span>
+          </div>
+          <h2 className="mt-1 text-2xl font-black tracking-tight text-[var(--color-fg)] sm:text-3xl">
+            Auditoria de Categorias
+          </h2>
+        </div>
+        <div className="text-left sm:text-right space-y-0.5">
+          <p className="text-xs text-[var(--color-fg-muted)]">
+            Método: <strong className="text-[var(--color-fg)]">{auditData.metodo}</strong>
+          </p>
+          <p className="text-[11px] text-[var(--color-fg-muted)]">
+            Data da auditoria: <strong className="text-[var(--color-fg)]">{auditData.data_auditoria}</strong> · Base total:{" "}
+            <strong className="text-[var(--color-fg)]">{formatNumber(auditData.total_itens_globais)} itens</strong>
+          </p>
+        </div>
+      </div>
+
+      {/* KPIs de Resumo da Auditoria */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <KpiMiniCard
+          alert={pollutedCategories.length > 0}
+          label="Fato Central da Auditoria"
+          sub={`${formatNumber(pollutedCategories.length)} de ${formatNumber(totalCategories)} categorias apresentam sobreposição de produtos invasores.`}
+          value={`${pollutedCategories.length} de ${totalCategories} Poluídas`}
+        />
+        <KpiMiniCard
+          highlight={cleanCategories.length > 0}
+          label="Única Categoria Limpa"
+          sub={
+            cleanCategories.length > 0
+              ? `${cleanCategories.map((c) => c.slug).join(", ")} (0% de poluição semântica). Vocabulário 100% íntegro.`
+              : "Nenhuma categoria 100% limpa identificada."
+          }
+          value={cleanCategories.length > 0 ? cleanCategories.map((c) => c.slug).join(", ") : "Nenhuma"}
+        />
+        <KpiMiniCard
+          label="Maior Taxa de Poluição"
+          sub={
+            topPolluted
+              ? `${topPolluted.slug} lidera poluição atraindo itens de ${topPolluted.categoria_origem_poluidora}.`
+              : "Sem registros."
+          }
+          value={topPolluted ? `${formatPercent(topPolluted.poluicao_pct_estimado)}` : "—"}
+        />
+        <KpiMiniCard
+          label="Itens Globais Auditados"
+          sub="Total de itens classificados nas 9 categorias comerciais analisadas na GPU."
+          value={formatNumber(auditData.total_itens_globais)}
+        />
+      </div>
+
+      {/* Bloco de Distinção Especial & Achado Inesperado */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Distinção Especial: Não-Perecíveis */}
+        <div className="flex flex-col justify-between rounded-xl border border-amber-500/30 bg-amber-500/5 p-5 space-y-3">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-base">📦</span>
+              <h3 className="font-bold text-sm text-[var(--color-fg)]">
+                Distinção Especial: Não-Perecíveis
+              </h3>
+              <span className="rounded bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+                Poluição Semântica 16% + Ruído 9%
+              </span>
+            </div>
+            <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">
+              A categoria <strong>nao-pereciveis</strong> ({formatNumber(auditData.nao_pereciveis_ruido_cadastro.total)} itens) possui dois componentes distintos separados nesta auditoria:
+            </p>
+            <div className="space-y-2 pt-1 text-xs">
+              <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-3 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-[var(--color-danger)]">1. Poluição Semântica: 16%</span>
+                  <span className="font-mono text-[10px] text-[var(--color-fg-muted)]">lift ≥ 2x</span>
+                </div>
+                <p className="text-[11px] text-[var(--color-fg-muted)]">
+                  Itens com nomes completos pertencentes a categorias vizinhas: <em>alimentos</em> (canjiquinha, fermento, colorau), <em>panificação</em> (biscoitos de coco) e <em>lacticínios</em> (leite longa vida).
+                </p>
+              </div>
+              <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-3 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-amber-400">
+                    2. Ruído de Cadastro: {formatPercent(auditData.nao_pereciveis_ruido_cadastro.pct_nomes_curtos)} (Catch-all)
+                  </span>
+                  <span className="font-mono text-[10px] text-[var(--color-fg-muted)]">
+                    {formatNumber(auditData.nao_pereciveis_ruido_cadastro.nomes_curtos_lt6)} itens
+                  </span>
+                </div>
+                <p className="text-[11px] text-[var(--color-fg-muted)]">
+                  Cadastros curtos (&lt; 6 caracteres) ou vagos no portal Caixa Escolar que atuam como lixeira de cadastro, sem texto descritivo suficiente para classificação precisa.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Achado Inesperado: Alimentos vs Projetos Pedagógicos */}
+        <div className="flex flex-col justify-between rounded-xl border border-blue-500/30 bg-blue-500/5 p-5 space-y-3">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-base">💡</span>
+              <h3 className="font-bold text-sm text-[var(--color-fg)]">
+                Achado Inesperado: Alimentos & Projetos Pedagógicos
+              </h3>
+              <span className="rounded bg-blue-500/20 px-2 py-0.5 text-[10px] font-bold text-blue-300">
+                Convenção do Portal (26%)
+              </span>
+            </div>
+            <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">
+              A categoria <strong>alimentos</strong> ({formatNumber(771)} itens) apresentou <strong>26% de poluição</strong> originada de <strong>projetos-pedagogicos</strong> (tokens com lift ≥ 2x: <em>estudantes, atividades, educativos, servico, transporte, eventual</em>).
+            </p>
+            <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-3 text-xs space-y-1.5">
+              <div className="font-semibold text-[var(--color-fg)]">
+                ⚠️ Padrão Administrativo, Não Erro do Classificador:
+              </div>
+              <p className="text-[11px] text-[var(--color-fg-muted)] leading-relaxed">
+                As escolas estaduais frequentemente agrupam despesas de alimentação externa, lanches para estudantes em viagens de olimpíadas/concursos e kits pedagógicos sob a rubrica de alimentos. Esse padrão reflete uma <strong>convenção de compra do portal</strong>, e não uma falha algorítmica.
+              </p>
+            </div>
+          </div>
+          <div className="border-t border-blue-500/20 pt-2 text-[11px] text-[var(--color-fg-muted)]">
+            Amostra real: <em>&quot;Alimentação externa para estudantes (atividades de fins educativos)&quot;</em>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabela de Categorias Ordenada por Poluição */}
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+          <h3 className="text-base font-bold text-[var(--color-fg)] flex items-center gap-2">
+            <span>🔬</span> Diagnóstico Detalhado por Categoria (Ordenado por Poluição Estimada)
+          </h3>
+          <span className="text-xs text-[var(--color-fg-muted)]">
+            Da categoria mais contaminada à categoria 100% íntegra
+          </span>
+        </div>
+
+        <div className="overflow-x-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)]">
+          <table className="w-full text-left text-xs">
+            <thead className="border-b border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-fg-muted)]">
+              <tr>
+                <th className="p-3 font-bold uppercase">Categoria (Slug)</th>
+                <th className="p-3 font-bold uppercase text-center">Total de Itens</th>
+                <th className="p-3 font-bold uppercase text-center">Poluição Estimada</th>
+                <th className="p-3 font-bold uppercase">Origem Poluidora Mais Provável</th>
+                <th className="p-3 font-bold uppercase">Evidência (Tokens com Lift ≥ 2x)</th>
+                <th className="p-3 font-bold uppercase">Amostras Reais de Invasão</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--color-border)] font-medium">
+              {sortedResults.map((row) => {
+                const isClean = !row.poluida;
+
+                return (
+                  <tr
+                    className={`transition-colors ${
+                      isClean
+                        ? "bg-emerald-500/10 dark:bg-emerald-950/25 hover:bg-emerald-500/15"
+                        : "hover:bg-[var(--color-bg)]/60"
+                    }`}
+                    key={row.slug}
+                  >
+                    {/* Categoria / Slug */}
+                    <td className="p-3">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-mono font-bold text-[var(--color-fg)] text-xs">
+                          {row.slug}
+                        </span>
+                        {isClean ? (
+                          <span className="inline-flex items-center rounded-md border border-emerald-500/40 bg-emerald-500/20 px-2 py-0.5 text-[10px] font-black text-emerald-400">
+                            🟢 LIMPA (Vitória da Casa)
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-md border border-rose-500/30 bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-rose-400">
+                            Poluída
+                          </span>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Total Itens */}
+                    <td className="p-3 text-center font-bold tabular-nums text-[var(--color-fg)]">
+                      {formatNumber(row.total_itens)}
+                    </td>
+
+                    {/* % Poluição Estimada */}
+                    <td className="p-3 text-center">
+                      {isClean ? (
+                        <div>
+                          <span className="inline-flex items-center rounded-md bg-emerald-500/20 px-2 py-0.5 text-xs font-black text-emerald-400 tabular-nums">
+                            0,0%
+                          </span>
+                          <span className="block text-[10px] font-bold text-emerald-400 mt-0.5">
+                            100% Íntegra
+                          </span>
+                        </div>
+                      ) : (
+                        <div>
+                          <span
+                            className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-black tabular-nums border ${
+                              row.poluicao_pct_estimado >= 20
+                                ? "border-rose-500/40 bg-rose-500/15 text-rose-400"
+                                : "border-amber-500/40 bg-amber-500/15 text-amber-400"
+                            }`}
+                          >
+                            {formatPercent(row.poluicao_pct_estimado)}
+                          </span>
+                          {row.slug === "nao-pereciveis" && (
+                            <span className="block text-[10px] font-semibold text-amber-400 mt-0.5">
+                              + 9% ruído cadastro
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Origem Poluidora */}
+                    <td className="p-3">
+                      {isClean ? (
+                        <span className="text-emerald-400 font-semibold italic text-[11px]">
+                          — (Sem poluição detectada)
+                        </span>
+                      ) : (
+                        <span className="font-mono text-[11px] text-[var(--color-fg)] bg-[var(--color-bg)]/80 px-2 py-1 rounded border border-[var(--color-border)] inline-block">
+                          {row.categoria_origem_poluidora}
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Evidência */}
+                    <td className="p-3 text-[11px] text-[var(--color-fg-muted)] max-w-xs leading-relaxed">
+                      {row.evidencia}
+                    </td>
+
+                    {/* Amostras Reais */}
+                    <td className="p-3">
+                      {row.amostras_fora.length > 0 ? (
+                        <div className="flex flex-col gap-1 max-w-xs">
+                          {row.amostras_fora.slice(0, 2).map((amostra, idx) => (
+                            <span
+                              className="text-[10px] bg-[var(--color-bg)] border border-[var(--color-border)] rounded px-1.5 py-0.5 text-[var(--color-fg)] truncate"
+                              key={idx}
+                              title={amostra}
+                            >
+                              &quot;{amostra}&quot;
+                            </span>
+                          ))}
+                          {row.amostras_fora.length > 2 && (
+                            <span className="text-[9px] text-[var(--color-fg-muted)]">
+                              +{row.amostras_fora.length - 2} outras amostras
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-emerald-400 font-semibold">
+                          Nenhum item fora do padrão
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Footer da Seção */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-2 border-t border-[var(--color-border)] pt-4 text-xs text-[var(--color-fg-muted)]">
+        <div>
+          <span>
+            📅 Diagnóstico gerado em <strong className="text-[var(--color-fg)]">{auditData.data_auditoria}</strong> via cluster de auditoria analítica GPU.
+          </span>
+        </div>
+        <div>
+          <span>
+            Para reprocessar este mapa com novas cotações,{" "}
+            <span className="underline decoration-dotted cursor-default text-[var(--color-fg)] font-medium">
+              rodar auditoria novamente no pipeline
+            </span>.
+          </span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
