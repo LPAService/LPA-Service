@@ -803,6 +803,24 @@ describe("PrequoteWorksheet - Sugestões Automáticas", () => {
           makeRow({ itemOrder: 2, name: "Serviço de Limpeza de Caixa D'Água", unitCost: null }),
           makeRow({ itemOrder: 3, name: "Transporte Escolar Linha 01", unitCost: null })
         ];
+        const referenceSuggestions: Record<number, ReferenceMatch[]> = {
+          1: [
+            {
+              item: {
+                id: 601,
+                source: "cescom",
+                name: "PRODUTO CESCOM NAO DEVE APARECER",
+                normalizedName: "produto cescom nao deve aparecer",
+                ean: null,
+                brand: null,
+                department: "MERCEARIA",
+                url: null
+              },
+              score: 9,
+              matchedTokens: ["produto"]
+            }
+          ]
+        };
 
         await act(async () => {
           root!.render(
@@ -816,7 +834,7 @@ describe("PrequoteWorksheet - Sugestões Automáticas", () => {
                 categoryName: "Serviços em Geral",
                 expenseGroup: "Serviços Operacionais Contínuos"
               }}
-              referenceSuggestions={{}}
+              referenceSuggestions={referenceSuggestions}
               suggestions={{}}
             />
           );
@@ -835,6 +853,8 @@ describe("PrequoteWorksheet - Sugestões Automáticas", () => {
         // 3. NÃO deve mostrar área de resultados da internet nem aviso de "Nenhuma oferta encontrada"
         expect(container!.textContent).not.toContain("Resultados da internet");
         expect(container!.textContent).not.toContain("Nenhuma oferta encontrada para este item.");
+        expect(container!.textContent).not.toContain("Identificação do produto (Cescom):");
+        expect(container!.textContent).not.toContain("PRODUTO CESCOM NAO DEVE APARECER");
 
         // 4. Mostra o aviso EXATAMENTE UMA VEZ na página
         const expectedNotice =
@@ -848,6 +868,8 @@ describe("PrequoteWorksheet - Sugestões Automáticas", () => {
         expect(container!.textContent).toContain("Resumo do Pré-Orçamento");
         expect(container!.textContent).toContain("Custo dos itens");
         expect(container!.textContent).toContain("Itens sem preço");
+        expect(container!.textContent).toContain("Custo unitário (R$)");
+        expect(container!.textContent).toContain("Observações");
       }
     );
 

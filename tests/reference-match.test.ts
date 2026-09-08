@@ -127,6 +127,40 @@ describe("matchReferenceProducts", () => {
     await expect(matchReferenceProducts(database, "Serviço de transporte escolar", 3)).resolves.toEqual([]);
   });
 
+  it("rejeita Cescom quando núcleo do item não aparece no nome do produto", async () => {
+    await pool.query("truncate reference_products restart identity");
+    await database.insert(referenceProducts).values([
+      {
+        source: "cescom",
+        externalId: "agua-20",
+        name: "ÁGUA OXIGENADA CREMOSA 20 VOLUMES IDEAL",
+        normalizedName: "agua oxigenada cremosa 20 volumes ideal",
+        department: "MÃOS E PÉS > REMOVEDORES DE ESMALTE"
+      },
+      {
+        source: "cescom",
+        externalId: "agua-30",
+        name: "ÁGUA OXIGENADA CREMOSA 30 VOLUMES IDEAL",
+        normalizedName: "agua oxigenada cremosa 30 volumes ideal",
+        department: "MÃOS E PÉS > REMOVEDORES DE ESMALTE"
+      }
+    ]);
+
+    const transportMatches = await matchReferenceProducts(database, "Refil botijão - 45 kg - gás combustível", 3, {
+      categorySlug: "transporte",
+      categoryName: "Transporte",
+      expenseGroup: "Gás recarga"
+    });
+    const gasMatches = await matchReferenceProducts(database, "Refil botijão - 45 kg - gás combustível", 3, {
+      categorySlug: "gas-glp",
+      categoryName: "Gás GLP",
+      expenseGroup: "Gás recarga"
+    });
+
+    expect(transportMatches).toEqual([]);
+    expect(gasMatches).toEqual([]);
+  });
+
   it("rejeita produto quando token do item aparece só como atributo, não como núcleo", async () => {
     await pool.query("truncate reference_products restart identity");
     await database.insert(referenceProducts).values([
@@ -325,6 +359,98 @@ describe("matchReferenceProducts", () => {
 
     expect(matches).toHaveLength(1);
     expect(matches[0].item.department).toBe("DESCARTAVEIS > COPOS E PRATOS");
+  });
+
+  it.each([
+    [
+      "Açúcar cristal",
+      {
+        categorySlug: "nao-pereciveis",
+        categoryName: "Não Perecíveis",
+        expenseGroup: "Gêneros Alimentícios"
+      },
+      [
+        {
+          source: "cescom",
+          externalId: "acucar-alcon",
+          name: "AÇÚCAR CRISTAL ALCON",
+          normalizedName: "acucar cristal alcon",
+          department: "DOCES E SOBREMESAS > AÇÚCARES E ADOÇANTES"
+        },
+        {
+          source: "cescom",
+          externalId: "acucar-demerara",
+          name: "AÇÚCAR CRISTAL DEMERARA GUARANI",
+          normalizedName: "acucar cristal demerara guarani",
+          department: "DOCES E SOBREMESAS > AÇÚCARES E ADOÇANTES"
+        }
+      ],
+      ["AÇÚCAR CRISTAL ALCON", "AÇÚCAR CRISTAL DEMERARA GUARANI"]
+    ],
+    [
+      "Macarrao espaguete 500g",
+      {
+        categorySlug: "nao-pereciveis",
+        categoryName: "Não Perecíveis",
+        expenseGroup: "Gêneros Alimentícios"
+      },
+      [
+        {
+          source: "cescom",
+          externalId: "macarrao-ovos",
+          name: "MACARRÃO OVOS ESPAGUETE Q DELÍCIA",
+          normalizedName: "macarrao ovos espaguete q delicia",
+          department: "MASSAS E MOLHOS > MACARRÃO"
+        }
+      ],
+      ["MACARRÃO OVOS ESPAGUETE Q DELÍCIA"]
+    ],
+    [
+      "Café torrado e moído",
+      {
+        categorySlug: "nao-pereciveis",
+        categoryName: "Não Perecíveis",
+        expenseGroup: "Gêneros Alimentícios"
+      },
+      [
+        {
+          source: "cescom",
+          externalId: "cafe-melitta",
+          name: "CAFÉ TRADICIONAL MELITTA",
+          normalizedName: "cafe tradicional melitta",
+          department: "BEBIDAS > CAFÉS"
+        }
+      ],
+      ["CAFÉ TRADICIONAL MELITTA"]
+    ]
+  ])("mantém match validado de não perecíveis: %s", async (query, context, products, expectedNames) => {
+    await pool.query("truncate reference_products restart identity");
+    await database.insert(referenceProducts).values(products);
+
+    const matches = await matchReferenceProducts(database, query, 3, context);
+
+    expect(matches.map((match) => match.item.name)).toEqual(expectedNames);
+  });
+
+  it.each(["Cenoura", "Tomate", "Banana prata"])("mantém hortifruti vazio para %s", async (query) => {
+    await pool.query("truncate reference_products restart identity");
+    await database.insert(referenceProducts).values([
+      {
+        source: "cescom",
+        externalId: "food",
+        name: `${query} PROCESSADO`,
+        normalizedName: `${query.toLowerCase()} processado`,
+        department: "MASSAS E MOLHOS > ATOMATADOS"
+      }
+    ]);
+
+    await expect(
+      matchReferenceProducts(database, query, 3, {
+        categorySlug: "frutas-e-verduras",
+        categoryName: "Frutas e Verduras",
+        expenseGroup: "Gêneros Alimentícios"
+      })
+    ).resolves.toEqual([]);
   });
 
   it.each([

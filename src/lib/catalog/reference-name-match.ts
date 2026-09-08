@@ -35,6 +35,15 @@ export function hasReferenceDistinctiveTokenMatch(queryTokens: string[], coreTok
   return distinctiveTokens.some((token) => matchedTokenSet.has(token));
 }
 
+export function hasReferenceCoreTokenMatch(queryTokens: string[], candidateText: string, fallbackToken: string) {
+  const titleTokens = tokenize(normalizeReferenceQuery(candidateText));
+  if (titleTokens.length === 0) return false;
+
+  return referenceCoreTokens(queryTokens, fallbackToken).some((queryToken) =>
+    titleTokens.some((titleToken) => referenceTokenMatches(queryToken, titleToken))
+  );
+}
+
 export function isRelevantReferenceTitle(itemText: string, offerTitle: string) {
   const queryTokens = tokenize(normalizeReferenceQuery(itemText));
   if (queryTokens.length === 0) return false;

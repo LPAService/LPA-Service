@@ -3,6 +3,7 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { tokenize } from "@/lib/catalog/match";
 import {
   firstReferenceCoreToken,
+  hasReferenceCoreTokenMatch,
   hasReferenceDistinctiveTokenMatch,
   normalizeReferenceQuery,
   referenceCoreTokens
@@ -137,6 +138,7 @@ export async function matchReferenceProducts(
       url: row.url
     };
     if (referenceDepartmentBlocked(item.department, blockedDomains)) continue;
+    if (!hasReferenceCoreTokenMatch(queryTokens, item.name, coreToken)) continue;
     const itemTokens = tokenize(`${item.name} ${item.brand ?? ""} ${item.department ?? ""}`);
     if (itemTokens.length === 0) continue;
     const itemTokenSet = new Set(itemTokens);

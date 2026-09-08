@@ -368,7 +368,9 @@ export function PrequoteWorksheet({
             const lineRef = row.referenceUnitValue !== null ? row.referenceUnitValue * row.quantity : null;
             const lineTotals = calcPreQuoteLineTotals(row, marginPercent);
             const rowSuggestions = suggestions[row.itemOrder] ?? [];
-            const rowReferenceSuggestions = getUniqueReferenceMatches(referenceSuggestions[row.itemOrder] ?? []);
+            const rowReferenceSuggestions = isServiceCategory
+              ? []
+              : getUniqueReferenceMatches(referenceSuggestions[row.itemOrder] ?? []);
             const autoPriceResult = batchResults[row.name.trim()] ?? batchResults[row.name];
             const autoRealOffer = !isServiceCategory
               ? autoPriceResult?.offers?.find((offer) => isRelevantReferenceTitle(row.name, offer.title))
