@@ -206,8 +206,10 @@ export function referenceContextIsProduce(context: ReferenceMatchContext) {
 }
 
 function referenceContextTokensAreProduce(context: ReferenceMatchContext, tokens: Set<string>) {
+  if (context.categorySlug === "frutas-e-verduras") return true;
+  if (referenceContextIsExplicitNonProduceFood(context)) return false;
+
   return (
-    context.categorySlug === "frutas-e-verduras" ||
     hasAny(tokens, [
       "fruta",
       "frutas",
@@ -222,6 +224,12 @@ function referenceContextTokensAreProduce(context: ReferenceMatchContext, tokens
       "pereciveis"
     ])
   );
+}
+
+function referenceContextIsExplicitNonProduceFood(context: ReferenceMatchContext) {
+  return [context.categorySlug, context.categoryName, context.expenseGroup]
+    .filter((value): value is string => Boolean(value))
+    .some((value) => /\bnao\s+perecive(?:l|is)\b/.test(normalizeReferenceQuery(value)));
 }
 
 function referenceDepartmentBlocked(department: string | null, blockedDomains: Set<ReferenceDomain> | null) {

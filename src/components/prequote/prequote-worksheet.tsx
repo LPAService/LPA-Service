@@ -7,7 +7,8 @@ import { providerLabel } from "@/lib/search/best-price";
 import type { CatalogItemLite, CatalogMatch } from "@/lib/catalog/match";
 import type { ReferenceMatch } from "@/lib/catalog/reference-match";
 import { isRelevantReferenceTitle } from "@/lib/catalog/reference-name-match";
-import { calcPreQuoteTotals, formatBRL, formatPercent } from "@/lib/prequote/calc";
+import { calcPreQuoteLineTotals, calcPreQuoteTotals, formatBRL, formatPercent } from "@/lib/prequote/calc";
+import { removeBrandFromText } from "@/lib/prequote/remove-brand";
 import { ProposalActionButton } from "@/components/proposal-action-button";
 
 export type WorksheetRow = {
@@ -57,6 +58,7 @@ type PrequoteWorksheetProps = {
   referenceSuggestions?: Record<number, ReferenceMatch[]>;
   suggestions: Record<number, CatalogMatch[]>;
   catalogItems: CatalogItemLite[];
+  referenceBrands?: string[];
   initialMarginPercent?: number;
   initialFreightCost?: number;
   initialStatus?: "draft" | "closed";
@@ -70,6 +72,7 @@ export function PrequoteWorksheet({
   referenceSuggestions = {},
   suggestions,
   catalogItems,
+  referenceBrands = [],
   initialMarginPercent = 0,
   initialFreightCost = 0,
   initialStatus = "draft",
@@ -178,7 +181,16 @@ export function PrequoteWorksheet({
       source: "catalog",
       webTitle: null,
       webPrice: null,
-      webUrl: null
+      webUrl: null,
+      notes: row.notes?.trim() ? row.notes : removeBrandFromText(item.name, referenceBrands)
+    });
+  }
+
+  function applyReferenceSuggestion(itemOrder: number, title: string) {
+    const row = rows.find((candidate) => candidate.itemOrder === itemOrder);
+    if (!row || row.notes?.trim()) return;
+    updateRow(itemOrder, {
+      notes: removeBrandFromText(title, referenceBrands)
     });
   }
 
@@ -220,6 +232,8 @@ export function PrequoteWorksheet({
   }
 
   function applyWebOffer(itemOrder: number, title: string, price: number, url: string) {
+    const row = rows.find((candidate) => candidate.itemOrder === itemOrder);
+    if (!row) return;
     updateRow(itemOrder, {
       unitCost: price,
       source: "web",
@@ -227,7 +241,8 @@ export function PrequoteWorksheet({
       supplierId: null,
       webTitle: title,
       webPrice: price,
-      webUrl: url
+      webUrl: url,
+      notes: row.notes?.trim() ? row.notes : removeBrandFromText(title, referenceBrands)
     });
     setOpenSearchRow(null);
   }
@@ -285,10 +300,24 @@ export function PrequoteWorksheet({
   }
 
   function exportCsv() {
-    const header = ["Item", "Descrição", "Unidade", "Quantidade", "Ref. unitário", "Custo unitário", "Total", "Origem", "Fornecedor/Anúncio", "Link"];
+    const header = [
+      "Item",
+      "Descrição",
+      "Unidade",
+      "Quantidade",
+      "Ref. unitário",
+      "Custo unitário",
+      "Valor final unitário",
+      "Total com margem",
+      "Observações",
+      "Origem",
+      "Fornecedor/Anúncio",
+      "Link"
+    ];
     const lines = rows.map((row) => {
       const supplierName =
         row.catalogItemId !== null ? catalogById.get(row.catalogItemId)?.supplierName ?? "" : "";
+      const lineTotals = calcPreQuoteLineTotals(row, marginPercent);
       return [
         row.name,
         row.description,
@@ -296,19 +325,21 @@ export function PrequoteWorksheet({
         String(row.quantity),
         row.referenceUnitValue ?? "",
         row.unitCost ?? "",
-        row.unitCost !== null ? String(row.unitCost * row.quantity) : "",
+        lineTotals.unitFinalCost ?? "",
+        lineTotals.lineTotal ?? "",
+        row.notes ?? "",
         sourceLabel(row.source),
         row.source === "web" ? row.webTitle ?? "" : supplierName,
         row.webUrl ?? ""
       ].map((cell) => String(cell)).map(escapeCsv).join(";");
     });
     const summary = [
-      ["", "", "", "", "", "", "", "", "", ""],
-      ["Custo dos itens", "", "", "", "", "", formatBRL(totals.costSubtotal), "", "", ""],
-      ["Frete", "", "", "", "", "", formatBRL(totals.freightCost), "", "", ""],
-      [`Margem (${totals.marginPercent}%)`, "", "", "", "", "", formatBRL(totals.marginValue), "", "", ""],
-      ["Valor sugerido da proposta", "", "", "", "", "", formatBRL(totals.suggestedValue), "", "", ""],
-      ["Referência da escola", "", "", "", "", "", quotation.totalReferenceValue !== null ? formatBRL(quotation.totalReferenceValue) : "—", "", "", ""]
+      ["", "", "", "", "", "", "", "", "", "", "", ""],
+      ["Custo dos itens", "", "", "", "", "", formatBRL(totals.costSubtotal), "", "", "", "", ""],
+      ["Frete", "", "", "", "", "", formatBRL(totals.freightCost), "", "", "", "", ""],
+      [`Margem (${totals.marginPercent}%)`, "", "", "", "", "", formatBRL(totals.marginValue), "", "", "", "", ""],
+      ["Valor sugerido da proposta", "", "", "", "", "", formatBRL(totals.suggestedValue), "", "", "", "", ""],
+      ["Referência da escola", "", "", "", "", "", quotation.totalReferenceValue !== null ? formatBRL(quotation.totalReferenceValue) : "—", "", "", "", "", ""]
     ].map((line) => line.map(escapeCsv).join(";"));
     const content = "\uFEFF" + [header.map(escapeCsv).join(";"), ...lines, ...summary].join("\n");
     const blob = new Blob([content], { type: "text/csv;charset=utf-8" });
@@ -335,7 +366,7 @@ export function PrequoteWorksheet({
         ) : (
           rows.map((row) => {
             const lineRef = row.referenceUnitValue !== null ? row.referenceUnitValue * row.quantity : null;
-            const lineCost = row.unitCost !== null ? row.unitCost * row.quantity : null;
+            const lineTotals = calcPreQuoteLineTotals(row, marginPercent);
             const rowSuggestions = suggestions[row.itemOrder] ?? [];
             const rowReferenceSuggestions = getUniqueReferenceMatches(referenceSuggestions[row.itemOrder] ?? []);
             const autoPriceResult = batchResults[row.name.trim()] ?? batchResults[row.name];
@@ -530,16 +561,25 @@ export function PrequoteWorksheet({
                                 <span className="font-medium text-[var(--color-fg)] break-words">
                                   {match.item.name}
                                 </span>
-                                {match.item.url && (
-                                  <a
-                                    className="text-[11px] text-[var(--color-primary)] hover:underline shrink-0"
-                                    href={match.item.url}
-                                    rel="noreferrer"
-                                    target="_blank"
+                                <div className="flex shrink-0 items-center gap-2">
+                                  <button
+                                    className="text-[11px] font-semibold text-[var(--color-primary)] hover:underline"
+                                    onClick={() => applyReferenceSuggestion(row.itemOrder, match.item.name)}
+                                    type="button"
                                   >
-                                    ver no Cescom ↗
-                                  </a>
-                                )}
+                                    Usar descrição
+                                  </button>
+                                  {match.item.url && (
+                                    <a
+                                      className="text-[11px] text-[var(--color-primary)] hover:underline"
+                                      href={match.item.url}
+                                      rel="noreferrer"
+                                      target="_blank"
+                                    >
+                                      ver no Cescom ↗
+                                    </a>
+                                  )}
+                                </div>
                               </div>
                               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-[var(--color-fg-muted)]">
                                 {match.item.brand && (
@@ -575,11 +615,38 @@ export function PrequoteWorksheet({
                   </div>
                 )}
 
-                {lineCost !== null && (
-                  <p className="mt-3 text-right text-sm font-extrabold tabular-nums text-[var(--color-success)]">
-                    Total da linha: {formatBRL(lineCost)}
-                  </p>
-                )}
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg border border-[var(--color-primary)]/30 bg-[var(--color-bg-subtle)] p-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--color-fg-muted)]">
+                      Valor final unitário
+                    </p>
+                    <p className="select-all mt-1 text-lg font-extrabold tabular-nums text-[var(--color-primary)]">
+                      {lineTotals.unitFinalCost === null ? "" : formatBRL(lineTotals.unitFinalCost)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-[var(--color-success)]/30 bg-[var(--color-bg-subtle)] p-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--color-fg-muted)]">
+                      Total da linha com margem
+                    </p>
+                    <p className="mt-1 text-lg font-extrabold tabular-nums text-[var(--color-success)]">
+                      {lineTotals.lineTotal === null ? "" : formatBRL(lineTotals.lineTotal)}
+                    </p>
+                  </div>
+                </div>
+
+                <label className="mt-4 block">
+                  <span className="field-label">Observações</span>
+                  <textarea
+                    className="field mt-1"
+                    onChange={(event) => updateRow(row.itemOrder, { notes: event.target.value })}
+                    placeholder="Descreva o item sem citar marca."
+                    rows={2}
+                    value={row.notes ?? ""}
+                  />
+                  <span className="mt-1 block text-[11px] text-[var(--color-fg-muted)]">
+                    Não cite marca; descreva características, quantidade e unidade.
+                  </span>
+                </label>
 
                 {!isServiceCategory && isSearchOpen && (
                   <div className="mt-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-4">

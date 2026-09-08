@@ -12,6 +12,7 @@ import type { CatalogItemLite, CatalogMatch } from "@/lib/catalog/match";
 import { matchCatalogItems } from "@/lib/catalog/match";
 import type { ReferenceMatch } from "@/lib/catalog/reference-match";
 import { matchReferenceProducts } from "@/lib/catalog/reference-match";
+import { listReferenceBrands } from "@/lib/catalog/reference";
 import { catalogSource } from "@/lib/data/catalog";
 import { quotationSource } from "@/lib/data/source";
 import { db } from "@/lib/db";
@@ -28,9 +29,10 @@ export default async function WorksheetPage({ params }: WorksheetPageProps) {
   const quotation = await quotationSource.getOpportunity(externalId);
   if (!quotation || quotation.kind !== "quotation") notFound();
 
-  const [preQuote, catalogItems] = await Promise.all([
+  const [preQuote, catalogItems, referenceBrands] = await Promise.all([
     catalogSource.getLatestPreQuoteForQuotation(externalId),
-    catalogSource.listAllCatalogItems()
+    catalogSource.listAllCatalogItems(),
+    listReferenceBrands(db)
   ]);
 
   const liteCatalogItems: CatalogItemLite[] = catalogItems.map((item) => ({
@@ -163,6 +165,7 @@ export default async function WorksheetPage({ params }: WorksheetPageProps) {
           initialNotes={preQuote?.notes ?? ""}
           initialPreQuoteId={preQuote?.id ?? null}
           initialRows={rows}
+          referenceBrands={referenceBrands}
           initialStatus={(preQuote?.status === "closed" ? "closed" : "draft")}
           quotation={{
             externalId: quotation.externalId,

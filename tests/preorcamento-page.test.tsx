@@ -31,6 +31,10 @@ vi.mock("@/lib/catalog/reference-match", () => ({
   matchReferenceProducts: vi.fn().mockResolvedValue([])
 }));
 
+vi.mock("@/lib/catalog/reference", () => ({
+  listReferenceBrands: vi.fn().mockResolvedValue([])
+}));
+
 vi.mock("@/components/notification-bell", () => ({
   NotificationBell: () => React.createElement("span", null, "Notificações")
 }));

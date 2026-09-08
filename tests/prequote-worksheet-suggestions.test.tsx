@@ -205,6 +205,253 @@ describe("PrequoteWorksheet - Sugestões Automáticas", () => {
     expect(container!.textContent).toContain("🌐 Menor preço encontrado na internet:");
   });
 
+  it("mostra valor final por item com margem, deixa item sem custo vazio e fecha com o resumo", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ results: {} })
+    });
+    global.fetch = fetchMock;
+
+    const rows: WorksheetRow[] = [
+      makeRow({ itemOrder: 1, name: "Item com custo", quantity: 3, unitCost: 10, referenceUnitValue: null }),
+      makeRow({ itemOrder: 2, name: "Item sem custo", quantity: 2, unitCost: null, referenceUnitValue: null })
+    ];
+
+    await act(async () => {
+      root!.render(
+        <PrequoteWorksheet
+          catalogItems={mockCatalogItems}
+          initialMarginPercent={25}
+          initialPreQuoteId={null}
+          initialRows={rows}
+          quotation={mockQuotation}
+          referenceSuggestions={{}}
+          suggestions={{}}
+        />
+      );
+    });
+
+    const articles = container!.querySelectorAll("article");
+    expect(articles).toHaveLength(2);
+    expect(articles[0].textContent).toContain("Valor final unitário");
+    expect(articles[0].textContent).toContain(formatBRL(12.5));
+    expect(articles[0].textContent).toContain("Total da linha com margem");
+    expect(articles[0].textContent).toContain(formatBRL(37.5));
+    expect(articles[1].textContent).toContain("Valor final unitário");
+    expect(articles[1].textContent).not.toContain(formatBRL(0));
+    expect(container!.textContent).toContain("Valor sugerido");
+    expect(container!.textContent).toContain(formatBRL(37.5));
+  });
+
+  it("exporta CSV com valor final unitário, total com margem e observações", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ results: {} })
+    });
+    global.fetch = fetchMock;
+
+    const createdBlobs: Blob[] = [];
+    const createObjectUrlSpy = vi.spyOn(URL, "createObjectURL").mockImplementation((blob) => {
+      createdBlobs.push(blob as Blob);
+      return "blob:prequote-test";
+    });
+    const revokeObjectUrlSpy = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
+
+    const rows: WorksheetRow[] = [
+      makeRow({
+        itemOrder: 1,
+        name: "Item com custo",
+        quantity: 3,
+        unitCost: 10,
+        referenceUnitValue: null,
+        notes: "Descrição sem marca"
+      }),
+      makeRow({ itemOrder: 2, name: "Item sem custo", quantity: 2, unitCost: null, referenceUnitValue: null })
+    ];
+
+    await act(async () => {
+      root!.render(
+        <PrequoteWorksheet
+          catalogItems={mockCatalogItems}
+          initialMarginPercent={25}
+          initialPreQuoteId={null}
+          initialRows={rows}
+          quotation={mockQuotation}
+          referenceSuggestions={{}}
+          suggestions={{}}
+        />
+      );
+    });
+
+    const exportButton = Array.from(container!.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "Exportar CSV"
+    );
+    expect(exportButton).toBeDefined();
+
+    await act(async () => {
+      exportButton!.click();
+    });
+
+    expect(createdBlobs).toHaveLength(1);
+    const csv = await createdBlobs[0].text();
+    expect(csv).toContain("Valor final unitário;Total com margem;Observações");
+    expect(csv).toContain("Item com custo;Descrição do item teste;UN;3;;10;12.5;37.5;Descrição sem marca;");
+    expect(csv).toContain("Item sem custo;Descrição do item teste;UN;2;;;;;;");
+
+    createObjectUrlSpy.mockRestore();
+    revokeObjectUrlSpy.mockRestore();
+  });
+
+  it("preenche observações do catálogo com marca removida", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ results: {} })
+    });
+    global.fetch = fetchMock;
+
+    const catalogItems: CatalogItemLite[] = [
+      {
+        id: 202,
+        supplierId: 2,
+        supplierName: "Cescom",
+        name: "Café Barão Tradicional 250Gr",
+        normalizedName: "cafe barao tradicional 250gr",
+        unit: "UN",
+        unitPrice: 8.9
+      }
+    ];
+
+    await act(async () => {
+      root!.render(
+        <PrequoteWorksheet
+          catalogItems={catalogItems}
+          initialPreQuoteId={null}
+          initialRows={[makeRow({ itemOrder: 1, name: "Café", unitCost: null })]}
+          quotation={mockQuotation}
+          referenceBrands={["BARÃO"]}
+          referenceSuggestions={{}}
+          suggestions={{}}
+        />
+      );
+    });
+
+    const select = container!.querySelector("select") as HTMLSelectElement;
+    await act(async () => {
+      select.value = "202";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    const notes = container!.querySelector("textarea") as HTMLTextAreaElement;
+    expect(notes.value).toBe("Café Tradicional 250Gr");
+  });
+
+  it("preenche observações da oferta web sem marca e não sobrescreve texto digitado", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url === "/api/search/best-price/batch") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ results: {} })
+        });
+      }
+      if (url.startsWith("/api/search/best-price?")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            query: "Café",
+            provider: "mercadolivre",
+            offers: [
+              {
+                provider: "mercadolivre",
+                title: "Café Barão Tradicional 250Gr",
+                price: 8.9,
+                currency: "BRL",
+                url: "https://mercadolivre.com/cafe-barao",
+                thumbnail: null,
+                seller: "Loja",
+                condition: "new",
+                available: null
+              }
+            ],
+            error: null
+          })
+        });
+      }
+      return Promise.reject(new Error("Unexpected url: " + url));
+    });
+    global.fetch = fetchMock;
+
+    await act(async () => {
+      root!.render(
+        <PrequoteWorksheet
+          catalogItems={mockCatalogItems}
+          initialPreQuoteId={null}
+          initialRows={[makeRow({ itemOrder: 1, name: "Café", unitCost: null })]}
+          quotation={mockQuotation}
+          referenceBrands={["BARÃO"]}
+          referenceSuggestions={{}}
+          suggestions={{}}
+        />
+      );
+    });
+
+    const searchInternetBtn = Array.from(container!.querySelectorAll("button")).find(
+      (button) => button.textContent?.includes("Internet")
+    );
+    await act(async () => {
+      searchInternetBtn!.click();
+    });
+
+    const usePriceButton = Array.from(container!.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "Usar preço"
+    );
+    await act(async () => {
+      usePriceButton!.click();
+    });
+
+    let notes = container!.querySelector("textarea") as HTMLTextAreaElement;
+    expect(notes.value).toBe("Café Tradicional 250Gr");
+
+    act(() => root?.unmount());
+    root = createRoot(container!);
+
+    await act(async () => {
+      root!.render(
+        <PrequoteWorksheet
+          catalogItems={mockCatalogItems}
+          initialPreQuoteId={null}
+          initialRows={[
+            makeRow({
+              itemOrder: 1,
+              name: "Café",
+              unitCost: null,
+              notes: "Moído, pacote 250 g, sem marca declarada"
+            })
+          ]}
+          quotation={mockQuotation}
+          referenceBrands={["BARÃO"]}
+          referenceSuggestions={{}}
+          suggestions={{}}
+        />
+      );
+    });
+
+    const secondSearchInternetBtn = Array.from(container!.querySelectorAll("button")).find(
+      (button) => button.textContent?.includes("Internet")
+    );
+    await act(async () => {
+      secondSearchInternetBtn!.click();
+    });
+    const secondUsePriceButton = Array.from(container!.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "Usar preço"
+    );
+    await act(async () => {
+      secondUsePriceButton!.click();
+    });
+
+    notes = container!.querySelector("textarea") as HTMLTextAreaElement;
+    expect(notes.value).toBe("Moído, pacote 250 g, sem marca declarada");
+  });
+
   it("renderiza identificação da Cescom SEM preço, SEM R$ 0,00 e SEM botão 'Usar preço'", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

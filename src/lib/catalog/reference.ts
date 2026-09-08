@@ -1,4 +1,4 @@
-import { asc, eq, ilike } from "drizzle-orm";
+import { and, asc, eq, ilike, isNotNull } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { referenceProducts } from "@/lib/db/schema";
 import type * as schema from "@/lib/db/schema";
@@ -20,6 +20,16 @@ export type ReferenceProduct = {
 };
 
 type ReferenceDatabase = NodePgDatabase<typeof schema>;
+const CESCOM_SOURCE = "cescom";
+
+export async function listReferenceBrands(database: ReferenceDatabase): Promise<string[]> {
+  const rows = await database
+    .selectDistinct({ brand: referenceProducts.brand })
+    .from(referenceProducts)
+    .where(and(eq(referenceProducts.source, CESCOM_SOURCE), isNotNull(referenceProducts.brand)))
+    .orderBy(asc(referenceProducts.brand));
+  return rows.flatMap((row) => (row.brand ? [row.brand] : []));
+}
 
 /**
  * Busca produtos de referência por nome (normalizado, case/acento-insensível).

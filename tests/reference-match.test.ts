@@ -171,6 +171,38 @@ describe("matchReferenceProducts", () => {
     expect(matches[0].item.department).toBe("HORTIFRUTI > LEGUMES");
   });
 
+  it("não trata não perecíveis como hortifruti, mas mantém bloqueio de frutas e verduras", async () => {
+    await pool.query("truncate reference_products restart identity");
+    await database.insert(referenceProducts).values([
+      {
+        source: "cescom",
+        externalId: "sugar-food",
+        name: "ACUCAR CRISTAL DEMERARA UNIAO",
+        normalizedName: "acucar cristal demerara uniao",
+        department: "DOCES E SOBREMESAS > AÇÚCARES E ADOÇANTES"
+      }
+    ]);
+
+    const slugMatches = await matchReferenceProducts(database, "Acucar cristal", 3, {
+      categorySlug: "nao-pereciveis",
+      categoryName: "Alimentos",
+      expenseGroup: "Gêneros Alimentícios"
+    });
+    const nameMatches = await matchReferenceProducts(database, "Acucar cristal", 3, {
+      categoryName: "Não Perecíveis",
+      expenseGroup: "Gêneros Alimentícios"
+    });
+    const produceMatches = await matchReferenceProducts(database, "Acucar cristal", 3, {
+      categorySlug: "frutas-e-verduras",
+      categoryName: "Frutas e Verduras",
+      expenseGroup: "Gêneros Alimentícios"
+    });
+
+    expect(slugMatches.map((match) => match.item.name)).toEqual(["ACUCAR CRISTAL DEMERARA UNIAO"]);
+    expect(nameMatches.map((match) => match.item.name)).toEqual(["ACUCAR CRISTAL DEMERARA UNIAO"]);
+    expect(produceMatches).toEqual([]);
+  });
+
   it("para alimento, rejeita departamento de higiene mesmo com núcleo igual", async () => {
     await pool.query("truncate reference_products restart identity");
     await database.insert(referenceProducts).values([
