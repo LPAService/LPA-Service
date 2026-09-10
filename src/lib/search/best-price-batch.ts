@@ -56,6 +56,11 @@ export type SearchBestPriceBatchOptions = {
   offerLimit?: number;
 };
 
+export type SearchBestPriceContextOptions = {
+  search?: SearchBestPriceFn;
+  timeoutMs?: number;
+};
+
 export type BestPriceBatchResponse = {
   results: Record<string, BestPriceResult>;
 };
@@ -121,13 +126,10 @@ export async function searchBestPriceBatch(
       byNormalized.set(query.cacheKey, result);
       return;
     }
-    const result = await searchRelevantBestPriceWithFallback(
+    const result = await searchBestPriceWithContext(query.searchQuery, query.context, offerLimit, {
       search,
-      query.searchQuery,
-      query.context,
-      offerLimit,
       timeoutMs
-    );
+    });
     cache.set(query.cacheKey, { result, expiresAt: now() + ttlMs });
     byNormalized.set(query.cacheKey, result);
   });
@@ -181,11 +183,24 @@ function automaticPriceBlockedByProduceContext(context: ReferenceMatchContext) {
   );
 }
 
-function isRelevantBestPriceOffer(query: string, context: ReferenceMatchContext = {}): BestPriceOfferPredicate {
-  return (offer) => isRelevantReferenceTitle(query, offer.title) && semanticBestPriceMatch(query, offer.title, context);
+export const PREPARED_FOOD_PRICE_BLOCK_MESSAGE =
+  "Este item é comida preparada; não há oferta comparável em loja online. Informe o custo diretamente.";
+
+export function isPreparedFoodQuery(query: string) {
+  const normalized = normalizeReferenceQuery(query);
+  return ["sanduiche", "lanche", "marmita", "refeicao pronta", "merenda", "coffee break"].some((term) =>
+    normalizedTextHasTerm(normalized, term)
+  );
 }
 
-function filterBestPriceResultByRelevance(
+export function isRelevantBestPriceOffer(query: string, context: ReferenceMatchContext = {}): BestPriceOfferPredicate {
+  return (offer) =>
+    !isPreparedFoodQuery(query) &&
+    isRelevantReferenceTitle(query, offer.title) &&
+    semanticBestPriceMatch(query, offer.title, context);
+}
+
+export function filterBestPriceResultByRelevance(
   result: BestPriceResult,
   query: string,
   context: ReferenceMatchContext
@@ -194,6 +209,30 @@ function filterBestPriceResultByRelevance(
     ...result,
     offers: result.offers.filter(isRelevantBestPriceOffer(query, context))
   };
+}
+
+export async function searchBestPriceWithContext(
+  query: string,
+  context: ReferenceMatchContext = {},
+  offerLimit = 5,
+  options: SearchBestPriceContextOptions = {}
+): Promise<BestPriceResult> {
+  const cleanQuery = query.trim();
+  if (isPreparedFoodQuery(cleanQuery)) {
+    return {
+      query: cleanQuery,
+      provider: "none",
+      offers: [],
+      error: PREPARED_FOOD_PRICE_BLOCK_MESSAGE
+    };
+  }
+  return searchRelevantBestPriceWithFallback(
+    options.search ?? searchBestPrice,
+    cleanQuery,
+    context,
+    offerLimit,
+    options.timeoutMs ?? BEST_PRICE_BATCH_TIMEOUT_MS
+  );
 }
 
 async function searchRelevantBestPriceWithFallback(

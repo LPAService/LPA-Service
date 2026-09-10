@@ -3,9 +3,11 @@ import {
   BestPriceBatchLimitError,
   clearBestPriceBatchCache,
   semanticBestPriceMatch,
+  searchBestPriceWithContext,
   searchBestPriceBatch
 } from "@/lib/search/best-price-batch";
 import type { BestPriceOffer, BestPriceResult } from "@/lib/search/best-price";
+import { buildBestPriceSearchQuery } from "@/lib/search/best-price-query";
 
 describe("searchBestPriceBatch", () => {
   afterEach(() => {
@@ -254,6 +256,46 @@ describe("searchBestPriceBatch", () => {
     expect(result.results["Detergente liquido neutro 500ml"].offers.map((offer) => offer.title)).toEqual([
       "Detergente liquido neutro 500ml"
     ]);
+  });
+
+  it("aplica o mesmo filtro de relevância na busca manual", async () => {
+    const result = await searchBestPriceWithContext("Papel A4", { categorySlug: "material-de-escritorio" }, 5, {
+      search: async (query, _limit, isRelevantOffer) => {
+        const offers = [
+          makeOffer("Cadeira de Alimentação Cosco Smart", 147.25),
+          makeOffer("Papel Sulfite A4 500 Folhas", 32.99)
+        ];
+        return {
+          query,
+          provider: "zoom",
+          offers: isRelevantOffer ? offers.filter(isRelevantOffer) : offers,
+          error: null
+        };
+      }
+    });
+
+    expect(result.offers.map((offer) => offer.title)).toEqual(["Papel Sulfite A4 500 Folhas"]);
+  });
+
+  it("rejeita comida preparada sem consultar ofertas comparáveis", async () => {
+    const query = buildBestPriceSearchQuery(
+      "Alimentação externa para estudantes (atividades de fins educativos)",
+      "SANDUÍCHE EM PÃO DE FORMA, COM FATIA DE PRESUNTO E MUÇARELA EMBALADO INDIVIDUALMENTE - ENTREGA NA ESCOLA NO DIA 24/09/2026 - PREÇO MÉDIO APURADO: R$ 6,16"
+    );
+    let calls = 0;
+    const result = await searchBestPriceWithContext(query, {}, 5, {
+      search: async () => {
+        calls += 1;
+        return fakeResult(query);
+      }
+    });
+
+    expect(query).toContain("SANDUÍCHE EM PÃO DE FORMA");
+    expect(query).not.toContain("24/09/2026");
+    expect(query).not.toContain("PREÇO MÉDIO APURADO");
+    expect(result.offers).toEqual([]);
+    expect(result.error).toContain("comida preparada");
+    expect(calls).toBe(0);
   });
 
   it("não promove oferta mais barata quando só token genérico casa", async () => {

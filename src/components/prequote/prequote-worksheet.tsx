@@ -10,6 +10,7 @@ import { isRelevantReferenceTitle } from "@/lib/catalog/reference-name-match";
 import { calcPreQuoteLineTotals, calcPreQuoteTotals, formatBRL, formatPercent } from "@/lib/prequote/calc";
 import { removeBrandFromText } from "@/lib/prequote/remove-brand";
 import { ProposalActionButton } from "@/components/proposal-action-button";
+import { buildBestPriceSearchQuery } from "@/lib/search/best-price-query";
 
 export type WorksheetRow = {
   itemOrder: number;
@@ -98,7 +99,7 @@ export function PrequoteWorksheet({
     if (isServiceCategory) return;
     let active = true;
     const rowsWithoutCost = initialRows.filter((r) => r.unitCost === null && r.name.trim());
-    const queries = Array.from(new Set(rowsWithoutCost.map((r) => r.name.trim())))
+    const queries = Array.from(new Set(rowsWithoutCost.map((r) => buildBestPriceSearchQuery(r.name, r.description))))
       .slice(0, 40)
       .map((query) => ({
         query,
@@ -211,20 +212,25 @@ export function PrequoteWorksheet({
   async function searchWeb(itemOrder: number) {
     const row = rows.find((candidate) => candidate.itemOrder === itemOrder);
     if (!row || searchingRow !== null) return;
+    const query = buildBestPriceSearchQuery(row.name, row.description);
     setSearchingRow(itemOrder);
     setError(null);
     setOpenSearchRow(itemOrder);
-    setSearchResults((current) => ({ ...current, [itemOrder]: { query: row.name, provider: "…", offers: [], error: null } }));
+    setSearchResults((current) => ({ ...current, [itemOrder]: { query, provider: "…", offers: [], error: null } }));
     try {
+      const params = new URLSearchParams({ q: query, limit: "5" });
+      if (quotation.categorySlug) params.set("categorySlug", quotation.categorySlug);
+      if (quotation.categoryName) params.set("categoryName", quotation.categoryName);
+      if (quotation.expenseGroup) params.set("expenseGroup", quotation.expenseGroup);
       const response = await fetch(
-        `/api/search/best-price?q=${encodeURIComponent(row.name)}&limit=5`
+        `/api/search/best-price?${params.toString()}`
       );
       const payload = (await response.json()) as BestPriceResult;
       setSearchResults((current) => ({ ...current, [itemOrder]: payload }));
     } catch {
       setSearchResults((current) => ({
         ...current,
-        [itemOrder]: { query: row.name, provider: "none", offers: [], error: "Falha ao buscar preços." }
+        [itemOrder]: { query, provider: "none", offers: [], error: "Falha ao buscar preços." }
       }));
     } finally {
       setSearchingRow(null);
@@ -354,6 +360,30 @@ export function PrequoteWorksheet({
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)]">
       <div className="grid min-w-0 gap-4 content-start">
+        <section className="rounded-xl border border-[var(--color-primary)]/30 bg-[var(--color-bg-subtle)] p-4 shadow-[var(--shadow-card)] lg:sticky lg:top-24 lg:z-10">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="eyebrow text-xs">Preço de venda</p>
+              <h2 className="mt-1 text-base font-bold text-[var(--color-fg)]">Margem global da cotação</h2>
+              <p className="mt-1 text-xs text-[var(--color-fg-muted)]">
+                Aplicada ao valor final unitário e ao total de todos os itens com custo.
+              </p>
+            </div>
+            <label className="w-36">
+              <span className="field-label">Margem (%)</span>
+              <input
+                aria-label="Margem global (%)"
+                className="field mt-1 tabular-nums"
+                inputMode="decimal"
+                min="0"
+                onChange={(event) => setMarginText(event.target.value)}
+                step="0.5"
+                type="text"
+                value={marginText}
+              />
+            </label>
+          </div>
+        </section>
         {isServiceCategory && (
           <div className="rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-5 text-sm leading-relaxed text-[var(--color-fg-muted)]">
             Itens de serviço/locação não têm busca automática de preço. O valor vem do contato direto com fornecedores.
@@ -371,9 +401,10 @@ export function PrequoteWorksheet({
             const rowReferenceSuggestions = isServiceCategory
               ? []
               : getUniqueReferenceMatches(referenceSuggestions[row.itemOrder] ?? []);
-            const autoPriceResult = batchResults[row.name.trim()] ?? batchResults[row.name];
+            const searchQuery = buildBestPriceSearchQuery(row.name, row.description);
+            const autoPriceResult = batchResults[searchQuery];
             const autoRealOffer = !isServiceCategory
-              ? autoPriceResult?.offers?.find((offer) => isRelevantReferenceTitle(row.name, offer.title))
+              ? autoPriceResult?.offers?.find((offer) => isRelevantReferenceTitle(searchQuery, offer.title))
               : null;
             const hasAnySuggestions =
               rowSuggestions.length > 0 ||
@@ -758,17 +789,6 @@ export function PrequoteWorksheet({
                 step="0.01"
                 type="number"
                 value={freightText}
-              />
-            </label>
-            <label>
-              <span className="field-label">Margem (%)</span>
-              <input
-                className="field mt-1 tabular-nums"
-                min="0"
-                onChange={(event) => setMarginText(event.target.value)}
-                step="0.5"
-                type="number"
-                value={marginText}
               />
             </label>
             <label>

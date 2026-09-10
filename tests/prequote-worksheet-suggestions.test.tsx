@@ -243,6 +243,48 @@ describe("PrequoteWorksheet - Sugestões Automáticas", () => {
     expect(container!.textContent).toContain(formatBRL(37.5));
   });
 
+  it("deixa a margem global visível no topo e recalcula o valor final de cada item", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ results: {} })
+    });
+    global.fetch = fetchMock;
+
+    const rows: WorksheetRow[] = [
+      makeRow({ itemOrder: 1, name: "Item um", quantity: 2, unitCost: 10, referenceUnitValue: null }),
+      makeRow({ itemOrder: 2, name: "Item dois", quantity: 3, unitCost: 20, referenceUnitValue: null })
+    ];
+
+    await act(async () => {
+      root!.render(
+        <PrequoteWorksheet
+          catalogItems={mockCatalogItems}
+          initialMarginPercent={0}
+          initialPreQuoteId={null}
+          initialRows={rows}
+          quotation={mockQuotation}
+          referenceSuggestions={{}}
+          suggestions={{}}
+        />
+      );
+    });
+
+    const marginInput = container!.querySelector('input[aria-label="Margem global (%)"]') as HTMLInputElement;
+    expect(marginInput).toBeTruthy();
+    expect(marginInput.value).toBe("0");
+
+    await act(async () => {
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      valueSetter?.call(marginInput, "30");
+      marginInput.dispatchEvent(new Event("input", { bubbles: true }));
+      marginInput.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    const articles = container!.querySelectorAll("article");
+    expect(articles[0].textContent).toContain(formatBRL(13));
+    expect(articles[1].textContent).toContain(formatBRL(26));
+  });
+
   it("exporta CSV com valor final unitário, total com margem e observações", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -784,6 +826,62 @@ describe("PrequoteWorksheet - Sugestões Automáticas", () => {
     expect(container!.textContent).toContain("Resultados da internet");
     expect(container!.textContent).toContain("Resma Papel Sulfite A4 Report 500 Fls");
     expect(container!.textContent).toContain(formatBRL(26.5));
+  });
+
+  it("não mostra cadeira de bebê para sanduíche preparado e informa o motivo", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url === "/api/search/best-price/batch") {
+        return Promise.resolve({ ok: true, json: async () => ({ results: {} }) });
+      }
+      if (url.startsWith("/api/search/best-price?")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            query: "SANDUÍCHE EM PÃO DE FORMA Alimentação externa para estudantes",
+            provider: "none",
+            offers: [],
+            error: "Este item é comida preparada; não há oferta comparável em loja online. Informe o custo diretamente."
+          })
+        });
+      }
+      return Promise.reject(new Error("Unexpected url: " + url));
+    });
+    global.fetch = fetchMock;
+
+    await act(async () => {
+      root!.render(
+        <PrequoteWorksheet
+          catalogItems={mockCatalogItems}
+          initialPreQuoteId={null}
+          initialRows={[
+            makeRow({
+              itemOrder: 1,
+              name: "Alimentação externa para estudantes (atividades de fins educativos)",
+              description:
+                "SANDUÍCHE EM PÃO DE FORMA, COM FATIA DE PRESUNTO E MUÇARELA EMBALADO INDIVIDUALMENTE - ENTREGA NA ESCOLA NO DIA 24/09/2026 - PREÇO MÉDIO APURADO: R$ 6,16"
+            })
+          ]}
+          quotation={mockQuotation}
+          referenceSuggestions={{}}
+          suggestions={{}}
+        />
+      );
+    });
+
+    const searchInternetButton = Array.from(container!.querySelectorAll("button")).find((button) =>
+      button.textContent?.includes("Internet")
+    );
+    await act(async () => {
+      searchInternetButton!.click();
+    });
+
+    const manualCall = fetchMock.mock.calls.find(([url]) => String(url).startsWith("/api/search/best-price?"));
+    expect(manualCall).toBeDefined();
+    const manualQuery = new URL(`http://localhost${manualCall![0]}`).searchParams.get("q") ?? "";
+    expect(manualQuery).toContain("SANDUÍCHE EM PÃO DE FORMA");
+    expect(manualQuery).not.toContain("24/09/2026");
+    expect(container!.textContent).not.toContain("Cadeira de Alimentação Cosco Smart");
+    expect(container!.textContent).toContain("Este item é comida preparada; não há oferta comparável em loja online.");
   });
 
   describe("Categorias de Serviço / Locação (ocultação de busca automática)", () => {
