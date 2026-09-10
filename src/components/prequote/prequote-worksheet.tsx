@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { BestPriceResult } from "@/lib/search/best-price";
 import { providerLabel } from "@/lib/search/best-price";
 import type { CatalogItemLite, CatalogMatch } from "@/lib/catalog/match";
@@ -9,6 +9,7 @@ import type { ReferenceMatch } from "@/lib/catalog/reference-match";
 import { isRelevantReferenceTitle } from "@/lib/catalog/reference-name-match";
 import { calcPreQuoteLineTotals, calcPreQuoteTotals, formatBRL, formatPercent } from "@/lib/prequote/calc";
 import { removeBrandFromText } from "@/lib/prequote/remove-brand";
+import { generatePrequoteDescription } from "@/lib/prequote/generate-description";
 import { ProposalActionButton } from "@/components/proposal-action-button";
 import { buildBestPriceSearchQuery } from "@/lib/search/best-price-query";
 
@@ -80,7 +81,11 @@ export function PrequoteWorksheet({
   initialNotes = ""
 }: PrequoteWorksheetProps) {
   const isServiceCategory = Boolean(quotation.categorySlug && SERVICE_CATEGORIES.has(quotation.categorySlug));
-  const [rows, setRows] = useState<WorksheetRow[]>(initialRows);
+  const [rows, setRows] = useState<WorksheetRow[]>(() => initialRows.map((row) => {
+    if (row.notes?.trim()) return row;
+    const generated = generatePrequoteDescription(row.name, row.description, row.quantity, row.unit, referenceBrands);
+    return generated ? { ...row, notes: generated } : row;
+  }));
   const [preQuoteId, setPreQuoteId] = useState<number | null>(initialPreQuoteId);
   const [marginText, setMarginText] = useState(String(initialMarginPercent));
   const [freightText, setFreightText] = useState(String(initialFreightCost));
@@ -94,6 +99,21 @@ export function PrequoteWorksheet({
   const [openSearchRow, setOpenSearchRow] = useState<number | null>(null);
   const [batchLoading, setBatchLoading] = useState(false);
   const [batchResults, setBatchResults] = useState<Record<string, BestPriceResult>>({});
+  const [copiedItemOrder, setCopiedItemOrder] = useState<number | null>(null);
+  const copyFeedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (copyFeedbackTimer.current) clearTimeout(copyFeedbackTimer.current);
+  }, []);
+
+  function generatedDescription(row: WorksheetRow) {
+    return generatePrequoteDescription(row.name, row.description, row.quantity, row.unit, referenceBrands);
+  }
+
+  function hasOnlyGeneratedDescription(row: WorksheetRow) {
+    const generated = generatedDescription(row);
+    return Boolean(generated) && row.notes?.trim() === generated;
+  }
 
   useEffect(() => {
     if (isServiceCategory) return;
@@ -183,13 +203,15 @@ export function PrequoteWorksheet({
       webTitle: null,
       webPrice: null,
       webUrl: null,
-      notes: row.notes?.trim() ? row.notes : removeBrandFromText(item.name, referenceBrands)
+      notes: row.notes?.trim() && !hasOnlyGeneratedDescription(row)
+        ? row.notes
+        : removeBrandFromText(item.name, referenceBrands)
     });
   }
 
   function applyReferenceSuggestion(itemOrder: number, title: string) {
     const row = rows.find((candidate) => candidate.itemOrder === itemOrder);
-    if (!row || row.notes?.trim()) return;
+    if (!row || (row.notes?.trim() && !hasOnlyGeneratedDescription(row))) return;
     updateRow(itemOrder, {
       notes: removeBrandFromText(title, referenceBrands)
     });
@@ -248,9 +270,34 @@ export function PrequoteWorksheet({
       webTitle: title,
       webPrice: price,
       webUrl: url,
-      notes: row.notes?.trim() ? row.notes : removeBrandFromText(title, referenceBrands)
+      notes: row.notes?.trim() && !hasOnlyGeneratedDescription(row)
+        ? row.notes
+        : removeBrandFromText(title, referenceBrands)
     });
     setOpenSearchRow(null);
+  }
+
+  async function copyDescription(itemOrder: number, value: string) {
+    if (!value.trim()) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        const helper = document.createElement("textarea");
+        helper.value = value;
+        helper.style.position = "fixed";
+        helper.style.opacity = "0";
+        document.body.appendChild(helper);
+        helper.select();
+        document.execCommand("copy");
+        helper.remove();
+      }
+      setCopiedItemOrder(itemOrder);
+      if (copyFeedbackTimer.current) clearTimeout(copyFeedbackTimer.current);
+      copyFeedbackTimer.current = setTimeout(() => setCopiedItemOrder(null), 1600);
+    } catch {
+      setError("Não foi possível copiar a descrição.");
+    }
   }
 
   async function save() {
@@ -667,19 +714,31 @@ export function PrequoteWorksheet({
                   </div>
                 </div>
 
-                <label className="mt-4 block">
+                <div className="mt-4">
                   <span className="field-label">Observações</span>
-                  <textarea
-                    className="field mt-1"
-                    onChange={(event) => updateRow(row.itemOrder, { notes: event.target.value })}
-                    placeholder="Descreva o item sem citar marca."
-                    rows={2}
-                    value={row.notes ?? ""}
-                  />
+                  <div className="mt-1 flex items-start gap-2">
+                    <textarea
+                      className="field min-w-0 flex-1"
+                      onChange={(event) => updateRow(row.itemOrder, { notes: event.target.value })}
+                      placeholder="Descreva o item sem citar marca."
+                      rows={2}
+                      value={row.notes ?? ""}
+                    />
+                    <button
+                      aria-label={`Copiar observações do item ${row.itemOrder}`}
+                      className="action-secondary shrink-0 !min-h-10 !px-3 text-xs font-semibold"
+                      disabled={!row.notes?.trim()}
+                      onClick={() => copyDescription(row.itemOrder, row.notes ?? "")}
+                      title="Copiar descrição"
+                      type="button"
+                    >
+                      {copiedItemOrder === row.itemOrder ? "Copiado!" : "Copiar"}
+                    </button>
+                  </div>
                   <span className="mt-1 block text-[11px] text-[var(--color-fg-muted)]">
                     Não cite marca; descreva características, quantidade e unidade.
                   </span>
-                </label>
+                </div>
 
                 {!isServiceCategory && isSearchOpen && (
                   <div className="mt-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-4">

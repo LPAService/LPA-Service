@@ -59,6 +59,96 @@ describe("PrequoteWorksheet - Sugestões Automáticas", () => {
     vi.clearAllMocks();
   });
 
+  it("preenche observações com descrição útil, preserva texto salvo e copia o conteúdo", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ results: {} })
+    });
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText }
+    });
+
+    await act(async () => {
+      root!.render(
+        <PrequoteWorksheet
+          catalogItems={mockCatalogItems}
+          initialPreQuoteId={null}
+          initialRows={[
+            makeRow({ itemOrder: 1, name: "Maçã", description: "Regularização", quantity: 600, unit: "KG" }),
+            makeRow({ itemOrder: 2, name: "Café", notes: "Descrição já salva pelo usuário" })
+          ]}
+          quotation={mockQuotation}
+          referenceSuggestions={{}}
+          suggestions={{}}
+        />
+      );
+    });
+
+    const textareas = Array.from(container!.querySelectorAll("textarea")) as HTMLTextAreaElement[];
+    expect(textareas[0].value).toBe("Maçã — 600 KG");
+    expect(textareas[1].value).toBe("Descrição já salva pelo usuário");
+
+    const copyButton = Array.from(container!.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "Copiar"
+    );
+    expect(copyButton).toBeDefined();
+    await act(async () => {
+      copyButton!.click();
+    });
+    expect(writeText).toHaveBeenCalledWith("Maçã — 600 KG");
+    expect(copyButton!.textContent).toBe("Copiado!");
+  });
+
+  it("deixa sugestão Cescom substituir somente a descrição gerada e remove a marca", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ results: {} })
+    });
+    const referenceSuggestions: Record<number, ReferenceMatch[]> = {
+      1: [{
+        item: {
+          id: 900,
+          source: "cescom",
+          name: "AÇÚCAR CRISTAL DEMERARA GUARANI",
+          normalizedName: "acucar cristal demerara guarani",
+          ean: null,
+          brand: "GUARANI",
+          department: "MERCEARIA",
+          url: null
+        },
+        score: 9,
+        matchedTokens: ["acucar"]
+      }]
+    };
+
+    await act(async () => {
+      root!.render(
+        <PrequoteWorksheet
+          catalogItems={mockCatalogItems}
+          initialPreQuoteId={null}
+          initialRows={[makeRow({ name: "Açúcar", description: "Regularização" })]}
+          quotation={mockQuotation}
+          referenceBrands={["GUARANI"]}
+          referenceSuggestions={referenceSuggestions}
+          suggestions={{}}
+        />
+      );
+    });
+
+    const notes = container!.querySelector("textarea") as HTMLTextAreaElement;
+    expect(notes.value).toBe("Açúcar — 1 UN");
+    const useDescriptionButton = Array.from(container!.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "Usar descrição"
+    );
+    expect(useDescriptionButton).toBeDefined();
+    await act(async () => {
+      useDescriptionButton!.click();
+    });
+    expect(notes.value).toBe("AÇÚCAR CRISTAL DEMERARA");
+  });
+
   it("dispara UMA única chamada em lote para /api/search/best-price/batch ao montar", async () => {
     const fetchMock = vi.fn().mockImplementation((url: string) => {
       if (url === "/api/search/best-price/batch") {
@@ -338,7 +428,7 @@ describe("PrequoteWorksheet - Sugestões Automáticas", () => {
     const csv = await createdBlobs[0].text();
     expect(csv).toContain("Valor final unitário;Total com margem;Observações");
     expect(csv).toContain("Item com custo;Descrição do item teste;UN;3;;10;12.5;37.5;Descrição sem marca;");
-    expect(csv).toContain("Item sem custo;Descrição do item teste;UN;2;;;;;;");
+    expect(csv).toContain("Item sem custo;Descrição do item teste;UN;2;;;;;Item sem custo — 2 UN;");
 
     createObjectUrlSpy.mockRestore();
     revokeObjectUrlSpy.mockRestore();
