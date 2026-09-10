@@ -10,6 +10,7 @@ import { isRelevantReferenceTitle } from "@/lib/catalog/reference-name-match";
 import { calcPreQuoteLineTotals, calcPreQuoteTotals, formatBRL, formatPercent } from "@/lib/prequote/calc";
 import { removeBrandFromText } from "@/lib/prequote/remove-brand";
 import { generatePrequoteDescription } from "@/lib/prequote/generate-description";
+import { generatePrequoteWarranty } from "@/lib/prequote/generate-warranty";
 import { ProposalActionButton } from "@/components/proposal-action-button";
 import { buildBestPriceSearchQuery } from "@/lib/search/best-price-query";
 
@@ -28,6 +29,7 @@ export type WorksheetRow = {
   webPrice: number | null;
   webUrl: string | null;
   notes: string | null;
+  warranty: string | null;
 };
 
 export type WorksheetQuotation = {
@@ -38,6 +40,7 @@ export type WorksheetQuotation = {
   expenseGroup: string;
   headline: string;
   proposalDeadline: string | null;
+  deliveryDate: string | null;
   proposalUrl?: string | null;
   canSubmitProposal?: boolean;
   proposalBlocked?: boolean;
@@ -82,9 +85,17 @@ export function PrequoteWorksheet({
 }: PrequoteWorksheetProps) {
   const isServiceCategory = Boolean(quotation.categorySlug && SERVICE_CATEGORIES.has(quotation.categorySlug));
   const [rows, setRows] = useState<WorksheetRow[]>(() => initialRows.map((row) => {
-    if (row.notes?.trim()) return row;
-    const generated = generatePrequoteDescription(row.name, row.description, row.quantity, row.unit, referenceBrands);
-    return generated ? { ...row, notes: generated } : row;
+    const generatedDescription = row.notes?.trim()
+      ? row.notes
+      : generatePrequoteDescription(row.name, row.description, row.quantity, row.unit, referenceBrands);
+    const generatedWarranty = row.warranty !== null && row.warranty !== undefined
+      ? row.warranty
+      : generatePrequoteWarranty(quotation.categorySlug, referenceBrands);
+    return {
+      ...row,
+      notes: generatedDescription || row.notes,
+      warranty: generatedWarranty || row.warranty
+    };
   }));
   const [preQuoteId, setPreQuoteId] = useState<number | null>(initialPreQuoteId);
   const [marginText, setMarginText] = useState(String(initialMarginPercent));
@@ -100,6 +111,8 @@ export function PrequoteWorksheet({
   const [batchLoading, setBatchLoading] = useState(false);
   const [batchResults, setBatchResults] = useState<Record<string, BestPriceResult>>({});
   const [copiedItemOrder, setCopiedItemOrder] = useState<number | null>(null);
+  const [copiedWarrantyItemOrder, setCopiedWarrantyItemOrder] = useState<number | null>(null);
+  const [copiedDeliveryDate, setCopiedDeliveryDate] = useState(false);
   const copyFeedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => {
@@ -277,7 +290,7 @@ export function PrequoteWorksheet({
     setOpenSearchRow(null);
   }
 
-  async function copyDescription(itemOrder: number, value: string) {
+  async function copyValue(value: string, onCopied: () => void, errorMessage: string) {
     if (!value.trim()) return;
     try {
       if (navigator.clipboard?.writeText) {
@@ -292,12 +305,28 @@ export function PrequoteWorksheet({
         document.execCommand("copy");
         helper.remove();
       }
-      setCopiedItemOrder(itemOrder);
+      onCopied();
       if (copyFeedbackTimer.current) clearTimeout(copyFeedbackTimer.current);
-      copyFeedbackTimer.current = setTimeout(() => setCopiedItemOrder(null), 1600);
+      copyFeedbackTimer.current = setTimeout(() => {
+        setCopiedItemOrder(null);
+        setCopiedWarrantyItemOrder(null);
+        setCopiedDeliveryDate(false);
+      }, 1600);
     } catch {
-      setError("Não foi possível copiar a descrição.");
+      setError(errorMessage);
     }
+  }
+
+  async function copyDescription(itemOrder: number, value: string) {
+    return copyValue(value, () => setCopiedItemOrder(itemOrder), "Não foi possível copiar a descrição.");
+  }
+
+  async function copyWarranty(itemOrder: number, value: string) {
+    return copyValue(value, () => setCopiedWarrantyItemOrder(itemOrder), "Não foi possível copiar a garantia.");
+  }
+
+  async function copyDeliveryDate(value: string) {
+    return copyValue(value, () => setCopiedDeliveryDate(true), "Não foi possível copiar o prazo de entrega.");
   }
 
   async function save() {
@@ -329,7 +358,8 @@ export function PrequoteWorksheet({
         webTitle: row.webTitle,
         webPrice: row.webPrice,
         webUrl: row.webUrl,
-        notes: row.notes
+        notes: row.notes,
+        warranty: row.warranty
       }))
     };
     try {
@@ -407,6 +437,37 @@ export function PrequoteWorksheet({
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)]">
       <div className="grid min-w-0 gap-4 content-start">
+        <section className="rounded-xl border border-[var(--color-primary)]/30 bg-[var(--color-bg-subtle)] p-4 shadow-[var(--shadow-card)]">
+          <p className="eyebrow text-xs">Cadastro no portal</p>
+          <h2 className="mt-1 text-base font-bold text-[var(--color-fg)]">Datas da solicitação de orçamento</h2>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--color-fg-muted)]">Prazo de Envio de Propostas</p>
+              <p className="select-all mt-1 font-bold tabular-nums text-[var(--color-fg)]">{formatPortalDate(quotation.proposalDeadline)}</p>
+            </div>
+            <div className="rounded-lg border border-[var(--color-primary)]/30 bg-[var(--color-bg)] p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--color-fg-muted)]">Prazo de Execução/Entrega</p>
+                  <p className="select-all mt-1 font-bold tabular-nums text-[var(--color-primary)]">
+                    {quotation.deliveryDate ? formatPortalDate(quotation.deliveryDate) : "Portal não informou a data de entrega"}
+                  </p>
+                </div>
+                {quotation.deliveryDate && (
+                  <button
+                    aria-label="Copiar prazo de execução/entrega"
+                    className="action-secondary shrink-0 !min-h-9 !px-3 text-xs font-semibold"
+                    onClick={() => copyDeliveryDate(formatPortalDate(quotation.deliveryDate))}
+                    type="button"
+                  >
+                    {copiedDeliveryDate ? "Copiado!" : "Copiar"}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+          <p className="mt-2 text-[11px] text-[var(--color-fg-muted)]">No portal, informe a data de entrega no campo correspondente a bens ou serviços.</p>
+        </section>
         <section className="rounded-xl border border-[var(--color-primary)]/30 bg-[var(--color-bg-subtle)] p-4 shadow-[var(--shadow-card)] lg:sticky lg:top-24 lg:z-10">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
@@ -740,6 +801,33 @@ export function PrequoteWorksheet({
                   </span>
                 </div>
 
+                <div className="mt-4">
+                  <span className="field-label">Descrição da Garantia</span>
+                  <div className="mt-1 flex items-start gap-2">
+                    <textarea
+                      aria-label={`Descrição da Garantia do item ${row.itemOrder}`}
+                      className="field min-w-0 flex-1"
+                      onChange={(event) => updateRow(row.itemOrder, { warranty: event.target.value })}
+                      placeholder="Informe as condições de garantia ofertadas."
+                      rows={2}
+                      value={row.warranty ?? ""}
+                    />
+                    <button
+                      aria-label={`Copiar garantia do item ${row.itemOrder}`}
+                      className="action-secondary shrink-0 !min-h-10 !px-3 text-xs font-semibold"
+                      disabled={!row.warranty?.trim()}
+                      onClick={() => copyWarranty(row.itemOrder, row.warranty ?? "")}
+                      title="Copiar garantia"
+                      type="button"
+                    >
+                      {copiedWarrantyItemOrder === row.itemOrder ? "Copiado!" : "Copiar"}
+                    </button>
+                  </div>
+                  <span className="mt-1 block text-[11px] text-[var(--color-fg-muted)]">
+                    Revise o texto antes de cadastrar a proposta no portal.
+                  </span>
+                </div>
+
                 {!isServiceCategory && isSearchOpen && (
                   <div className="mt-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-4">
                     <div className="flex items-center justify-between gap-2">
@@ -913,6 +1001,20 @@ function parseNonNegative(value: string) {
 
 function formatQuantity(value: number) {
   return value.toLocaleString("pt-BR", { maximumFractionDigits: 3 });
+}
+
+function formatPortalDate(value: string | null | undefined) {
+  if (!value) return "Não informado";
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (match) return `${match[3]}/${match[2]}/${match[1]}`;
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "Não informado";
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "UTC"
+  }).format(date);
 }
 
 function sourceLabel(source: WorksheetRow["source"]) {

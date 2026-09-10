@@ -60,7 +60,8 @@ export default async function WorksheetPage({ params }: WorksheetPageProps) {
         webTitle: item.webTitle,
         webPrice: item.webPrice,
         webUrl: item.webUrl,
-        notes: item.notes
+        notes: item.notes,
+        warranty: item.warranty
       }))
     : quotation.items.map((item) => ({
         itemOrder: item.order,
@@ -76,7 +77,8 @@ export default async function WorksheetPage({ params }: WorksheetPageProps) {
         webTitle: null,
         webPrice: null,
         webUrl: null,
-        notes: null
+        notes: null,
+        warranty: null
       }));
 
   const suggestions: Record<number, CatalogMatch[]> = {};
@@ -141,7 +143,7 @@ export default async function WorksheetPage({ params }: WorksheetPageProps) {
                 {quotation.totalReferenceValue !== null ? formatBRL(quotation.totalReferenceValue) : "—"}
               </span>
               <span className="text-xs tabular-nums text-[var(--color-fg-muted)]">
-                Prazo: {formatDate(quotation.proposalDeadline ?? quotation.proposalDate)}
+                Prazo de envio: {formatDate(quotation.proposalDeadline ?? quotation.proposalDate)}
               </span>
               <ProposalActionButton
                 className="mt-2 w-full"
@@ -175,6 +177,7 @@ export default async function WorksheetPage({ params }: WorksheetPageProps) {
             expenseGroup: quotation.expenseGroup,
             headline: quotation.headline,
             proposalDeadline: quotation.proposalDeadline ?? null,
+            deliveryDate: quotation.deliveryDate ?? null,
             proposalUrl: quotation.proposalUrl,
             canSubmitProposal: quotation.canSubmitProposal,
             proposalBlocked: quotation.proposalBlocked,

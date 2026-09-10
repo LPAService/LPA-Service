@@ -187,6 +187,7 @@ function makeQuotation(patch: Record<string, unknown> = {}) {
     expenseGroup: "Material de Consumo",
     headline: "Material escolar",
     proposalDeadline: "2026-08-30T12:00:00.000Z",
+    deliveryDate: null,
     proposalDate: "2026-08-29T12:00:00.000Z",
     proposalUrl: "https://example.test/proposal",
     canSubmitProposal: true,

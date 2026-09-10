@@ -106,6 +106,13 @@
       "when": 1788271200000,
       "tag": "0015_prequote_item_notes",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1788274800000,
+      "tag": "0016_prequote_item_warranty",
+      "breakpoints": true
     }
   ]
 }

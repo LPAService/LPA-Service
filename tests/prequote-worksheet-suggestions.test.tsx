@@ -21,6 +21,7 @@ const mockQuotation: WorksheetQuotation = {
   expenseGroup: "Material de Consumo",
   headline: "Material escolar",
   proposalDeadline: "2026-09-01T12:00:00.000Z",
+  deliveryDate: null,
   totalReferenceValue: 500,
   categorySlug: "material-de-escritorio",
   categoryName: "Papelaria"
@@ -88,7 +89,7 @@ describe("PrequoteWorksheet - Sugestões Automáticas", () => {
 
     const textareas = Array.from(container!.querySelectorAll("textarea")) as HTMLTextAreaElement[];
     expect(textareas[0].value).toBe("Maçã — 600 KG");
-    expect(textareas[1].value).toBe("Descrição já salva pelo usuário");
+    expect(textareas[2].value).toBe("Descrição já salva pelo usuário");
 
     const copyButton = Array.from(container!.querySelectorAll("button")).find(
       (button) => button.textContent?.trim() === "Copiar"
@@ -99,6 +100,73 @@ describe("PrequoteWorksheet - Sugestões Automáticas", () => {
     });
     expect(writeText).toHaveBeenCalledWith("Maçã — 600 KG");
     expect(copyButton!.textContent).toBe("Copiado!");
+  });
+
+  it("gera garantia por categoria sem substituir garantia já preenchida", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ results: {} })
+    });
+
+    await act(async () => {
+      root!.render(
+        <PrequoteWorksheet
+          catalogItems={mockCatalogItems}
+          initialPreQuoteId={null}
+          initialRows={[makeRow({ warranty: "Garantia personalizada salva pelo usuário" })]}
+          quotation={{ ...mockQuotation, categorySlug: "servicos", categoryName: "Serviços" }}
+          referenceSuggestions={{}}
+          suggestions={{}}
+        />
+      );
+    });
+
+    const warranty = container!.querySelector("textarea[aria-label='Descrição da Garantia do item 1']") as HTMLTextAreaElement;
+    expect(warranty.value).toBe("Garantia personalizada salva pelo usuário");
+  });
+
+  it("exibe e copia prazo de entrega, sem inventar data quando ausente", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ results: {} })
+    });
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText }
+    });
+
+    await act(async () => {
+      root!.render(
+        <PrequoteWorksheet
+          catalogItems={mockCatalogItems}
+          initialPreQuoteId={null}
+          initialRows={[makeRow()]}
+          quotation={{ ...mockQuotation, deliveryDate: "2026-10-24T00:00:00.000Z" }}
+          referenceSuggestions={{}}
+          suggestions={{}}
+        />
+      );
+    });
+    expect(container!.textContent).toContain("Prazo de Execução/Entrega24/10/2026");
+    const deliveryCopy = container!.querySelector("button[aria-label='Copiar prazo de execução/entrega']") as HTMLButtonElement;
+    await act(async () => deliveryCopy.click());
+    expect(writeText).toHaveBeenCalledWith("24/10/2026");
+
+    await act(async () => {
+      root!.render(
+        <PrequoteWorksheet
+          catalogItems={mockCatalogItems}
+          initialPreQuoteId={null}
+          initialRows={[makeRow()]}
+          quotation={{ ...mockQuotation, deliveryDate: null }}
+          referenceSuggestions={{}}
+          suggestions={{}}
+        />
+      );
+    });
+    expect(container!.textContent).toContain("Portal não informou a data de entrega");
+    expect(container!.textContent).not.toContain("24/10/2026");
   });
 
   it("deixa sugestão Cescom substituir somente a descrição gerada e remove a marca", async () => {
@@ -1130,6 +1198,7 @@ function makeRow(patch: Partial<WorksheetRow> = {}): WorksheetRow {
     webPrice: null,
     webUrl: null,
     notes: null,
+    warranty: null,
     ...patch
   };
 }

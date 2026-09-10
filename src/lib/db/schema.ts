@@ -465,7 +465,8 @@ export const preQuoteItems = pgTable(
     webPrice: doublePrecision("web_price"),
     webUrl: text("web_url"),
     webSearchedAt: timestamp("web_searched_at", { withTimezone: true }),
-    notes: text("notes")
+    notes: text("notes"),
+    warranty: text("warranty")
   },
   (table) => [
     uniqueIndex("pre_quote_items_quote_order_unique").on(table.preQuoteId, table.itemOrder),

@@ -19,7 +19,8 @@ const migrationFiles = [
   "drizzle/0006_faulty_nocturne.sql",
   "drizzle/0007_clumsy_proudstar.sql",
   "drizzle/0008_yielding_husk.sql",
-  "drizzle/0015_prequote_item_notes.sql"
+  "drizzle/0015_prequote_item_notes.sql",
+  "drizzle/0016_prequote_item_warranty.sql"
 ];
 const dbTestLockKey = 941_445_007;
 
@@ -122,7 +123,8 @@ describe("createCatalogSource", () => {
           catalogItemId: itemId,
           unitCost: 30,
           source: "catalog",
-          notes: "Sem marca; embalagem econômica"
+          notes: "Sem marca; embalagem econômica",
+          warranty: "Troca por defeito no recebimento"
         },
         {
           itemOrder: 2,
@@ -168,7 +170,8 @@ describe("createCatalogSource", () => {
           unitCost: 30,
           totalCost: 90,
           source: "catalog",
-          notes: "Sem marca; embalagem econômica"
+          notes: "Sem marca; embalagem econômica",
+          warranty: "Troca por defeito no recebimento"
         },
         { itemOrder: 2, unitCost: 1.2, totalCost: 12, source: "web", webTitle: "Caneta azul BIC" },
         { itemOrder: 3, unitCost: null, totalCost: null, source: "manual", referenceValue: 2 }

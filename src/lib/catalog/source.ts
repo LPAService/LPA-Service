@@ -67,6 +67,7 @@ export type PreQuoteLine = {
   webUrl: string | null;
   webSearchedAt: string | null;
   notes: string | null;
+  warranty: string | null;
 };
 
 export type PreQuote = {
@@ -101,6 +102,7 @@ export type PreQuoteLineInput = {
   webPrice?: number | null;
   webUrl?: string | null;
   notes?: string | null;
+  warranty?: string | null;
 };
 
 export type PreQuoteInput = {
@@ -181,6 +183,7 @@ type PreQuoteItemRow = {
   web_url: string | null;
   web_searched_at: Date | string | null;
   notes: string | null;
+  warranty: string | null;
 };
 
 export class CatalogValidationError extends Error {
@@ -509,7 +512,8 @@ function validatePreQuoteLineInput(input: PreQuoteLineInput): PreQuoteLineInput 
     webTitle: optionalText(input.webTitle, 400),
     webPrice: sanitizeNullablePrice(input.webPrice),
     webUrl: optionalText(input.webUrl, 1000),
-    notes: optionalText(input.notes, 1000)
+    notes: optionalText(input.notes, 1000),
+    warranty: optionalTextPreservingEmpty(input.warranty, 1000)
   };
 }
 
@@ -537,7 +541,8 @@ async function insertPreQuoteItems(
       webPrice: item.webPrice ?? null,
       webUrl: item.webUrl ?? null,
       webSearchedAt: item.webPrice !== null && item.webPrice !== undefined ? new Date() : null,
-      notes: item.notes ?? null
+      notes: item.notes ?? null,
+      warranty: item.warranty ?? null
     }))
   );
 }
@@ -605,7 +610,8 @@ function toPreQuote(row: PreQuoteRow, items: PreQuoteItemRow[]): PreQuote {
       webPrice: item.web_price,
       webUrl: item.web_url,
       webSearchedAt: toIso(item.web_searched_at),
-      notes: item.notes
+      notes: item.notes,
+      warranty: item.warranty
     }))
   };
 }
@@ -620,6 +626,11 @@ function optionalText(value: unknown, maxLength: number) {
   if (typeof value !== "string") return null;
   const clean = value.trim();
   return clean ? clean.slice(0, maxLength) : null;
+}
+
+function optionalTextPreservingEmpty(value: unknown, maxLength: number) {
+  if (typeof value !== "string") return null;
+  return value.trim().slice(0, maxLength);
 }
 
 function sanitizePrice(value: unknown) {
