@@ -16,6 +16,7 @@ const DEFAULT_ITEM_PAGE_SIZE = 50;
 const DEFAULT_TIME_BUDGET_MS = 240_000;
 const DEFAULT_TIME_BUDGET_RESERVE_MS = 15_000;
 const TIER1_ORDER = ["Ibirité", "Contagem", "Betim", "Belo Horizonte"];
+const OPEN_SUPPLIER_STATUS = "NAEN";
 const REQUIRED_CHANGE_SIGNAL_KEYS = ["dtProposalSubmission", "budgetStatus", "supplierStatus"] as const;
 const CHANGE_SIGNAL_KEYS = [
   "idSupplier",
@@ -59,6 +60,7 @@ export type QuotationCollectionResult = {
   skippedCount: number;
   newCount: number;
   updatedCount: number;
+  closedCount: number;
   errorCount: number;
   errors: Array<{ externalId?: string; message: string }>;
   resumeCursor: QuotationResumeCursor | null;
@@ -164,8 +166,11 @@ export class AuthenticatedSgdClient {
   }
 
   async listOpenQuotations(county: QuotationCounty, page: number, limit = DEFAULT_PAGE_SIZE) {
+    // A API so respeita filter.supplierStatus e filter.idCounty neste endpoint.
+    // filter.status era ignorado em silencio: devolvia o municipio inteiro (922 registros
+    // em Ibirite, 8.041 em BH) em vez das cotacoes abertas (15 em Ibirite).
     return this.getJson<Paginated<SummaryRecord>>("/budget-proposal/summary-by-supplier-profile", {
-      "filter.status": "$eq:NAEN",
+      "filter.supplierStatus": `$eq:${OPEN_SUPPLIER_STATUS}`,
       "filter.idCounty": `$eq:${county.idCounty}`,
       page,
       limit
@@ -276,6 +281,7 @@ export async function collectOpenQuotationsWithClient(
     skippedCount: 0,
     newCount: 0,
     updatedCount: 0,
+    closedCount: 0,
     errorCount: 0,
     errors: [],
     resumeCursor: null
@@ -306,7 +312,9 @@ export async function collectOpenQuotationsWithClient(
   try {
     for (let countyIndex = start.countyIndex; countyIndex < counties.length; countyIndex += 1) {
       const county = counties[countyIndex];
-      let page = countyIndex === start.countyIndex ? start.page : 1;
+      const firstPage = countyIndex === start.countyIndex ? start.page : 1;
+      let page = firstPage;
+      const seenInCounty = new Set<string>();
       try {
         for (; ; page += 1) {
           const currentCursor = { countyId: county.idCounty, countyName: county.name, page };
@@ -321,6 +329,7 @@ export async function collectOpenQuotationsWithClient(
               return finishPartial(currentCursor, `Orçamento de tempo atingido em ${county.name} página ${page}; próxima execução relerá a página e pulará cotações inalteradas.`);
             }
             const externalId = buildQuotationExternalId(record);
+            seenInCounty.add(externalId);
             result.found += 1;
             processed += 1;
             try {
@@ -344,6 +353,13 @@ export async function collectOpenQuotationsWithClient(
           }
           if ((options.maxRecords && processed >= options.maxRecords) || page >= (listing.meta?.totalPages ?? page)) break;
           await repository.saveCursor(runId, { countyId: county.idCounty, countyName: county.name, page: page + 1 });
+        }
+        // A listagem NAEN e o conjunto completo de cotacoes que ainda aceitam proposta
+        // deste fornecedor. So da para concluir isso se lemos o municipio inteiro:
+        // um municipio retomado do cursor ou cortado por maxRecords tem paginas nao lidas.
+        const readWholeCounty = firstPage === 1 && !(options.maxRecords && processed >= options.maxRecords);
+        if (readWholeCounty && !options.dryRun) {
+          result.closedCount += await repository.reconcileCountyListing(county.idCounty, [...seenInCounty]);
         }
         const nextCounty = counties[countyIndex + 1];
         await repository.saveCursor(runId, nextCounty ? { countyId: nextCounty.idCounty, countyName: nextCounty.name, page: 1 } : null);
@@ -514,6 +530,7 @@ export type QuotationRepository = {
   saveCursor(runId: number, cursor: QuotationResumeCursor | null): Promise<void>;
   shouldFetchQuotation(record: SummaryRecord): Promise<boolean>;
   upsertQuotation(record: QuotationRecord): Promise<"new" | "updated">;
+  reconcileCountyListing(countyId: number, openExternalIds: string[]): Promise<number>;
 };
 
 export class DrizzleQuotationRepository implements QuotationRepository {
@@ -559,6 +576,32 @@ export class DrizzleQuotationRepository implements QuotationRepository {
     return existing ? shouldRefreshQuotationFromListing(record, existing.rawJson) : true;
   }
 
+  async reconcileCountyListing(countyId: number, openExternalIds: string[]) {
+    const listed = openExternalIds.length > 0
+      ? sql`(${sql.join(openExternalIds.map((id) => sql`${id}`), sql`, `)})`
+      : sql`('')`;
+
+    await this.database.execute(sql`
+      update ${quotations}
+         set no_longer_listed_at = null
+       where ${quotations.idCounty} = ${countyId}
+         and no_longer_listed_at is not null
+         and ${quotations.externalId} in ${listed}
+    `);
+
+    const closed = await this.database.execute<{ external_id: string }>(sql`
+      update ${quotations}
+         set no_longer_listed_at = now()
+       where ${quotations.idCounty} = ${countyId}
+         and no_longer_listed_at is null
+         and ${quotations.proposalDeadline} >= now()
+         and ${quotations.externalId} not in ${listed}
+      returning ${quotations.externalId} as external_id
+    `);
+
+    return closed.rows.length;
+  }
+
   async upsertQuotation(record: QuotationRecord) {
     const categoryId = await this.categoryId(record.categorySlug);
     const existing = await this.database.select({ id: quotations.id }).from(quotations).where(eq(quotations.externalId, record.externalId)).limit(1);
@@ -589,6 +632,8 @@ export class DrizzleQuotationRepository implements QuotationRepository {
       proposalSuspect: record.proposalSuspect,
       proposalSuspectItemCount: record.proposalSuspectItemCount,
       rawJson: record.rawJson,
+      // apareceu na listagem NAEN agora: e uma cotacao aberta, limpa qualquer marca antiga
+      noLongerListedAt: null,
       updatedAt: new Date()
     };
     const [row] = await this.database.insert(quotations).values(values).onConflictDoUpdate({

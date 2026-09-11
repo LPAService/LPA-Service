@@ -1,6 +1,7 @@
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { describe, expect, it, vi } from "vitest";
 import {
+  AuthenticatedSgdClient,
   buildProposalUrl,
   buildQuotationExternalId,
   buildQuotationRecord,
@@ -230,6 +231,74 @@ describe("cotações abertas", () => {
     });
   });
 
+  it("lista cotações abertas pelo único filtro que a API respeita (supplierStatus)", async () => {
+    const urls: string[] = [];
+    const fetchFn = (async (input: URL | RequestInfo) => {
+      urls.push(String(input));
+      return new Response(JSON.stringify({ data: [], meta: { totalPages: 1 } }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    const client = new AuthenticatedSgdClient({ login: "x", password: "y", fetchFn, sleepFn: async () => undefined });
+    // a sessão é montada pelo login real; aqui só exercitamos a query string
+    Object.assign(client as unknown as { cookie: string }, { cookie: "sid=1" });
+    await client.listOpenQuotations({ idCounty: 2209, name: "Ibirité" }, 1, 50);
+
+    const url = new URL(urls[0]);
+    // filter.status era ignorado em silêncio pela API e trazia o município inteiro
+    expect(url.searchParams.get("filter.status")).toBeNull();
+    expect(url.searchParams.get("filter.supplierStatus")).toBe("$eq:NAEN");
+    expect(url.searchParams.get("filter.idCounty")).toBe("$eq:2209");
+  });
+
+  it("reconcilia o município com a listagem completa que acabou de ler", async () => {
+    const repo = new FakeQuotationRepository();
+    const client = new CountingQuotationClient([
+      { countyId: 2209, page: 1, records: [listing], totalPages: 1 }
+    ]);
+
+    await collectOpenQuotationsWithClient(client, repo, {
+      counties: [{ idCounty: 2209, name: "Ibirité" }],
+      sleepFn: async () => undefined
+    });
+
+    expect(repo.reconciled).toEqual([
+      { countyId: 2209, openExternalIds: [buildQuotationExternalId(listing)] }
+    ]);
+  });
+
+  it("não reconcilia um município retomado do cursor: faltam páginas não lidas", async () => {
+    const counties = [{ idCounty: 2209, name: "Ibirité" }];
+    const repo = new FakeQuotationRepository();
+    repo.cursor.set(0, { countyId: 2209, countyName: "Ibirité", page: 2 });
+    const client = new CountingQuotationClient([
+      { countyId: 2209, page: 1, records: [listing], totalPages: 2 },
+      { countyId: 2209, page: 2, records: [{ ...listing, idBudget: 57 }], totalPages: 2 }
+    ]);
+
+    await collectOpenQuotationsWithClient(client, repo, {
+      counties,
+      sleepFn: async () => undefined
+    });
+
+    expect(client.listCalls.map((call) => call.page)).toEqual([2]);
+    expect(repo.reconciled).toEqual([]);
+  });
+
+  it("não reconcilia em dry run", async () => {
+    const repo = new FakeQuotationRepository();
+    const client = new CountingQuotationClient([
+      { countyId: 2209, page: 1, records: [listing], totalPages: 1 }
+    ]);
+
+    await collectOpenQuotationsWithClient(client, repo, {
+      counties: [{ idCounty: 2209, name: "Ibirité" }],
+      dryRun: true,
+      sleepFn: async () => undefined
+    });
+
+    expect(repo.reconciled).toEqual([]);
+  });
+
   it("upsert idempotente não duplica e continua após erro", async () => {
     const repo = new FakeQuotationRepository();
     const result1 = await collectOpenQuotationsWithClient(new FakeQuotationClient(), repo, {
@@ -364,6 +433,11 @@ class FakeQuotationRepository implements QuotationRepository {
     const exists = this.rows.has(record.externalId);
     this.rows.set(record.externalId, record);
     return exists ? "updated" as const : "new" as const;
+  }
+  reconciled: Array<{ countyId: number; openExternalIds: string[] }> = [];
+  async reconcileCountyListing(countyId: number, openExternalIds: string[]) {
+    this.reconciled.push({ countyId, openExternalIds });
+    return 0;
   }
 }
 

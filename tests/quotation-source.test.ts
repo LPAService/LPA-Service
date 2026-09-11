@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { drizzle } from "drizzle-orm/node-postgres";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
@@ -14,18 +14,10 @@ import { canSubmitQuotationProposal } from "@/lib/quotation-ui";
 
 const databaseUrl =
   process.env.TEST_DATABASE_URL ?? "postgres://lpa:lpa@localhost:5432/lpa_leo_test";
-const migrationFiles = [
-  "drizzle/0000_exotic_hedge_knight.sql",
-  "drizzle/0001_curly_lady_deathstrike.sql",
-  "drizzle/0002_ordinary_proemial_gods.sql",
-  "drizzle/0003_suppliers_base.sql",
-  "drizzle/0004_parallel_princess_powerful.sql",
-  "drizzle/0006_faulty_nocturne.sql",
-  "drizzle/0007_clumsy_proudstar.sql",
-  "drizzle/0008_yielding_husk.sql",
-  "drizzle/0009_notifications.sql",
-  "drizzle/0010_sudden_zeigeist.sql"
-];
+const migrationFiles = readdirSync(resolve(process.cwd(), "drizzle"))
+  .filter((name) => name.endsWith(".sql"))
+  .sort()
+  .map((name) => `drizzle/${name}`);
 const dbTestLockKey = 941_445_002;
 
 describe("PostgresQuotationSource", () => {

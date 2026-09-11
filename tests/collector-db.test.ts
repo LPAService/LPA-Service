@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
@@ -11,6 +11,7 @@ import {
   refreshStale,
   type OpportunityRecord
 } from "@/lib/collector/collect";
+import { DrizzleQuotationRepository } from "@/lib/collector/quotations";
 import type {
   PaginatedResponse,
   PortalFilters,
@@ -27,12 +28,10 @@ import * as schema from "@/lib/db/schema";
 const databaseUrl =
   process.env.TEST_DATABASE_URL ?? "postgres://lpa:lpa@localhost:5432/lpa_leo_test";
 const fixturesRoot = findFixturesRoot();
-const migrationFiles = [
-  "drizzle/0000_exotic_hedge_knight.sql",
-  "drizzle/0001_curly_lady_deathstrike.sql",
-  "drizzle/0002_ordinary_proemial_gods.sql",
-  "drizzle/0014_open_quotation_cursor.sql"
-];
+const migrationFiles = readdirSync(resolve(process.cwd(), "drizzle"))
+  .filter((name) => name.endsWith(".sql"))
+  .sort()
+  .map((name) => `drizzle/${name}`);
 
 function readFixture<T>(name: string): T {
   return JSON.parse(readFileSync(resolve(fixturesRoot, name), "utf8")) as T;
@@ -96,6 +95,55 @@ describe("DrizzleCollectorRepository em Postgres real", () => {
   afterAll(async () => {
     await pool.query("select pg_advisory_unlock($1)", [dbTestLockKey]);
     await pool.end();
+  });
+
+  it("reconcileCountyListing fecha só o que sumiu da listagem aberta do município", async () => {
+    const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const past = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const base = {
+      idSubprogram: 702,
+      idSchool: 8374,
+      expenseGroup: "Material de Consumo",
+      headline: "Compra",
+      summary: "Compra",
+      proposalUrl: "https://example.test/x",
+      schoolName: "EE Teste"
+    };
+
+    await database.insert(schema.quotations).values([
+      // continua na listagem: tem que ficar aberta
+      { ...base, externalId: "aberta-listada", idBudget: 1, idCounty: 2209, countyName: "Ibirité", proposalDeadline: future },
+      // sumiu da listagem com prazo ainda no futuro: cancelada/retirada -> fechar
+      { ...base, externalId: "sumiu", idBudget: 2, idCounty: 2209, countyName: "Ibirité", proposalDeadline: future },
+      // já vencida: não é problema desta reconciliação
+      { ...base, externalId: "vencida", idBudget: 3, idCounty: 2209, countyName: "Ibirité", proposalDeadline: past },
+      // outro município: não pode ser tocada
+      { ...base, externalId: "outro-municipio", idBudget: 4, idCounty: 2540, countyName: "Betim", proposalDeadline: future }
+    ]);
+
+    const repository = new DrizzleQuotationRepository(database);
+    const closed = await repository.reconcileCountyListing(2209, ["aberta-listada"]);
+    expect(closed).toBe(1);
+
+    const marked = async (externalId: string) => {
+      const [row] = await database
+        .select({ at: schema.quotations.noLongerListedAt })
+        .from(schema.quotations)
+        .where(sql`${schema.quotations.externalId} = ${externalId}`);
+      return row.at !== null;
+    };
+
+    expect(await marked("aberta-listada")).toBe(false);
+    expect(await marked("sumiu")).toBe(true);
+    expect(await marked("vencida")).toBe(false);
+    expect(await marked("outro-municipio")).toBe(false);
+
+    // rodar de novo não conta a mesma de novo
+    expect(await repository.reconcileCountyListing(2209, ["aberta-listada"])).toBe(0);
+
+    // se voltar a aparecer na listagem, a marca é limpa
+    await repository.reconcileCountyListing(2209, ["aberta-listada", "sumiu"]);
+    expect(await marked("sumiu")).toBe(false);
   });
 
   it("coletar 2x não duplica opportunities, items nem attachments", async () => {

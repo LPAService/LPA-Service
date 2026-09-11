@@ -204,10 +204,14 @@ function buildWhere(filters: OpportunityFilters) {
   if (category) conditions.push(sql`lower(${categories.slug}) = lower(${category})`);
   if (expenseGroup) conditions.push(sql`lower(${quotations.expenseGroup}) = lower(${expenseGroup})`);
   if (school) conditions.push(sql`lower(${quotations.schoolName}) = lower(${school})`);
-  if (situation === "open") conditions.push(sql`${quotations.proposalDeadline} >= now()`);
-  if (situation === "actionable") conditions.push(sql`${quotations.proposalDeadline} >= now() and ${quotations.proposalBlocked} = false`);
+  // aberta = prazo no futuro E o portal ainda lista a cotacao como disponivel para nos.
+  // no_longer_listed_at marca as que sumiram da listagem (cancelada, proposta ja enviada,
+  // retirada pela escola) antes do prazo vencer.
+  const stillListed = sql`${quotations.noLongerListedAt} is null`;
+  if (situation === "open") conditions.push(sql`${quotations.proposalDeadline} >= now() and ${stillListed}`);
+  if (situation === "actionable") conditions.push(sql`${quotations.proposalDeadline} >= now() and ${stillListed} and ${quotations.proposalBlocked} = false`);
   if (situation === "blocked") conditions.push(sql`${quotations.proposalBlocked} = true`);
-  if (situation === "closed") conditions.push(sql`(${quotations.proposalDeadline} is null or ${quotations.proposalDeadline} < now())`);
+  if (situation === "closed") conditions.push(sql`(${quotations.proposalDeadline} is null or ${quotations.proposalDeadline} < now() or ${quotations.noLongerListedAt} is not null)`);
   if (situation === "watched") {
     if (filters.userId) {
       conditions.push(sql`exists (select 1 from ${watchedQuotations} where ${watchedQuotations.quotationExternalId} = ${quotations.externalId} and ${watchedQuotations.userId} = ${filters.userId})`);

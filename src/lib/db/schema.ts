@@ -128,6 +128,7 @@ export const quotations = pgTable(
     proposalSuspect: boolean("proposal_suspect").notNull().default(false),
     proposalSuspectItemCount: integer("proposal_suspect_item_count").notNull().default(0),
     rawJson: jsonb("raw_json").notNull().default({}),
+    noLongerListedAt: timestamp("no_longer_listed_at", { withTimezone: true }),
     collectedAt: timestamp("collected_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },
@@ -139,7 +140,8 @@ export const quotations = pgTable(
     index("quotations_expense_group_idx").on(table.expenseGroup),
     index("quotations_category_id_idx").on(table.categoryId),
     index("quotations_proposal_deadline_idx").on(table.proposalDeadline),
-    index("quotations_supplier_status_idx").on(table.supplierStatus)
+    index("quotations_supplier_status_idx").on(table.supplierStatus),
+    index("quotations_no_longer_listed_idx").on(table.noLongerListedAt)
   ]
 );
 

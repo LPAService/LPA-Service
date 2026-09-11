@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { drizzle } from "drizzle-orm/node-postgres";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
@@ -12,11 +12,10 @@ import * as schema from "@/lib/db/schema";
 
 const databaseUrl =
   process.env.TEST_DATABASE_URL ?? "postgres://lpa:lpa@localhost:5432/lpa_leo_test";
-const migrationFiles = [
-  "drizzle/0000_exotic_hedge_knight.sql",
-  "drizzle/0001_curly_lady_deathstrike.sql",
-  "drizzle/0002_ordinary_proemial_gods.sql"
-];
+const migrationFiles = readdirSync(resolve(process.cwd(), "drizzle"))
+  .filter((name) => name.endsWith(".sql"))
+  .sort()
+  .map((name) => `drizzle/${name}`);
 const dbTestLockKey = 941_445_001;
 
 describe("PostgresOpportunitySource", () => {
