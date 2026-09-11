@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createLossesHandler, createStatusHandler, createSyncHandler } from "@/lib/sync/handlers";
 import {
+  DAILY_SYNC_DEADLINE_MS,
   DailySyncAlreadyRunningError,
   runDailySync,
   type DailySyncSummary
@@ -146,6 +147,30 @@ describe("lote diário", () => {
     expect(result.countiesProcessed).toBe(10);
     expect(result.errors.some((error) => error.message.includes("API indisponível"))).toBe(true);
     expect(finishRun).toHaveBeenCalledWith(99, result, "completed");
+  });
+
+  it("para de abrir municípios quando o prazo da execução acaba", async () => {
+    const finishRun = vi.fn(async () => undefined);
+    const collectCounty = vi.fn(async () => ({ found: 1, newCount: 1, updatedCount: 0, errors: [] }));
+    // relogio pula para depois do prazo assim que as cotacoes terminam
+    let clock = 0;
+    const result = await runDailySync({
+      startRun: async () => 7,
+      finishRun,
+      collectCounty,
+      collectQuotations: async () => {
+        clock = DAILY_SYNC_DEADLINE_MS;
+        return { found: 3, newCount: 3, updatedCount: 0, errors: [] };
+      },
+      now: () => clock
+    });
+
+    expect(collectCounty).not.toHaveBeenCalled();
+    expect(result.countiesProcessed).toBe(0);
+    expect(result.new).toBe(3);
+    expect(result.errors.some((error) => error.message.includes("Limite de tempo"))).toBe(true);
+    // a execucao termina limpa: e isso que evita o FUNCTION_INVOCATION_TIMEOUT
+    expect(finishRun).toHaveBeenCalledWith(7, result, "completed");
   });
 
   it("não chama coleta de perdas", async () => {

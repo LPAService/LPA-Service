@@ -64,6 +64,39 @@ const attachmentMetadata = readFixture<{
 }>("attachment_metadata.json");
 
 describe("collector", () => {
+  it("para no prazo da execução e preserva o que já gravou", async () => {
+    const first = purchasePage1.data[0]!;
+    const second = purchasePage2.data[0]!;
+    const client = new FakeClient({
+      purchasePages: [page([first], 1, 2), page([second], 2, 2)],
+      details: {
+        [buildExternalId(first)]: detail1,
+        [buildExternalId(second)]: detail2
+      },
+      itemPages: {
+        [buildExternalId(first)]: [items1],
+        [buildExternalId(second)]: [items1]
+      }
+    });
+    const repository = new FakeRepository([schoolFor(first), schoolFor(second)]);
+
+    // deixa passar a checagem da pagina 1 e do primeiro registro; estoura na pagina 2
+    let ticks = 0;
+    const result = await collectOpportunities(client, repository, {
+      mode: "full",
+      refreshSchools: false,
+      pageSize: 1,
+      itemPageSize: 1,
+      deadlineAt: 100,
+      nowFn: () => (ticks++ < 2 ? 0 : 100)
+    });
+
+    expect(result.status).toBe("partial");
+    expect(result.found).toBe(1);
+    expect(repository.opportunities.size).toBe(1);
+    expect(result.errors.some((error) => error.message.includes("Prazo da execucao"))).toBe(true);
+  });
+
   it("pagina listagem e itens, e UPSERT não duplica em modo full", async () => {
     const first = purchasePage1.data[0]!;
     const second = purchasePage2.data[0]!;

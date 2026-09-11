@@ -37,12 +37,15 @@ export type CollectOptions = {
   refreshSchools?: boolean;
   schoolCounty?: { idCounty: number; city: string };
   stopAfterPagesWithoutNew?: number;
+  /** Timestamp em ms. Para de processar ao ultrapassar; o que ja foi gravado fica. */
+  deadlineAt?: number;
+  nowFn?: () => number;
   filters?: Omit<PurchaseOrdersQuery, "page" | "pageSize" | "sortBy" | "sortDir">;
 };
 
 export type CollectionRunResult = {
   runId: number;
-  status: "completed" | "failed";
+  status: "completed" | "partial" | "failed";
   found: number;
   newCount: number;
   updatedCount: number;
@@ -174,9 +177,20 @@ export async function collectOpportunities(
     let processed = 0;
     let pagesWithoutNew = 0;
     const stopAfterPagesWithoutNew = options.stopAfterPagesWithoutNew ?? 3;
+    const now = options.nowFn ?? Date.now;
+    const pastDeadline = () => options.deadlineAt !== undefined && now() >= options.deadlineAt;
+    const stopForDeadline = (where: string) => {
+      result.status = "partial";
+      result.errors.push({ message: `Prazo da execucao atingido ${where}; o incremental continua na proxima.` });
+    };
 
     for (let page = 1; !shouldStop; page += 1) {
       if (options.maxPages && page > options.maxPages) {
+        break;
+      }
+
+      if (pastDeadline()) {
+        stopForDeadline(`antes da pagina ${page}`);
         break;
       }
 
@@ -197,6 +211,12 @@ export async function collectOpportunities(
 
       for (const record of listing.data) {
         if (options.maxRecords && processed >= options.maxRecords) {
+          shouldStop = true;
+          break;
+        }
+
+        if (pastDeadline()) {
+          stopForDeadline(`na pagina ${page}`);
           shouldStop = true;
           break;
         }

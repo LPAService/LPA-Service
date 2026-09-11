@@ -6,7 +6,14 @@ import type { CescomCatalogLoadResult } from "@/lib/catalog/cescom-loader";
 import rmbhCounties from "@/lib/collector/rmbh-counties.json";
 import { collectionRuns } from "@/lib/db/schema";
 
-export const DAILY_SYNC_TIMEOUT_MS = 270_000;
+// A funcao serverless morre em 300s (maxDuration). Um FUNCTION_INVOCATION_TIMEOUT
+// mata o processo sem rodar finishRun: o run fica preso em "running" e o que
+// estava em voo se perde. Por isso todas as fases param antes desta parede.
+export const DAILY_SYNC_DEADLINE_MS = 285_000;
+// Fatia reservada para o historico (collectOpportunities), para que a coleta de
+// cotacoes nao consuma a execucao inteira.
+export const DAILY_SYNC_OPPORTUNITIES_SLOT_MS = 45_000;
+export const DAILY_SYNC_TIMEOUT_MS = DAILY_SYNC_DEADLINE_MS;
 export const DAILY_SYNC_RUNNING_WINDOW_MS = 330_000;
 const DAILY_SYNC_LOCK_KEY = 849_016_275;
 
@@ -251,12 +258,15 @@ async function createDefaultDependencies(startedAt: number): Promise<DailySyncDe
       return collectOpportunities(client, undefined, {
         mode: "incremental",
         filters: { county: county.idCounty },
-        schoolCounty: { idCounty: county.idCounty, city: county.name }
+        schoolCounty: { idCounty: county.idCounty, city: county.name },
+        // sem isto um unico municipio passa da parede de 300s sozinho
+        deadlineAt: startedAt + DAILY_SYNC_DEADLINE_MS
       });
     },
     async collectQuotations() {
+      const remaining = DAILY_SYNC_DEADLINE_MS - (Date.now() - startedAt) - DAILY_SYNC_OPPORTUNITIES_SLOT_MS;
       return collectOpenQuotations({
-        timeBudgetMs: Math.max(30_000, DAILY_SYNC_TIMEOUT_MS - (Date.now() - startedAt)),
+        timeBudgetMs: Math.max(30_000, remaining),
         timeBudgetReserveMs: 20_000
       });
     },
