@@ -6,6 +6,13 @@ import { opportunitySource, quotationSource, sanitizePageParam } from "@/lib/dat
 import type { OpportunityFilters } from "@/lib/data/source";
 import { getCurrentUserId } from "@/lib/session";
 import { watchStore } from "@/lib/watch";
+import rmbhCounties from "@/lib/collector/rmbh-counties.json";
+import { db } from "@/lib/db";
+import { describeFreshness, loadCollectionFreshness } from "@/lib/data/freshness";
+
+// Quantos municípios a coleta diária realmente cobre. Estava fixo em "7"
+// enquanto o coletor já varria 10 — número errado na tela é pior que nenhum.
+const COLLECTED_COUNTIES = rmbhCounties.collected.length;
 
 type PageProps = { searchParams?: Promise<Record<string, string | string[] | undefined>> };
 const PAGE_SIZE = 18;
@@ -26,6 +33,7 @@ export default async function Home({ searchParams }: PageProps) {
   const filters: OpportunityFilters = { city: str(cleanParams.city), category: str(cleanParams.category), expenseGroup: str(cleanParams.expenseGroup), school: str(cleanParams.school), periodStart: str(cleanParams.periodStart), periodEnd: str(cleanParams.periodEnd), query: str(cleanParams.query), situation, userId: currentUserId ?? undefined };
   const source = view === "history" ? opportunitySource : quotationSource;
   const result = await source.listOpportunities(filters, { page, pageSize: PAGE_SIZE });
+  const freshness = describeFreshness(await loadCollectionFreshness(db));
   const watchedIds = view === "history" || !currentUserId ? null : new Set(await watchStore.listWatchedExternalIds(currentUserId));
   const exportParams = new URLSearchParams();
   for (const [key, value] of Object.entries(filters)) {
@@ -67,8 +75,8 @@ export default async function Home({ searchParams }: PageProps) {
         <div className="grid grid-cols-2 gap-3">
           <Metric label={view === "history" ? "histórico" : situationLabel(situation)} value={result.total.toLocaleString("pt-BR")} icon="📬" />
           <Metric label={view === "history" ? "encontradas" : "no SGD"} value={result.totalAvailable.toLocaleString("pt-BR")} icon="🗂️" />
-          <Metric label="municípios" value="7" icon="🏙️" />
-          <Metric label="em tempo real" value="SGD" icon="⚡" />
+          <Metric label="municípios" value={String(COLLECTED_COUNTIES)} icon="🏙️" />
+          <Metric label={freshness.label} value={freshness.value} icon={freshness.stale ? "⚠️" : "⚡"} />
         </div>
       </div>
     </header>
