@@ -927,7 +927,9 @@ export function PrequoteWorksheet({
                 {quotation.totalReferenceValue !== null ? formatBRL(quotation.totalReferenceValue) : "—"}
               </dd>
             </div>
-            <div className="flex items-baseline justify-between gap-3">
+            {/* flex-wrap e obrigatorio: o aviso abaixo usa basis-full e, sem quebra de
+                linha, os tres filhos se espremem na mesma linha em vez de o texto descer. */}
+            <div className="flex flex-wrap items-baseline justify-between gap-3">
               <dt className="text-[var(--color-fg-muted)]">Valor sugerido</dt>
               <dd className={`text-xl font-extrabold tabular-nums ${hasMissingPrices ? "text-[var(--color-fg-muted)]" : "text-[var(--color-primary)]"}`}>
                 {hasMissingPrices ? "—" : formatBRL(totals.suggestedValue)}
