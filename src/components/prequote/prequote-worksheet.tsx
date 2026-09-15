@@ -176,7 +176,10 @@ export function PrequoteWorksheet({
     () => calcPreQuoteTotals(rows, marginPercent, freightCost),
     [rows, marginPercent, freightCost]
   );
-  const referenceDiff = quotation.totalReferenceValue !== null ? totals.suggestedValue - quotation.totalReferenceValue : null;
+  const hasMissingPrices = totals.missingCount > 0;
+  const referenceDiff = !hasMissingPrices && quotation.totalReferenceValue !== null
+    ? totals.suggestedValue - quotation.totalReferenceValue
+    : null;
 
   const catalogById = useMemo(() => new Map(catalogItems.map((item) => [item.id, item])), [catalogItems]);
   const suppliers = useMemo(() => {
@@ -416,12 +419,19 @@ export function PrequoteWorksheet({
         row.webUrl ?? ""
       ].map((cell) => String(cell)).map(escapeCsv).join(";");
     });
+    const incompleteStatus = `INCOMPLETO — ${totals.missingCount} de ${rows.length} itens sem preço`;
     const summary = [
       ["", "", "", "", "", "", "", "", "", "", "", ""],
-      ["Custo dos itens", "", "", "", "", "", formatBRL(totals.costSubtotal), "", "", "", "", ""],
+      ...(hasMissingPrices
+        ? [["Status do pré-orçamento", "", "", "", "", "", incompleteStatus, "", "", "", "", ""]]
+        : []),
+      [hasMissingPrices ? "Custo dos itens precificados (parcial)" : "Custo dos itens", "", "", "", "", "", formatBRL(totals.costSubtotal), "", "", "", "", ""],
+      ...(hasMissingPrices
+        ? [["Itens sem preço", "", "", "", "", "", `${totals.missingCount} de ${rows.length}`, "", "", "", "", ""]]
+        : []),
       ["Frete", "", "", "", "", "", formatBRL(totals.freightCost), "", "", "", "", ""],
       [`Margem (${totals.marginPercent}%)`, "", "", "", "", "", formatBRL(totals.marginValue), "", "", "", "", ""],
-      ["Valor sugerido da proposta", "", "", "", "", "", formatBRL(totals.suggestedValue), "", "", "", "", ""],
+      ["Valor sugerido da proposta", "", "", "", "", "", hasMissingPrices ? "— (incompleto)" : formatBRL(totals.suggestedValue), "", "", "", "", ""],
       ["Referência da escola", "", "", "", "", "", quotation.totalReferenceValue !== null ? formatBRL(quotation.totalReferenceValue) : "—", "", "", "", "", ""]
     ].map((line) => line.map(escapeCsv).join(";"));
     const content = "\uFEFF" + [header.map(escapeCsv).join(";"), ...lines, ...summary].join("\n");
@@ -892,12 +902,20 @@ export function PrequoteWorksheet({
       <aside className="grid h-fit content-start gap-5 lg:sticky lg:top-24">
         <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-6 shadow-xl">
           <h2 className="text-lg font-bold text-[var(--color-fg)]">Resumo do Pré-Orçamento</h2>
+          {hasMissingPrices && (
+            <div className="badge-warning mt-4 rounded-lg p-3 text-sm" role="status">
+              <p className="font-bold">Pré-orçamento incompleto</p>
+              <p className="mt-1 text-xs font-semibold">
+                {totals.missingCount} de {rows.length} itens sem preço. Preencha todos os preços para liberar o valor sugerido e a comparação com a referência.
+              </p>
+            </div>
+          )}
           <dl className="mt-4 space-y-3 text-sm">
             <div className="flex items-baseline justify-between gap-3">
-              <dt className="text-[var(--color-fg-muted)]">Custo dos itens</dt>
+              <dt className="text-[var(--color-fg-muted)]">{hasMissingPrices ? "Custo dos itens precificados (parcial)" : "Custo dos itens"}</dt>
               <dd className="font-bold tabular-nums text-[var(--color-fg)]">{formatBRL(totals.costSubtotal)}</dd>
             </div>
-            <div className="flex items-baseline justify-between gap-3">
+            <div className={`flex items-baseline justify-between gap-3 ${hasMissingPrices ? "badge-warning rounded-lg px-3 py-2" : ""}`}>
               <dt className="text-[var(--color-fg-muted)]">Itens sem preço</dt>
               <dd className={`font-bold tabular-nums ${totals.missingCount > 0 ? "text-[var(--color-warning)]" : "text-[var(--color-success)]"}`}>
                 {totals.missingCount} de {rows.length}
@@ -911,9 +929,14 @@ export function PrequoteWorksheet({
             </div>
             <div className="flex items-baseline justify-between gap-3">
               <dt className="text-[var(--color-fg-muted)]">Valor sugerido</dt>
-              <dd className="text-xl font-extrabold tabular-nums text-[var(--color-primary)]">
-                {formatBRL(totals.suggestedValue)}
+              <dd className={`text-xl font-extrabold tabular-nums ${hasMissingPrices ? "text-[var(--color-fg-muted)]" : "text-[var(--color-primary)]"}`}>
+                {hasMissingPrices ? "—" : formatBRL(totals.suggestedValue)}
               </dd>
+              {hasMissingPrices && (
+                <p className="basis-full text-right text-xs font-semibold text-[var(--color-warning)]">
+                  Aguardando todos os preços
+                </p>
+              )}
             </div>
             {referenceDiff !== null && (
               <div className="flex items-baseline justify-between gap-3 border-t border-[var(--color-border)] pt-3">

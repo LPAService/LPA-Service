@@ -401,6 +401,83 @@ describe("PrequoteWorksheet - Sugestões Automáticas", () => {
     expect(container!.textContent).toContain(formatBRL(37.5));
   });
 
+  it("bloqueia valor sugerido e comparacao quando muitos itens ainda estao sem preco", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ results: {} })
+    });
+    const rows: WorksheetRow[] = Array.from({ length: 32 }, (_, index) =>
+      makeRow({
+        itemOrder: index + 1,
+        name: `Item ${index + 1}`,
+        unitCost: index === 0 ? 21.9 : null
+      })
+    );
+
+    await act(async () => {
+      root!.render(
+        <PrequoteWorksheet
+          catalogItems={mockCatalogItems}
+          initialPreQuoteId={null}
+          initialRows={rows}
+          quotation={mockQuotation}
+          referenceSuggestions={{}}
+          suggestions={{}}
+        />
+      );
+    });
+
+    const summary = Array.from(container!.querySelectorAll("section")).find(
+      (section) => section.querySelector("h2")?.textContent === "Resumo do Pré-Orçamento"
+    );
+    const summaryText = summary?.textContent ?? "";
+    const suggestedRow = Array.from(summary?.querySelectorAll("div") ?? []).find(
+      (row) => row.querySelector("dt")?.textContent === "Valor sugerido"
+    );
+
+    expect(summaryText).toContain("Pré-orçamento incompleto");
+    expect(summaryText).toContain("31 de 32");
+    expect(summaryText).toContain("itens sem preço");
+    expect(suggestedRow?.textContent).toContain("—");
+    expect(suggestedRow?.textContent).not.toContain(formatBRL(21.9));
+    expect(summaryText).not.toContain("Vs. referência");
+  });
+
+  it("mostra valor sugerido e comparacao quando todos os itens tem preco", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ results: {} })
+    });
+    const rows: WorksheetRow[] = [
+      makeRow({ itemOrder: 1, name: "Item um", quantity: 1, unitCost: 10 }),
+      makeRow({ itemOrder: 2, name: "Item dois", quantity: 1, unitCost: 20 })
+    ];
+
+    await act(async () => {
+      root!.render(
+        <PrequoteWorksheet
+          catalogItems={mockCatalogItems}
+          initialPreQuoteId={null}
+          initialRows={rows}
+          quotation={{ ...mockQuotation, totalReferenceValue: 40 }}
+          referenceSuggestions={{}}
+          suggestions={{}}
+        />
+      );
+    });
+
+    const summary = Array.from(container!.querySelectorAll("section")).find(
+      (section) => section.querySelector("h2")?.textContent === "Resumo do Pré-Orçamento"
+    );
+    const summaryText = summary?.textContent ?? "";
+
+    expect(summaryText).not.toContain("Pré-orçamento incompleto");
+    expect(summaryText).toContain(formatBRL(30));
+    expect(summaryText).toContain("Vs. referência");
+    expect(summaryText).toContain(formatBRL(-10));
+    expect(summaryText).toContain("-25%");
+  });
+
   it("deixa a margem global visível no topo e recalcula o valor final de cada item", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -497,6 +574,10 @@ describe("PrequoteWorksheet - Sugestões Automáticas", () => {
     expect(csv).toContain("Valor final unitário;Total com margem;Observações");
     expect(csv).toContain("Item com custo;Descrição do item teste;UN;3;;10;12.5;37.5;Descrição sem marca;");
     expect(csv).toContain("Item sem custo;Descrição do item teste;UN;2;;;;;Item sem custo — 2 UN;");
+    expect(csv).toContain("Status do pré-orçamento");
+    expect(csv).toContain("INCOMPLETO — 1 de 2 itens sem preço");
+    expect(csv).toContain("Custo dos itens precificados (parcial)");
+    expect(csv).toContain("— (incompleto)");
 
     createObjectUrlSpy.mockRestore();
     revokeObjectUrlSpy.mockRestore();
