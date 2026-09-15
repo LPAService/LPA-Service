@@ -7,6 +7,7 @@ import { providerLabel } from "@/lib/search/best-price";
 import type { CatalogItemLite, CatalogMatch } from "@/lib/catalog/match";
 import type { ReferenceMatch } from "@/lib/catalog/reference-match";
 import { isRelevantReferenceTitle } from "@/lib/catalog/reference-name-match";
+import { describeUnitHint, extractUnitHint } from "@/lib/prequote/unit-hint";
 import { calcPreQuoteLineTotals, calcPreQuoteTotals, formatBRL, formatPercent } from "@/lib/prequote/calc";
 import { removeBrandFromText } from "@/lib/prequote/remove-brand";
 import { generatePrequoteDescription } from "@/lib/prequote/generate-description";
@@ -514,6 +515,13 @@ export function PrequoteWorksheet({
         ) : (
           rows.map((row) => {
             const lineRef = row.referenceUnitValue !== null ? row.referenceUnitValue * row.quantity : null;
+            // A escola escolhe a unidade num dropdown e descreve outra no texto.
+            // Erro de unidade em licitação é prejuízo: avisa, não corrige sozinho.
+            const unitWarning = describeUnitHint(
+              extractUnitHint(row.description, row.unit),
+              row.unit,
+              row.quantity
+            );
             const lineTotals = calcPreQuoteLineTotals(row, marginPercent);
             const rowSuggestions = suggestions[row.itemOrder] ?? [];
             const rowReferenceSuggestions = isServiceCategory
@@ -557,6 +565,11 @@ export function PrequoteWorksheet({
                   {row.referenceUnitValue !== null ? formatBRL(row.referenceUnitValue) : "sem referência"}
                   {lineRef !== null && <span className="font-normal"> (linha: {formatBRL(lineRef)})</span>}
                 </p>
+                {unitWarning && (
+                  <p className="badge-warning mt-2 rounded-lg p-2.5 text-xs font-semibold leading-relaxed" role="status">
+                    ⚠️ {unitWarning}
+                  </p>
+                )}
 
                 <div
                   className={`mt-4 grid gap-3 ${
