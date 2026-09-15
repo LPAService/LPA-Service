@@ -1,104 +1,106 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it } from "vitest";
-import { preencherProposta } from "../scripts/portal/preencher-proposta.js";
+import { conferirProposta, preencherProposta } from "../scripts/portal/preencher-proposta.js";
 
-/**
- * Monta um DOM com a mesma forma do formulário do portal: por item, os ids
- * nuValueByItem_<ordem>, txItemObservation_<ordem> e txWarrantyDescription_<ordem>.
- */
+/** DOM com a mesma forma do formulário real do portal. */
 function montarFormulario(ordens: number[], opcoes: { semGarantia?: number[] } = {}) {
-  document.body.innerHTML = ordens
-    .map((ordem) => {
-      const garantia = opcoes.semGarantia?.includes(ordem)
-        ? ""
-        : `<textarea id="txWarrantyDescription_${ordem}"></textarea>`;
-      return `
-        <input id="nuValueByItem_${ordem}" type="text" />
-        <textarea id="txItemObservation_${ordem}"></textarea>
-        ${garantia}`;
-    })
-    .join("");
+  document.body.innerHTML =
+    ordens
+      .map((ordem) => {
+        const garantia = opcoes.semGarantia?.includes(ordem)
+          ? ""
+          : `<textarea id="txWarrantyDescription_${ordem}"></textarea>`;
+        return `
+          <input id="nuValueByItem_${ordem}" type="text" />
+          <input id="totalValue_${ordem}" type="text" readonly value="R$ 0,00" />
+          <textarea id="txItemObservation_${ordem}"></textarea>
+          ${garantia}`;
+      })
+      .join("") + `<input id="invalidCheck" type="checkbox" />`;
 }
 
 const item = (ordem: number, over: Record<string, unknown> = {}) => ({
   itemOrder: ordem,
   name: `Item ${ordem}`,
-  quantity: 10,
-  unit: "UN",
-  nuValueByItem: 6,
-  totalValue: 60,
+  quantity: 330,
+  unit: "Pacote",
+  nuValueByItem: 6.9,
+  totalValue: 2277,
   txItemObservation: `Observação do item ${ordem}`,
   txWarrantyDescription: `Garantia do item ${ordem}`,
   ...over
 });
 
 describe("preenchimento da proposta no portal", () => {
-  beforeEach(() => {
-    document.body.innerHTML = "";
-  });
+  beforeEach(() => { document.body.innerHTML = ""; });
 
-  it("dry run não escreve nada, só confere se os campos existem", () => {
-    montarFormulario([1, 2]);
-    const relatorio = preencherProposta({ items: [item(1), item(2)] }, { dryRun: true });
+  it("não escreve no campo de valor: entrega os dígitos para serem digitados", () => {
+    montarFormulario([1]);
+    const rel = preencherProposta({ items: [item(1)] });
 
-    expect(relatorio).toMatchObject({ dryRun: true, encontrados: 2, preenchidos: 0 });
-    expect(relatorio.faltando).toEqual([]);
+    // 6,90 -> "690": a máscara monta os centavos a partir dos dígitos
+    expect(rel.paraDigitar).toEqual([
+      { itemOrder: 1, seletor: "#nuValueByItem_1", digitos: "690", valorEsperado: 6.9 }
+    ]);
     expect((document.getElementById("nuValueByItem_1") as HTMLInputElement).value).toBe("");
   });
 
-  it("preenche valor, observação e garantia de cada item", () => {
-    montarFormulario([1, 2]);
-    const relatorio = preencherProposta({ items: [item(1), item(2, { nuValueByItem: 2.4 })] });
+  it("preenche os textos, que aceitam escrita direta", () => {
+    montarFormulario([1]);
+    preencherProposta({ items: [item(1)] });
 
-    expect(relatorio.ok).toBe(true);
-    expect(relatorio.preenchidos).toBe(2);
-    expect((document.getElementById("nuValueByItem_1") as HTMLInputElement).value).toBe("6");
-    expect((document.getElementById("nuValueByItem_2") as HTMLInputElement).value).toBe("2,4");
-    expect((document.getElementById("txItemObservation_2") as HTMLTextAreaElement).value).toBe("Observação do item 2");
+    expect((document.getElementById("txItemObservation_1") as HTMLTextAreaElement).value).toBe("Observação do item 1");
     expect((document.getElementById("txWarrantyDescription_1") as HTMLTextAreaElement).value).toBe("Garantia do item 1");
   });
 
-  it("item fora da pagina atual do portal é reportado, não ignorado em silêncio", () => {
+  it("dry run não escreve nem os textos", () => {
     montarFormulario([1]);
-    const relatorio = preencherProposta({ items: [item(1), item(2)] });
+    const rel = preencherProposta({ items: [item(1)] }, { dryRun: true });
 
-    expect(relatorio.ok).toBe(false);
-    expect(relatorio.preenchidos).toBe(1);
-    expect(relatorio.faltando).toEqual([
+    expect(rel).toMatchObject({ dryRun: true, encontrados: 1, textosPreenchidos: 0 });
+    expect((document.getElementById("txItemObservation_1") as HTMLTextAreaElement).value).toBe("");
+  });
+
+  it("item fora da pagina atual do portal é reportado, não ignorado", () => {
+    montarFormulario([1]);
+    const rel = preencherProposta({ items: [item(1), item(2)] });
+
+    expect(rel.pronto).toBe(false);
+    expect(rel.faltando).toEqual([
       { itemOrder: 2, nome: "Item 2", motivo: "campo de valor não encontrado" }
     ]);
   });
 
-  it("acusa divergência quando o campo ficou com valor diferente do pedido", () => {
+  it("CONFERÊNCIA: total zerado reprova mesmo com o campo de valor preenchido", () => {
+    // Caso medido no portal: o campo mostrava "6,9" e o Angular não registrou
+    // nada — totalValue ficou em R$ 0,00. Ler só o campo aprovaria um lance vazio.
     montarFormulario([1]);
-    // Simula a máscara de moeda reescrevendo o campo depois do input.
-    const campo = document.getElementById("nuValueByItem_1") as HTMLInputElement;
-    campo.addEventListener("blur", () => { campo.value = "R$ 9,99"; });
+    (document.getElementById("nuValueByItem_1") as HTMLInputElement).value = "6,9";
+    (document.getElementById("txItemObservation_1") as HTMLTextAreaElement).value = "Observação do item 1";
 
-    const relatorio = preencherProposta({ items: [item(1, { nuValueByItem: 6 })] });
+    const conf = conferirProposta({ items: [item(1)] });
 
-    expect(relatorio.ok).toBe(false);
-    expect(relatorio.divergencias).toEqual([
-      { itemOrder: 1, campo: "valor", esperado: 6, noCampo: "R$ 9,99" }
-    ]);
+    expect(conf.ok).toBe(false);
+    expect(conf.divergencias[0]).toMatchObject({
+      itemOrder: 1,
+      campo: "valor",
+      esperado: 2277,
+      noCampo: "R$ 0,00",
+      valorDigitado: "6,9"
+    });
   });
 
-  it("aceita o valor quando a máscara só reformata sem mudar o número", () => {
+  it("CONFERÊNCIA: aprova quando o total bate com o esperado", () => {
     montarFormulario([1]);
-    const campo = document.getElementById("nuValueByItem_1") as HTMLInputElement;
-    campo.addEventListener("blur", () => { campo.value = "R$ 1.234,56"; });
+    (document.getElementById("nuValueByItem_1") as HTMLInputElement).value = "R$ 6,90";
+    (document.getElementById("totalValue_1") as HTMLInputElement).value = "R$ 2.277,00";
+    (document.getElementById("txItemObservation_1") as HTMLTextAreaElement).value = "Observação do item 1";
 
-    const relatorio = preencherProposta({ items: [item(1, { nuValueByItem: 1234.56 })] });
-
-    expect(relatorio.divergencias).toEqual([]);
-    expect(relatorio.ok).toBe(true);
+    expect(conferirProposta({ items: [item(1)] })).toMatchObject({ ok: true, aceiteMarcado: false });
   });
 
-  it("item sem campo de garantia no portal não quebra o preenchimento", () => {
+  it("item sem campo de garantia no portal não quebra", () => {
     montarFormulario([1], { semGarantia: [1] });
-    const relatorio = preencherProposta({ items: [item(1)] });
-
-    expect(relatorio.ok).toBe(true);
-    expect(relatorio.preenchidos).toBe(1);
+    expect(preencherProposta({ items: [item(1)] }).pronto).toBe(true);
   });
 });

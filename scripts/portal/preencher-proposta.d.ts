@@ -15,14 +15,31 @@ export type ItemProposta = {
 
 export type RelatorioPreenchimento = {
   dryRun: boolean;
-  ok: boolean;
+  pronto: boolean;
   encontrados: number;
-  preenchidos: number;
+  textosPreenchidos: number;
+  /** Campos de valor que a ferramenta de teclado precisa digitar. */
+  paraDigitar: Array<{ itemOrder: number; seletor: string; digitos: string; valorEsperado: number }>;
   faltando: Array<{ itemOrder: number; nome: string; motivo: string }>;
-  divergencias: Array<{ itemOrder: number; campo: string; esperado: unknown; noCampo: string }>;
+  divergencias: unknown[];
+};
+
+export type RelatorioConferencia = {
+  ok: boolean;
+  divergencias: Array<{
+    itemOrder: number;
+    campo: string;
+    motivo?: string;
+    esperado?: number;
+    noCampo?: string | null;
+    valorDigitado?: string;
+  }>;
+  aceiteMarcado: boolean | null;
 };
 
 export function preencherProposta(
   proposta: { items: ItemProposta[] },
   options?: { dryRun?: boolean }
 ): RelatorioPreenchimento;
+
+export function conferirProposta(proposta: { items: ItemProposta[] }): RelatorioConferencia;

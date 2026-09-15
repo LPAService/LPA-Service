@@ -2,30 +2,35 @@
  * Preenche o formulário "Cadastrar Proposta" do SGD a partir de um pré-orçamento.
  *
  * Roda DENTRO da aba do portal (Claude in Chrome injeta via javascript_tool).
- * Os ids vêm do bundle do portal: cada item do orçamento gera os campos
- *   nuValueByItem_<ordem>        valor unitário (input com máscara de moeda)
- *   txItemObservation_<ordem>    observações (obrigatório, máx 2000)
- *   txWarrantyDescription_<ordem> garantia (obrigatório só se o item exigir)
+ * Os ids foram confirmados no formulário real (orçamento 2026200309):
+ *   nuValueByItem_<ordem>         valor unitário — input com máscara de moeda
+ *   totalValue_<ordem>            total da linha — readonly, o Angular calcula
+ *   txItemObservation_<ordem>     observações — obrigatório, máx 2000
+ *   txWarrantyDescription_<ordem> garantia — só existe quando o item exige
+ *   #dtGoodsDelivery input        prazo de entrega de bens
+ *   #dtServiceDelivery input      prazo de execução de serviços
  *
- * NUNCA clica em enviar. O portal separa salvar (update-proposal) de enviar
- * (send-proposal); mandar a proposta é decisão de humano e fica de fora daqui.
+ * O QUE ESTE SCRIPT NÃO FAZ, E POR QUÊ:
+ * não escreve no campo de valor. Medido no portal em 15/09/2026: atribuir
+ * `input.value = "6,9"` e disparar input/change/blur deixou "6,9" na tela mas
+ * o Angular NÃO registrou nada — totalValue ficou em "R$ 0,00". Uma conferência
+ * que lesse só o texto do campo teria aprovado um lance vazio. O valor precisa
+ * ser DIGITADO (o campo monta a máscara a partir dos dígitos: "690" vira
+ * R$ 6,90), e quem digita é a ferramenta de teclado, não este script.
  *
- * Uso:
- *   preencherProposta({ items: [...] }, { dryRun: true })  -> só relatório
- *   preencherProposta({ items: [...] })                    -> preenche e confere
+ * Por isso a prova de que o valor entrou é totalValue, que vem do modelo do
+ * Angular — nunca o texto do próprio campo.
  *
- * Exportado para o teste conseguir importar; na injeção o `export` é removido
- * (ver scripts/portal/injetavel.mjs).
+ * NUNCA marca o aceite nem clica em enviar. O portal separa update-proposal de
+ * send-proposal; mandar a proposta é decisão de humano.
  */
 export function preencherProposta(proposta, options = {}) {
   const dryRun = options.dryRun === true;
-  const relatorio = { dryRun, encontrados: 0, preenchidos: 0, faltando: [], divergencias: [] };
+  const rel = { dryRun, encontrados: 0, textosPreenchidos: 0, paraDigitar: [], faltando: [], divergencias: [] };
 
   const setNativo = (el, valor) => {
     const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
-    const setter = Object.getOwnPropertyDescriptor(proto, "value").set;
-    setter.call(el, valor);
-    // Angular escuta input; blur fecha a máscara de moeda.
+    Object.getOwnPropertyDescriptor(proto, "value").set.call(el, valor);
     el.dispatchEvent(new Event("input", { bubbles: true }));
     el.dispatchEvent(new Event("change", { bubbles: true }));
     el.dispatchEvent(new Event("blur", { bubbles: true }));
@@ -33,62 +38,95 @@ export function preencherProposta(proposta, options = {}) {
 
   // "R$ 1.234,56" -> 1234.56
   const paraNumero = (texto) => {
-    const limpo = String(texto ?? "").replace(/[^\d,-]/g, "").replace(/\./g, "").replace(",", ".");
-    const n = Number(limpo);
+    const n = Number(String(texto ?? "").replace(/[^\d,-]/g, "").replace(/\./g, "").replace(",", "."));
     return Number.isFinite(n) ? n : null;
   };
 
-  for (const item of proposta.items) {
-    const campos = {
-      valor: document.getElementById(`nuValueByItem_${item.itemOrder}`),
-      observacao: document.getElementById(`txItemObservation_${item.itemOrder}`),
-      garantia: document.getElementById(`txWarrantyDescription_${item.itemOrder}`)
-    };
+  // 6.9 -> "690": a máscara monta os centavos a partir dos dígitos digitados.
+  const digitos = (valor) => String(Math.round(valor * 100));
 
-    if (!campos.valor || !campos.observacao) {
+  for (const item of proposta.items) {
+    const campoValor = document.getElementById(`nuValueByItem_${item.itemOrder}`);
+    const campoObs = document.getElementById(`txItemObservation_${item.itemOrder}`);
+    const campoGarantia = document.getElementById(`txWarrantyDescription_${item.itemOrder}`);
+
+    if (!campoValor || !campoObs) {
       // Item fora da página atual (o portal pagina de 100 em 100) ou ordem que
       // não existe nesse orçamento. Não inventa: reporta.
-      relatorio.faltando.push({
+      rel.faltando.push({
         itemOrder: item.itemOrder,
         nome: item.name,
-        motivo: !campos.valor ? "campo de valor não encontrado" : "campo de observação não encontrado"
+        motivo: !campoValor ? "campo de valor não encontrado" : "campo de observação não encontrado"
       });
       continue;
     }
-    relatorio.encontrados++;
+    rel.encontrados++;
+
+    // O valor sai na lista de digitação; textos podem ser escritos direto.
+    rel.paraDigitar.push({
+      itemOrder: item.itemOrder,
+      seletor: `#nuValueByItem_${item.itemOrder}`,
+      digitos: digitos(item.nuValueByItem),
+      valorEsperado: item.nuValueByItem
+    });
+
     if (dryRun) continue;
 
-    setNativo(campos.valor, String(item.nuValueByItem).replace(".", ","));
-    setNativo(campos.observacao, item.txItemObservation);
-    if (campos.garantia && item.txWarrantyDescription) {
-      setNativo(campos.garantia, item.txWarrantyDescription);
+    setNativo(campoObs, item.txItemObservation);
+    if (campoGarantia && item.txWarrantyDescription) {
+      setNativo(campoGarantia, item.txWarrantyDescription);
     }
-    relatorio.preenchidos++;
+    rel.textosPreenchidos++;
   }
 
-  if (!dryRun) {
-    // Confere o que ficou no campo. A máscara de moeda pode reformatar o que
-    // foi escrito; sem reler, um preço errado passaria batido.
-    for (const item of proposta.items) {
-      const campoValor = document.getElementById(`nuValueByItem_${item.itemOrder}`);
-      const campoObs = document.getElementById(`txItemObservation_${item.itemOrder}`);
-      if (!campoValor || !campoObs) continue;
+  rel.pronto = rel.faltando.length === 0;
+  return rel;
+}
 
-      const lido = paraNumero(campoValor.value);
-      if (lido === null || Math.abs(lido - item.nuValueByItem) > 0.005) {
-        relatorio.divergencias.push({
-          itemOrder: item.itemOrder,
-          campo: "valor",
-          esperado: item.nuValueByItem,
-          noCampo: campoValor.value
-        });
-      }
-      if (campoObs.value.trim() !== item.txItemObservation.trim()) {
-        relatorio.divergencias.push({ itemOrder: item.itemOrder, campo: "observações", esperado: item.txItemObservation, noCampo: campoObs.value });
-      }
+/**
+ * Confere o que REALMENTE entrou no formulário.
+ *
+ * Olha totalValue (vem do modelo do Angular) em vez do texto do campo de valor:
+ * o campo pode exibir um número que o Angular nunca recebeu.
+ */
+export function conferirProposta(proposta) {
+  const paraNumero = (texto) => {
+    const n = Number(String(texto ?? "").replace(/[^\d,-]/g, "").replace(/\./g, "").replace(",", "."));
+    return Number.isFinite(n) ? n : null;
+  };
+  const divergencias = [];
+
+  for (const item of proposta.items) {
+    const campoValor = document.getElementById(`nuValueByItem_${item.itemOrder}`);
+    const campoTotal = document.getElementById(`totalValue_${item.itemOrder}`);
+    const campoObs = document.getElementById(`txItemObservation_${item.itemOrder}`);
+    if (!campoValor || !campoObs) {
+      divergencias.push({ itemOrder: item.itemOrder, campo: "formulário", motivo: "campo não encontrado" });
+      continue;
+    }
+
+    const totalNaTela = paraNumero(campoTotal?.value);
+    const totalEsperado = item.totalValue;
+    if (totalNaTela === null || Math.abs(totalNaTela - totalEsperado) > 0.01) {
+      divergencias.push({
+        itemOrder: item.itemOrder,
+        campo: "valor",
+        motivo: "o total da linha não bate — o Angular pode não ter registrado o valor",
+        esperado: totalEsperado,
+        noCampo: campoTotal?.value ?? null,
+        valorDigitado: campoValor.value
+      });
+    }
+
+    if (campoObs.value.trim() !== item.txItemObservation.trim()) {
+      divergencias.push({ itemOrder: item.itemOrder, campo: "observações", noCampo: campoObs.value.slice(0, 70) });
     }
   }
 
-  relatorio.ok = relatorio.faltando.length === 0 && relatorio.divergencias.length === 0;
-  return relatorio;
+  return {
+    ok: divergencias.length === 0,
+    divergencias,
+    // Deixado de fora de propósito: marcar o aceite é passo do envio.
+    aceiteMarcado: document.getElementById("invalidCheck")?.checked ?? null
+  };
 }
