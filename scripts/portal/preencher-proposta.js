@@ -13,8 +13,11 @@
  * Uso:
  *   preencherProposta({ items: [...] }, { dryRun: true })  -> só relatório
  *   preencherProposta({ items: [...] })                    -> preenche e confere
+ *
+ * Exportado para o teste conseguir importar; na injeção o `export` é removido
+ * (ver scripts/portal/injetavel.mjs).
  */
-function preencherProposta(proposta, options = {}) {
+export function preencherProposta(proposta, options = {}) {
   const dryRun = options.dryRun === true;
   const relatorio = { dryRun, encontrados: 0, preenchidos: 0, faltando: [], divergencias: [] };
 
