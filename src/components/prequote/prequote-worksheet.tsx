@@ -119,11 +119,9 @@ export function PrequoteWorksheet({
   const [pilotCopied, setPilotCopied] = useState(false);
   const [pilotBlockers, setPilotBlockers] = useState<string[] | null>(null);
   const [pilotError, setPilotError] = useState<string | null>(null);
-  const pilotFeedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => {
     if (copyFeedbackTimer.current) clearTimeout(copyFeedbackTimer.current);
-    if (pilotFeedbackTimer.current) clearTimeout(pilotFeedbackTimer.current);
   }, []);
 
   function generatedDescription(row: WorksheetRow) {
@@ -361,6 +359,7 @@ export function PrequoteWorksheet({
           : [data.error ?? "Pré-orçamento não está pronto para proposta."];
         setPilotBlockers(blockers);
       } else if (response.ok) {
+        const data = await response.json();
         const command = `/lance-portal ${preQuoteId}`;
         let copied = false;
         try {
@@ -391,12 +390,13 @@ export function PrequoteWorksheet({
 
         if (copied) {
           setPilotCopied(true);
-          if (pilotFeedbackTimer.current) clearTimeout(pilotFeedbackTimer.current);
-          pilotFeedbackTimer.current = setTimeout(() => {
-            setPilotCopied(false);
-          }, 4000);
         } else {
           setPilotError("Não foi possível copiar o comando para a área de transferência.");
+        }
+
+        const portalUrl = data?.portal?.proposalUrl;
+        if (typeof portalUrl === "string" && portalUrl.trim() && typeof window !== "undefined") {
+          window.open(portalUrl, "_blank", "noopener");
         }
       } else {
         const data = await response.json().catch(() => null);
@@ -1107,8 +1107,23 @@ export function PrequoteWorksheet({
               {pilotLoading ? "Verificando proposta…" : "Modo piloto (Claude in Chrome)"}
             </button>
             {pilotCopied && (
-              <div className="rounded-lg badge-success p-3 text-xs font-semibold" role="status">
-                ✓ Comando copiado — cole na sessão com o Claude in Chrome
+              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-3 text-xs space-y-2" role="status">
+                <ol className="space-y-1.5 leading-relaxed">
+                  <li className="flex items-start gap-1.5 text-[var(--color-fg)]">
+                    <span className="font-bold text-[var(--color-fg-muted)] shrink-0">1.</span>
+                    <span>Comando copiado. Cole no Claude (Cmd+V) e envie.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5 text-[var(--color-fg)]">
+                    <span className="font-bold text-[var(--color-fg-muted)] shrink-0">2.</span>
+                    <span>O Claude preenche os itens e confere os totais.</span>
+                  </li>
+                  <li className="badge-warning rounded-lg p-2.5 font-semibold">
+                    <div className="flex items-start gap-1.5">
+                      <span className="shrink-0">3.</span>
+                      <span>Você põe a data de entrega, marca o Declaro e envia.</span>
+                    </div>
+                  </li>
+                </ol>
               </div>
             )}
             {pilotBlockers && pilotBlockers.length > 0 && (
