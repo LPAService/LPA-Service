@@ -36,12 +36,6 @@ export function preencherProposta(proposta, options = {}) {
     el.dispatchEvent(new Event("blur", { bubbles: true }));
   };
 
-  // "R$ 1.234,56" -> 1234.56
-  const paraNumero = (texto) => {
-    const n = Number(String(texto ?? "").replace(/[^\d,-]/g, "").replace(/\./g, "").replace(",", "."));
-    return Number.isFinite(n) ? n : null;
-  };
-
   // 6.9 -> "690": a máscara monta os centavos a partir dos dígitos digitados.
   const digitos = (valor) => String(Math.round(valor * 100));
 
@@ -51,12 +45,10 @@ export function preencherProposta(proposta, options = {}) {
     const campoGarantia = document.getElementById(`txWarrantyDescription_${item.itemOrder}`);
 
     if (!campoValor || !campoObs) {
-      // Item fora da página atual (o portal pagina de 100 em 100) ou ordem que
-      // não existe nesse orçamento. Não inventa: reporta.
       rel.faltando.push({
         itemOrder: item.itemOrder,
         nome: item.name,
-        motivo: !campoValor ? "campo de valor não encontrado" : "campo de observação não encontrado"
+        motivo: motivoFaltando(item.itemOrder)
       });
       continue;
     }
@@ -65,8 +57,10 @@ export function preencherProposta(proposta, options = {}) {
     // O valor sai na lista de digitação; textos podem ser escritos direto.
     rel.paraDigitar.push({
       itemOrder: item.itemOrder,
+      campoId: `nuValueByItem_${item.itemOrder}`,
       seletor: `#nuValueByItem_${item.itemOrder}`,
       digitos: digitos(item.nuValueByItem),
+      valor: item.nuValueByItem,
       valorEsperado: item.nuValueByItem
     });
 
@@ -90,43 +84,54 @@ export function preencherProposta(proposta, options = {}) {
  * o campo pode exibir um número que o Angular nunca recebeu.
  */
 export function conferirProposta(proposta) {
-  const paraNumero = (texto) => {
-    const n = Number(String(texto ?? "").replace(/[^\d,-]/g, "").replace(/\./g, "").replace(",", "."));
-    return Number.isFinite(n) ? n : null;
-  };
+  const itens = [];
+  const faltando = [];
   const divergencias = [];
 
   for (const item of proposta.items) {
-    const campoValor = document.getElementById(`nuValueByItem_${item.itemOrder}`);
     const campoTotal = document.getElementById(`totalValue_${item.itemOrder}`);
-    const campoObs = document.getElementById(`txItemObservation_${item.itemOrder}`);
-    if (!campoValor || !campoObs) {
-      divergencias.push({ itemOrder: item.itemOrder, campo: "formulário", motivo: "campo não encontrado" });
+    const esperado = item.totalValue;
+    if (!campoTotal) {
+      itens.push({ itemOrder: item.itemOrder, esperado, lido: null, ok: false });
+      faltando.push({ itemOrder: item.itemOrder, nome: item.name, motivo: motivoFaltando(item.itemOrder) });
       continue;
     }
 
-    const totalNaTela = paraNumero(campoTotal?.value);
-    const totalEsperado = item.totalValue;
-    if (totalNaTela === null || Math.abs(totalNaTela - totalEsperado) > 0.01) {
-      divergencias.push({
-        itemOrder: item.itemOrder,
-        campo: "valor",
-        motivo: "o total da linha não bate — o Angular pode não ter registrado o valor",
-        esperado: totalEsperado,
-        noCampo: campoTotal?.value ?? null,
-        valorDigitado: campoValor.value
-      });
-    }
-
-    if (campoObs.value.trim() !== item.txItemObservation.trim()) {
-      divergencias.push({ itemOrder: item.itemOrder, campo: "observações", noCampo: campoObs.value.slice(0, 70) });
+    const lido = paraNumero(valorDoCampo(campoTotal));
+    const ok = lido !== null && Math.abs(lido - esperado) <= 0.01;
+    const linha = { itemOrder: item.itemOrder, esperado, lido, ok };
+    itens.push(linha);
+    if (!ok) {
+      divergencias.push(linha);
     }
   }
 
   return {
-    ok: divergencias.length === 0,
-    divergencias,
-    // Deixado de fora de propósito: marcar o aceite é passo do envio.
-    aceiteMarcado: document.getElementById("invalidCheck")?.checked ?? null
+    ok: faltando.length === 0 && divergencias.length === 0,
+    itens,
+    faltando,
+    divergencias
   };
+}
+
+function motivoFaltando(itemOrder) {
+  return temCamposDeOutrosItens(itemOrder) ? "fora-desta-pagina" : "inexistente";
+}
+
+function temCamposDeOutrosItens(itemOrder) {
+  const sufixo = `_${itemOrder}`;
+  const campos = document.querySelectorAll(
+    "[id^='nuValueByItem_'], [id^='totalValue_'], [id^='txItemObservation_'], [id^='txWarrantyDescription_']"
+  );
+  return Array.from(campos).some((campo) => typeof campo.id === "string" && !campo.id.endsWith(sufixo));
+}
+
+function valorDoCampo(campo) {
+  return "value" in campo ? campo.value : campo.textContent;
+}
+
+// "R$ 1.234,56" -> 1234.56
+function paraNumero(texto) {
+  const n = Number(String(texto ?? "").replace(/[^\d,-]/g, "").replace(/\./g, "").replace(",", "."));
+  return Number.isFinite(n) ? n : null;
 }

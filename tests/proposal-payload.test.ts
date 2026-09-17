@@ -83,6 +83,21 @@ describe("proposta para o portal", () => {
     expect(result.payload.items[0].txWarrantyDescription).toBe("");
   });
 
+  it("mantém identificador externo e campos que casam com os ids reais do DOM", () => {
+    const result = buildProposalPayload(preQuote());
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.payload.quotationExternalId).toBe("702-8374-366251");
+    expect(result.payload.items[0]).toMatchObject({
+      itemOrder: 1,
+      nuValueByItem: 6,
+      totalValue: 600,
+      txItemObservation: "Açúcar cristal, 100 KG.",
+      txWarrantyDescription: "Produto lacrado, validade mínima de 6 meses."
+    });
+  });
+
   it("junta todos os bloqueios de uma vez em vez de parar no primeiro", () => {
     const result = buildProposalPayload(
       preQuote({

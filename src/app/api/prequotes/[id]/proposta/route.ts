@@ -50,5 +50,12 @@ export async function GET(_request: Request, context: RouteContext) {
     );
   }
 
-  return NextResponse.json({ proposta: result.payload });
+  return NextResponse.json({
+    proposta: result.payload,
+    portal: {
+      proposalUrl: `/api/quotations/${encodeURIComponent(preQuote.quotationExternalId)}/proposal`,
+      orderId: preQuote.orderId ?? preQuote.quotationExternalId,
+      quotationExternalId: preQuote.quotationExternalId
+    }
+  });
 }

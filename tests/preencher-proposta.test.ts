@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { execFileSync } from "node:child_process";
 import { beforeEach, describe, expect, it } from "vitest";
 import { conferirProposta, preencherProposta } from "../scripts/portal/preencher-proposta.js";
 
@@ -40,7 +41,14 @@ describe("preenchimento da proposta no portal", () => {
 
     // 6,90 -> "690": a máscara monta os centavos a partir dos dígitos
     expect(rel.paraDigitar).toEqual([
-      { itemOrder: 1, seletor: "#nuValueByItem_1", digitos: "690", valorEsperado: 6.9 }
+      {
+        itemOrder: 1,
+        campoId: "nuValueByItem_1",
+        seletor: "#nuValueByItem_1",
+        digitos: "690",
+        valor: 6.9,
+        valorEsperado: 6.9
+      }
     ]);
     expect((document.getElementById("nuValueByItem_1") as HTMLInputElement).value).toBe("");
   });
@@ -67,7 +75,15 @@ describe("preenchimento da proposta no portal", () => {
 
     expect(rel.pronto).toBe(false);
     expect(rel.faltando).toEqual([
-      { itemOrder: 2, nome: "Item 2", motivo: "campo de valor não encontrado" }
+      { itemOrder: 2, nome: "Item 2", motivo: "fora-desta-pagina" }
+    ]);
+  });
+
+  it("ordem sem nenhum campo de item no DOM é reportada como inexistente", () => {
+    const rel = preencherProposta({ items: [item(404)] });
+
+    expect(rel.faltando).toEqual([
+      { itemOrder: 404, nome: "Item 404", motivo: "inexistente" }
     ]);
   });
 
@@ -81,12 +97,11 @@ describe("preenchimento da proposta no portal", () => {
     const conf = conferirProposta({ items: [item(1)] });
 
     expect(conf.ok).toBe(false);
-    expect(conf.divergencias[0]).toMatchObject({
-      itemOrder: 1,
-      campo: "valor",
-      esperado: 2277,
-      noCampo: "R$ 0,00",
-      valorDigitado: "6,9"
+    expect(conf).toEqual({
+      ok: false,
+      itens: [{ itemOrder: 1, esperado: 2277, lido: 0, ok: false }],
+      faltando: [],
+      divergencias: [{ itemOrder: 1, esperado: 2277, lido: 0, ok: false }]
     });
   });
 
@@ -96,11 +111,40 @@ describe("preenchimento da proposta no portal", () => {
     (document.getElementById("totalValue_1") as HTMLInputElement).value = "R$ 2.277,00";
     (document.getElementById("txItemObservation_1") as HTMLTextAreaElement).value = "Observação do item 1";
 
-    expect(conferirProposta({ items: [item(1)] })).toMatchObject({ ok: true, aceiteMarcado: false });
+    expect(conferirProposta({ items: [item(1)] })).toEqual({
+      ok: true,
+      itens: [{ itemOrder: 1, esperado: 2277, lido: 2277, ok: true }],
+      faltando: [],
+      divergencias: []
+    });
+  });
+
+  it("CONFERÊNCIA: separa fora-desta-página de inexistente", () => {
+    montarFormulario([1]);
+    expect(conferirProposta({ items: [item(2)] }).faltando).toEqual([
+      { itemOrder: 2, nome: "Item 2", motivo: "fora-desta-pagina" }
+    ]);
+
+    document.body.innerHTML = "";
+    expect(conferirProposta({ items: [item(2)] }).faltando).toEqual([
+      { itemOrder: 2, nome: "Item 2", motivo: "inexistente" }
+    ]);
   });
 
   it("item sem campo de garantia no portal não quebra", () => {
     montarFormulario([1], { semGarantia: [1] });
     expect(preencherProposta({ items: [item(1)] }).pronto).toBe(true);
+  });
+
+  it("injetável emite o conferidor quando recebe --conferir", () => {
+    const output = execFileSync(
+      "node",
+      ["scripts/portal/injetavel.mjs", "{\"items\":[]}", "--conferir"],
+      { encoding: "utf8" }
+    );
+
+    expect(output).not.toContain("export function");
+    expect(output).toContain("JSON.stringify(conferirProposta({\"items\":[]}), null, 1)");
+    expect(output).not.toContain("preencherProposta({\"items\":[]}");
   });
 });

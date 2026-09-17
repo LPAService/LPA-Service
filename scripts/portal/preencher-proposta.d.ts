@@ -19,22 +19,30 @@ export type RelatorioPreenchimento = {
   encontrados: number;
   textosPreenchidos: number;
   /** Campos de valor que a ferramenta de teclado precisa digitar. */
-  paraDigitar: Array<{ itemOrder: number; seletor: string; digitos: string; valorEsperado: number }>;
-  faltando: Array<{ itemOrder: number; nome: string; motivo: string }>;
+  paraDigitar: Array<{
+    itemOrder: number;
+    campoId: string;
+    seletor: string;
+    digitos: string;
+    valor: number;
+    valorEsperado: number;
+  }>;
+  faltando: Array<{ itemOrder: number; nome: string; motivo: "fora-desta-pagina" | "inexistente" }>;
   divergencias: unknown[];
+};
+
+export type ItemConferencia = {
+  itemOrder: number;
+  esperado: number;
+  lido: number | null;
+  ok: boolean;
 };
 
 export type RelatorioConferencia = {
   ok: boolean;
-  divergencias: Array<{
-    itemOrder: number;
-    campo: string;
-    motivo?: string;
-    esperado?: number;
-    noCampo?: string | null;
-    valorDigitado?: string;
-  }>;
-  aceiteMarcado: boolean | null;
+  itens: ItemConferencia[];
+  faltando: Array<{ itemOrder: number; nome: string; motivo: "fora-desta-pagina" | "inexistente" }>;
+  divergencias: ItemConferencia[];
 };
 
 export function preencherProposta(
