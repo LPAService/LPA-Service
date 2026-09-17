@@ -34,15 +34,16 @@ Nunca invente valor, nunca corrija preco, nunca preencha item que nao veio no pa
    - Navegue dentro do app do portal: menu `Compras`, item `Orcamento`. A tela esperada e `/compras/orcamentos`.
    - No campo `ID Orcamento` com placeholder `Digite o ID do orcamento`, preencha `portal.orderId`. Esse valor e o `nuBudgetOrder`, por exemplo `2026200309`; nao use `portal.quotationExternalId` nessa busca.
    - Clique `Buscar` e espere a tabela carregar. A tabela mostra spinner; os contadores do topo podem aparecer antes das linhas, entao aguarde a linha do orcamento existir.
-   - Na linha do orcamento, localize o botao `Editar` por elemento/texto. Nunca clique por coordenada cega: `Excluir` fica colado em `Editar`, e a linha tambem tem `Visualizar`.
-   - Antes de clicar, cheque se `Editar` esta habilitado. Se `Editar` estiver com `disabled=true`, pare e diga ao humano que o cadastro do fornecedor nao esta habilitado para editar proposta; o humano pode conferir em `Fornecedor` -> `Situacao de Cadastro`.
-   - Clique `Editar` somente se habilitado.
-   - Depois da navegacao, se a URL/tela nao for a tela do orcamento/proposta esperada, pare. Home `/` e `/selecionar-perfil` sao casos conhecidos, mas a regra vale para qualquer tela diferente da esperada. Nao tente adivinhar a URL do orcamento na mao.
+   - Na linha do orcamento, ignore `Excluir` e `Editar` mesmo quando aparecerem com `disabled=true`; isso nao significa bloqueio de proposta.
+   - Localize o botao `Visualizar` por elemento/texto e clique nele. Nunca clique por coordenada cega: a linha tambem tem `Excluir` e `Editar`.
+   - `Visualizar` abre um modal chamado `Solicitacao de Orcamento`, com a secao `Preenchimento dos Itens`. Nao e outra pagina; a URL continua `/compras/orcamentos?budgetOrder=<ordem>`.
+   - Se depois dessa navegacao/modal a tela nao for a tela esperada, pare. Home `/` e `/selecionar-perfil` sao casos conhecidos, mas a regra vale para qualquer tela diferente da esperada. Nao tente adivinhar a URL do orcamento na mao.
 
 4. Confirme que a pagina certa carregou:
    - Use `read_page`.
-   - A tela precisa ser `Cadastrar Proposta`.
-   - Confira o numero do orcamento na pagina contra `portal.quotationExternalId`.
+   - A tela precisa estar no modal `Solicitacao de Orcamento`.
+   - O modal precisa conter a secao `Preenchimento dos Itens`.
+   - Confira o numero do orcamento no modal contra `portal.orderId`.
    - Se o numero for diferente, pare. Nao preencha outro orcamento.
 
 5. Gere e rode o injetavel em dry-run:
@@ -88,14 +89,18 @@ Nunca invente valor, nunca corrija preco, nunca preencha item que nao veio no pa
    - Nao preencha item fora do payload.
 
 10. Pare na tela preenchida:
+    - Nunca preencha `Prazo de Entrega dos Bens e Mercadorias`.
+    - Nunca preencha `Prazo de Entrega dos Servicos / Execucao`.
+    - Os dois campos de prazo ficam no topo do modal e usam mascara `dd/mm/yyyy`; medido no portal real em 17/09/2026, o calendario nao bloqueia nenhuma data. A escolha e comercial e pertence ao humano.
     - Nunca marque aceite.
+    - Nunca marque `Declaro estar apto para realizar todos os servicos propostos neste orcamento e concordo com os termos.`
     - Nunca clique em enviar.
     - Nunca feche a aba.
     - Relate ao humano:
       - total do portal;
       - total do pre-orcamento;
       - conferencia item a item;
-      - frase obrigatoria: `Falta voce revisar e clicar Enviar no portal.`
+      - frase obrigatoria: `Falta voce preencher a data de entrega, marcar o Declaro e enviar no portal.`
 
 ## O Que Esta Skill NAO Faz
 
@@ -103,11 +108,14 @@ Nunca invente valor, nunca corrija preco, nunca preencha item que nao veio no pa
 - Nao pede, le, salva ou manipula senha, token, certificado ou credencial.
 - Nao envia proposta.
 - Nao marca aceite.
+- Nao marca `Declaro estar apto para realizar todos os servicos propostos neste orcamento e concordo com os termos.`
+- Nao preenche `Prazo de Entrega dos Bens e Mercadorias`.
+- Nao preenche `Prazo de Entrega dos Servicos / Execucao`.
 - Nao clica em `Enviar`, `send-proposal` ou equivalente.
 - Nao fecha aba do portal.
 - Nao inventa item, preco, quantidade, unidade, garantia ou observacao.
 - Nao altera preco para fazer total bater.
 - Nao usa `alert`, `confirm` ou `prompt`.
 - Nao continua quando o endpoint retorna `409`.
-- Nao continua quando o orcamento na tela diverge de `portal.quotationExternalId`.
+- Nao continua quando o orcamento no modal diverge de `portal.orderId`.
 - Nao aprova conferencia lendo apenas o texto do input de valor; precisa conferir `totalValue`.
