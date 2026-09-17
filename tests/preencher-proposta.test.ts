@@ -20,6 +20,17 @@ function montarFormulario(ordens: number[], opcoes: { semGarantia?: number[] } =
       .join("") + `<input id="invalidCheck" type="checkbox" />`;
 }
 
+function montarFormularioComDatas(ordens: number[]) {
+  montarFormulario(ordens);
+  document.body.insertAdjacentHTML(
+    "beforeend",
+    `
+      <input type="text" placeholder="dd/mm/yyyy" />
+      <input type="text" placeholder="dd/mm/yyyy" />
+    `
+  );
+}
+
 const item = (ordem: number, over: Record<string, unknown> = {}) => ({
   itemOrder: ordem,
   name: `Item ${ordem}`,
@@ -59,6 +70,15 @@ describe("preenchimento da proposta no portal", () => {
 
     expect((document.getElementById("txItemObservation_1") as HTMLTextAreaElement).value).toBe("Observação do item 1");
     expect((document.getElementById("txWarrantyDescription_1") as HTMLTextAreaElement).value).toBe("Garantia do item 1");
+  });
+
+  it("não preenche prazos de entrega: data fica decisão humana", () => {
+    montarFormularioComDatas([1]);
+    preencherProposta({ items: [item(1)] });
+
+    const datas = Array.from(document.querySelectorAll<HTMLInputElement>('input[placeholder="dd/mm/yyyy"]'));
+    expect(datas).toHaveLength(2);
+    expect(datas.map((campo) => campo.value)).toEqual(["", ""]);
   });
 
   it("dry run não escreve nem os textos", () => {

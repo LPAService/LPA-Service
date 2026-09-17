@@ -7,8 +7,8 @@
  *   totalValue_<ordem>            total da linha — readonly, o Angular calcula
  *   txItemObservation_<ordem>     observações — obrigatório, máx 2000
  *   txWarrantyDescription_<ordem> garantia — só existe quando o item exige
- *   #dtGoodsDelivery input        prazo de entrega de bens
- *   #dtServiceDelivery input      prazo de execução de serviços
+ * Os dois campos de prazo de entrega são <input type="text"> com placeholder
+ * "dd/mm/yyyy", sem id, sem formcontrolname e sem min/max.
  *
  * O QUE ESTE SCRIPT NÃO FAZ, E POR QUÊ:
  * não escreve no campo de valor. Medido no portal em 15/09/2026: atribuir
@@ -20,6 +20,10 @@
  *
  * Por isso a prova de que o valor entrou é totalValue, que vem do modelo do
  * Angular — nunca o texto do próprio campo.
+ *
+ * não preenche prazo de entrega. Medido no portal em 17/09/2026: o calendário
+ * exibiu 42 dias e zero datas desabilitadas. Como o portal não bloqueia
+ * nenhuma data, o prazo é decisão comercial do fornecedor, não do robô.
  *
  * NUNCA marca o aceite nem clica em enviar. O portal separa update-proposal de
  * send-proposal; mandar a proposta é decisão de humano.
