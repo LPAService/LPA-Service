@@ -483,6 +483,7 @@ export function buildQuotationRecord(listing: SummaryRecord, detail: DetailRecor
   return {
     externalId: buildQuotationExternalId(listing),
     nuBudgetOrder: listing.nuBudgetOrder === null || listing.nuBudgetOrder === undefined ? null : String(listing.nuBudgetOrder),
+    ourSupplierId: listing.idSupplier ?? null,
     idSubprogram: listing.idSubprogram,
     idSchool: listing.idSchool,
     idBudget: listing.idBudget,

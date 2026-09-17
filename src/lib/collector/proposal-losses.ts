@@ -3,6 +3,7 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { collectionRuns, proposalLosses } from "@/lib/db/schema";
 import * as dbSchema from "@/lib/db/schema";
 import { resolvePendingBids } from "@/lib/collector/bids";
+import { CaixaEscolarClient } from "@/lib/collector/client";
 import {
   AuthenticatedSgdClient,
   type BudgetProposalRecord,
@@ -76,7 +77,11 @@ export async function collectProposalLosses(options: CollectProposalLossesOption
     sleepFn: options.sleepFn
   });
   await client.login();
-  return collectProposalLossesWithClient(client, new DrizzleProposalLossRepository(db), options);
+  const winSource = new CaixaEscolarClient({
+    fetchFn: options.fetchFn,
+    sleepFn: options.sleepFn
+  });
+  return collectProposalLossesWithClient(client, new DrizzleProposalLossRepository(db, winSource), options);
 }
 
 export async function collectProposalLossesWithClient(
@@ -202,7 +207,10 @@ export function calculateLossGapPercent(ourTotal: number | null, winnerTotal: nu
 }
 
 export class DrizzleProposalLossRepository implements ProposalLossRepository {
-  constructor(private readonly database: NodePgDatabase<typeof dbSchema>) {}
+  constructor(
+    private readonly database: NodePgDatabase<typeof dbSchema>,
+    private readonly winSource?: CaixaEscolarClient
+  ) {}
 
   async startRun(mode: string) {
     const [run] = await this.database.insert(collectionRuns).values({ mode }).returning({ id: collectionRuns.id });
@@ -257,7 +265,7 @@ export class DrizzleProposalLossRepository implements ProposalLossRepository {
   }
 
   async resolvePendingBids() {
-    return resolvePendingBids(this.database);
+    return resolvePendingBids(this.database, new Date(), { winSource: this.winSource });
   }
 }
 

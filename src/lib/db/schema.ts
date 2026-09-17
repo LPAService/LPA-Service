@@ -486,6 +486,7 @@ export const bids = pgTable(
       .references(() => quotations.externalId, { onDelete: "cascade" }),
     orderId: text("order_id").notNull(),
     preQuoteId: integer("pre_quote_id").references(() => preQuotes.id, { onDelete: "set null" }),
+    ourSupplierId: integer("our_supplier_id"),
     ourTotal: numeric("our_total", { precision: 14, scale: 2, mode: "number" }),
     marginPercent: doublePrecision("margin_percent"),
     detectedAt: timestamp("detected_at", { withTimezone: true }).notNull().defaultNow(),
@@ -495,14 +496,18 @@ export const bids = pgTable(
     outcome: text("outcome").notNull().default("pendente"),
     outcomeAt: timestamp("outcome_at", { withTimezone: true }),
     lossId: integer("loss_id").references(() => proposalLosses.id, { onDelete: "set null" }),
+    winPublicationId: text("win_publication_id"),
+    winPublicationJson: jsonb("win_publication_json"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },
   (table) => [
     uniqueIndex("bids_quotation_external_id_unique").on(table.quotationExternalId),
     index("bids_order_id_idx").on(table.orderId),
+    index("bids_our_supplier_id_idx").on(table.ourSupplierId),
     index("bids_outcome_idx").on(table.outcome),
-    index("bids_proposal_deadline_idx").on(table.proposalDeadline)
+    index("bids_proposal_deadline_idx").on(table.proposalDeadline),
+    index("bids_win_publication_id_idx").on(table.winPublicationId)
   ]
 );
 
