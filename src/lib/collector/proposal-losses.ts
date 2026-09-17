@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { collectionRuns, proposalLosses } from "@/lib/db/schema";
 import * as dbSchema from "@/lib/db/schema";
+import { resolvePendingBids } from "@/lib/collector/bids";
 import {
   AuthenticatedSgdClient,
   type BudgetProposalRecord,
@@ -59,6 +60,7 @@ export type ProposalLossRepository = {
   startRun(mode: string): Promise<number>;
   finishRun(runId: number, result: ProposalLossCollectionResult): Promise<void>;
   upsertProposalLoss(record: ProposalLossRecord): Promise<"new" | "updated">;
+  resolvePendingBids(): Promise<number>;
 };
 
 export async function collectProposalLosses(options: CollectProposalLossesOptions = {}) {
@@ -125,6 +127,7 @@ export async function collectProposalLossesWithClient(
       if ((options.maxRecords && processed >= options.maxRecords) || page >= (listing.meta?.totalPages ?? page)) break;
     }
 
+    if (!options.dryRun) await repository.resolvePendingBids();
     await repository.finishRun(runId, result);
     return result;
   } catch (error) {
@@ -251,6 +254,10 @@ export class DrizzleProposalLossRepository implements ProposalLossRepository {
     });
 
     return existing.length === 0 ? "new" : "updated";
+  }
+
+  async resolvePendingBids() {
+    return resolvePendingBids(this.database);
   }
 }
 

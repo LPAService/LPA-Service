@@ -7,6 +7,7 @@ import { collectionRuns, quotationItems, quotations } from "@/lib/db/schema";
 import * as dbSchema from "@/lib/db/schema";
 import rmbhCounties from "@/lib/collector/rmbh-counties.json";
 import { analyzeProposalBlock } from "@/lib/collector/proposal-block";
+import { upsertBidForEnviQuotation } from "@/lib/collector/bids";
 import { extractReferencePrice } from "@/lib/parsing/reference-price";
 
 const API_BASE = "https://api.caixaescolar.educacao.mg.gov.br";
@@ -654,6 +655,7 @@ export class DrizzleQuotationRepository implements QuotationRepository {
         rawJson: item.rawJson
       })));
     }
+    await upsertBidForEnviQuotation(this.database, record);
     return existing.length === 0 ? "new" : "updated";
   }
 

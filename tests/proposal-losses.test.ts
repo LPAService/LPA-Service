@@ -185,6 +185,10 @@ class FakeProposalLossRepository implements ProposalLossRepository {
     this.rows.set(record.orderId, record);
     return exists ? "updated" as const : "new" as const;
   }
+
+  async resolvePendingBids() {
+    return 0;
+  }
 }
 
 async function resetDatabase(pool: Pool) {

@@ -477,6 +477,35 @@ export const preQuoteItems = pgTable(
   ]
 );
 
+export const bids = pgTable(
+  "bids",
+  {
+    id: serial("id").primaryKey(),
+    quotationExternalId: text("quotation_external_id")
+      .notNull()
+      .references(() => quotations.externalId, { onDelete: "cascade" }),
+    orderId: text("order_id").notNull(),
+    preQuoteId: integer("pre_quote_id").references(() => preQuotes.id, { onDelete: "set null" }),
+    ourTotal: numeric("our_total", { precision: 14, scale: 2, mode: "number" }),
+    marginPercent: doublePrecision("margin_percent"),
+    detectedAt: timestamp("detected_at", { withTimezone: true }).notNull().defaultNow(),
+    proposalDeadline: timestamp("proposal_deadline", { withTimezone: true }),
+    expenseGroup: text("expense_group").notNull(),
+    countyName: text("county_name"),
+    outcome: text("outcome").notNull().default("pendente"),
+    outcomeAt: timestamp("outcome_at", { withTimezone: true }),
+    lossId: integer("loss_id").references(() => proposalLosses.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    uniqueIndex("bids_quotation_external_id_unique").on(table.quotationExternalId),
+    index("bids_order_id_idx").on(table.orderId),
+    index("bids_outcome_idx").on(table.outcome),
+    index("bids_proposal_deadline_idx").on(table.proposalDeadline)
+  ]
+);
+
 export const notificationSubscriptions = pgTable(
   "notification_subscriptions",
   {
