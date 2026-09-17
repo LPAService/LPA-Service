@@ -153,22 +153,94 @@ export function BidsReportSection({ data }: { data: BidsReportData | null }) {
             <p className="mt-1 text-2xl font-black tabular-nums text-emerald-400">
               {formatNumber(funnel.ganho)}
             </p>
-            <p className="mt-0.5 text-[11px] text-[var(--color-fg-muted)]">0 vitórias públicas confirmadas</p>
+            <p className="mt-0.5 text-[11px] text-[var(--color-fg-muted)]">
+              {funnel.ganho === 1
+                ? "1 vitória confirmada"
+                : `${formatNumber(funnel.ganho)} vitórias confirmadas`}
+            </p>
           </div>
         </div>
 
-        {/* Banner de Honestidade Obrigatória sobre Envelope Fechado */}
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-[var(--color-fg)] leading-relaxed space-y-1">
-          <div className="flex items-center gap-1.5 font-bold text-amber-400">
-            <span>⚠️</span>
-            <span>Honestidade Obrigatória sobre a Fonte (Envelope Fechado):</span>
+        {/* Banner de Rastreabilidade e Honestidade sobre a Fonte */}
+        <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-4 text-xs text-[var(--color-fg)] leading-relaxed space-y-1.5">
+          <div className="flex items-center gap-1.5 font-bold text-blue-400">
+            <span>ℹ️</span>
+            <span>Rastreabilidade e Regras de Detecção da Fonte:</span>
           </div>
-          <p className="text-[var(--color-fg-muted)]">
-            O portal Caixa Escolar MG opera em envelope fechado e <strong>só publica de forma confiável o relatório de perdas</strong> (quando outro fornecedor vence).
-            O estado <strong className="text-amber-400">&quot;Sem Resultado&quot;</strong> significa que o prazo da cotação expirou sem publicação de ata de homologação — <strong>não significa vitória nem derrota</strong>, e nunca é somado como taxa de sucesso.
-            A métrica <strong className="text-emerald-400">&quot;Ganho&quot;</strong> permanece em 0 porque a fonte pública não disponibiliza lista pública de homologações vencidas para o próprio participante.
-          </p>
+          <div className="grid gap-1 text-[var(--color-fg-muted)]">
+            <p>
+              • <strong>Detecção de vitória confirmada:</strong> Vitórias são identificadas por publicação de ordem de compra na transparência pública do Caixa Escolar MG em nome do nosso fornecedor, com o identificador da publicação gravado para conferência.
+            </p>
+            <p>
+              • <strong>Status &quot;Sem Resultado&quot;:</strong> Significa que o prazo expirou e nenhuma ata ou ordem foi publicada até agora no portal — <strong>não indica vitória nem derrota</strong>, e nunca é somado como taxa de sucesso.
+            </p>
+            <p>
+              • <strong>Migração posterior:</strong> Como a transparência pública homologa ordens de compra após a adjudicação na escola, um lance em &quot;Sem Resultado&quot; pode migrar para &quot;Ganho&quot; assim que a publicação sair.
+            </p>
+          </div>
         </div>
+
+        {/* Lista de Vitórias Confirmadas (quando houver) */}
+        {data.wins && data.wins.length > 0 && (
+          <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-emerald-400 font-bold text-sm">🏆</span>
+                <span className="font-bold text-emerald-400 text-xs uppercase tracking-wide">
+                  Vitórias Confirmadas na Transparência ({formatNumber(data.wins.length)})
+                </span>
+              </div>
+              <span className="text-[11px] text-[var(--color-fg-muted)]">
+                Ordens de compra emitidas para nosso fornecedor
+              </span>
+            </div>
+
+            <div className="overflow-x-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)]">
+              <table className="w-full text-left text-xs">
+                <thead className="border-b border-[var(--color-border)] bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]">
+                  <tr>
+                    <th className="p-2.5 font-bold uppercase">Pedido</th>
+                    <th className="p-2.5 font-bold uppercase">Grupo / Cidade</th>
+                    <th className="p-2.5 font-bold uppercase text-right">Valor Vencedor</th>
+                    <th className="p-2.5 font-bold uppercase text-center">Margem</th>
+                    <th className="p-2.5 font-bold uppercase">Ref. Publicação da Vitória</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--color-border)] font-medium">
+                  {data.wins.map((win) => (
+                    <tr className="hover:bg-[var(--color-bg-subtle)]/50 transition-colors" key={win.id}>
+                      <td className="p-2.5 font-mono font-bold text-[var(--color-fg)]">
+                        {win.orderId}
+                      </td>
+                      <td className="p-2.5">
+                        <span className="font-bold text-[var(--color-fg)]">{win.expenseGroup}</span>
+                        <span className="block text-[10px] text-[var(--color-fg-muted)]">{win.countyName || "—"}</span>
+                      </td>
+                      <td className="p-2.5 text-right font-mono font-bold text-emerald-400">
+                        {formatCurrency(win.ourTotal)}
+                      </td>
+                      <td className="p-2.5 text-center font-mono">
+                        {win.marginPercent !== null ? formatPercent(win.marginPercent) : "—"}
+                      </td>
+                      <td className="p-2.5">
+                        {win.winPublicationId ? (
+                          <span
+                            className="inline-block rounded bg-[var(--color-bg-subtle)] px-2 py-0.5 border border-emerald-500/30 text-emerald-400 font-mono text-[10px]"
+                            title={win.winPublicationId}
+                          >
+                            {win.winPublicationId}
+                          </span>
+                        ) : (
+                          <span className="text-[var(--color-fg-muted)] text-[10px]">Confirmada na transparência</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 2. Distância do Vencedor (Preço x Margem) */}

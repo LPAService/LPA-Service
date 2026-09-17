@@ -340,8 +340,23 @@ describe("BidsReportSection component", () => {
           competitorCount: 5,
           ourRank: 3
         }
+      ],
+      wins: [
+        {
+          id: 3,
+          orderId: "2026160420",
+          quotationExternalId: "648-8489-336006",
+          ourTotal: 3450.0,
+          marginPercent: 18.0,
+          expenseGroup: "Material de Consumo",
+          countyName: "Belo Horizonte",
+          detectedAt: new Date("2026-09-08T10:00:00Z"),
+          outcomeAt: new Date("2026-09-12T10:00:00Z"),
+          winPublicationId: "purchase-order:2026160420:subprogram:648:school:8489:budget:336006:supplier:112454"
+        }
       ]
     };
+    mockData.funnel.ganho = 1;
 
     render(<BidsReportSection data={mockData} />);
     const text = container!.textContent || "";
@@ -353,12 +368,18 @@ describe("BidsReportSection component", () => {
     expect(text).toContain("Sem Resultado");
     expect(text).toContain("Cancelado");
     expect(text).toContain("Ganho");
-    expect(text).toContain("0 vitórias públicas confirmadas");
+    expect(text).toContain("1 vitória confirmada");
 
-    // Banner de honestidade obrigatória
-    expect(text).toContain("Honestidade Obrigatória sobre a Fonte (Envelope Fechado)");
-    expect(text).toContain("O portal Caixa Escolar MG opera em envelope fechado");
-    expect(text).toContain("não significa vitória nem derrota");
+    // Banner de rastreabilidade e honestidade atualizado
+    expect(text).toContain("Rastreabilidade e Regras de Detecção da Fonte");
+    expect(text).toContain("Detecção de vitória confirmada");
+    expect(text).toContain("ordem de compra na transparência pública do Caixa Escolar MG");
+    expect(text).toContain("não indica vitória nem derrota");
+    expect(text).toContain("migrar para \"Ganho\"");
+
+    // Tabela de vitórias com winPublicationId
+    expect(text).toContain("Vitórias Confirmadas na Transparência (1)");
+    expect(text).toContain("purchase-order:2026160420:subprogram:648:school:8489:budget:336006:supplier:112454");
 
     // 2. Distância do vencedor (<5%, 5-15%, >15%)
     expect(text).toContain("Item 2 · Distância do Vencedor");

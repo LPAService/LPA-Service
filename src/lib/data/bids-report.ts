@@ -101,6 +101,19 @@ export type BidLossDetailItem = {
   ourRank: number | null;
 };
 
+export type BidWinItem = {
+  id: number;
+  orderId: string;
+  quotationExternalId: string;
+  ourTotal: number | null;
+  marginPercent: number | null;
+  expenseGroup: string;
+  countyName: string | null;
+  detectedAt: Date;
+  outcomeAt: Date | null;
+  winPublicationId: string | null;
+};
+
 export type BidsReportData = {
   hasBids: boolean;
   totalBids: number;
@@ -114,6 +127,7 @@ export type BidsReportData = {
   };
   competition: CompetitionStats;
   lossDetails: BidLossDetailItem[];
+  wins: BidWinItem[];
 };
 
 type QueryDatabase = NodePgDatabase<typeof schema>;
@@ -191,7 +205,8 @@ export function createEmptyBidsReportData(): BidsReportData {
       mediumDisputesCount: 0,
       largeDisputesCount: 0
     },
-    lossDetails: []
+    lossDetails: [],
+    wins: []
   };
 }
 
@@ -212,6 +227,7 @@ export async function getBidsReportData(database: QueryDatabase = db): Promise<B
         outcome: bids.outcome,
         outcomeAt: bids.outcomeAt,
         lossId: bids.lossId,
+        winPublicationId: bids.winPublicationId,
         lossSchoolName: proposalLosses.schoolName,
         lossCountyName: proposalLosses.countyName,
         lossExpenseGroup: proposalLosses.expenseGroup,
@@ -239,6 +255,7 @@ export async function getBidsReportData(database: QueryDatabase = db): Promise<B
   let cancelado = 0;
   let semResultado = 0;
   let ganho = 0;
+  const wins: BidWinItem[] = [];
 
   for (const row of rows) {
     const outcome = row.outcome as BidOutcome;
@@ -246,7 +263,21 @@ export async function getBidsReportData(database: QueryDatabase = db): Promise<B
     else if (outcome === "perdido") perdido++;
     else if (outcome === "cancelado") cancelado++;
     else if (outcome === "sem_resultado") semResultado++;
-    else if (outcome === "ganho") ganho++;
+    else if (outcome === "ganho") {
+      ganho++;
+      wins.push({
+        id: row.bidId,
+        orderId: row.orderId,
+        quotationExternalId: row.quotationExternalId,
+        ourTotal: row.ourTotal,
+        marginPercent: row.marginPercent,
+        expenseGroup: row.expenseGroup,
+        countyName: row.countyName,
+        detectedAt: row.detectedAt,
+        outcomeAt: row.outcomeAt,
+        winPublicationId: row.winPublicationId
+      });
+    }
   }
 
   const funnel: BidFunnel = {
@@ -530,7 +561,8 @@ export async function getBidsReportData(database: QueryDatabase = db): Promise<B
         byWinner
       },
       competition,
-      lossDetails
+      lossDetails,
+      wins
     };
   } catch (error) {
     if (process.env.NODE_ENV !== "test") {
