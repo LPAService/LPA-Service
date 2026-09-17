@@ -115,9 +115,15 @@ export function PrequoteWorksheet({
   const [copiedWarrantyItemOrder, setCopiedWarrantyItemOrder] = useState<number | null>(null);
   const [copiedDeliveryDate, setCopiedDeliveryDate] = useState(false);
   const copyFeedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [pilotLoading, setPilotLoading] = useState(false);
+  const [pilotCopied, setPilotCopied] = useState(false);
+  const [pilotBlockers, setPilotBlockers] = useState<string[] | null>(null);
+  const [pilotError, setPilotError] = useState<string | null>(null);
+  const pilotFeedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => {
     if (copyFeedbackTimer.current) clearTimeout(copyFeedbackTimer.current);
+    if (pilotFeedbackTimer.current) clearTimeout(pilotFeedbackTimer.current);
   }, []);
 
   function generatedDescription(row: WorksheetRow) {
@@ -331,6 +337,76 @@ export function PrequoteWorksheet({
 
   async function copyDeliveryDate(value: string) {
     return copyValue(value, () => setCopiedDeliveryDate(true), "Não foi possível copiar o prazo de entrega.");
+  }
+
+  async function handlePilotMode() {
+    if (pilotLoading) return;
+    setPilotLoading(true);
+    setPilotError(null);
+    setPilotBlockers(null);
+    setPilotCopied(false);
+
+    if (!preQuoteId) {
+      setPilotError("Salve o pré-orçamento antes de acionar o modo piloto.");
+      setPilotLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/prequotes/${preQuoteId}/proposta`);
+      if (response.status === 409) {
+        const data = await response.json();
+        const blockers = Array.isArray(data.blockers)
+          ? data.blockers
+          : [data.error ?? "Pré-orçamento não está pronto para proposta."];
+        setPilotBlockers(blockers);
+      } else if (response.ok) {
+        const command = `/lance-portal ${preQuoteId}`;
+        let copied = false;
+        try {
+          if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(command);
+            copied = true;
+          }
+        } catch {
+          // fallback abaixo se permissões falharem
+        }
+
+        if (!copied) {
+          try {
+            const helper = document.createElement("textarea");
+            helper.value = command;
+            helper.setAttribute("readonly", "");
+            helper.style.position = "fixed";
+            helper.style.left = "-9999px";
+            helper.style.top = "0";
+            document.body.appendChild(helper);
+            helper.select();
+            copied = document.execCommand("copy");
+            helper.remove();
+          } catch {
+            copied = false;
+          }
+        }
+
+        if (copied) {
+          setPilotCopied(true);
+          if (pilotFeedbackTimer.current) clearTimeout(pilotFeedbackTimer.current);
+          pilotFeedbackTimer.current = setTimeout(() => {
+            setPilotCopied(false);
+          }, 4000);
+        } else {
+          setPilotError("Não foi possível copiar o comando para a área de transferência.");
+        }
+      } else {
+        const data = await response.json().catch(() => null);
+        setPilotError(data?.error ?? "Erro ao consultar proposta.");
+      }
+    } catch {
+      setPilotError("Erro de conexão ao verificar proposta.");
+    } finally {
+      setPilotLoading(false);
+    }
   }
 
   async function save() {
@@ -1022,6 +1098,34 @@ export function PrequoteWorksheet({
               orderId={quotation.orderId}
               proposalUrl={quotation.proposalUrl}
             />
+            <button
+              className="action-secondary w-full"
+              disabled={pilotLoading || busy}
+              onClick={handlePilotMode}
+              type="button"
+            >
+              {pilotLoading ? "Verificando proposta…" : "Modo piloto (Claude in Chrome)"}
+            </button>
+            {pilotCopied && (
+              <div className="rounded-lg badge-success p-3 text-xs font-semibold" role="status">
+                ✓ Comando copiado — cole na sessão com o Claude in Chrome
+              </div>
+            )}
+            {pilotBlockers && pilotBlockers.length > 0 && (
+              <div className="badge-warning rounded-lg p-3 text-xs" role="status">
+                <p className="font-bold">Pendências para envio da proposta:</p>
+                <ul className="mt-1.5 list-disc pl-4 space-y-1 font-semibold">
+                  {pilotBlockers.map((blocker, index) => (
+                    <li key={index}>{blocker}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {pilotError && (
+              <div className="rounded-lg border border-[var(--color-danger)]/40 bg-[var(--color-bg-subtle)] p-3 text-xs font-semibold text-[var(--color-danger)]" role="alert">
+                {pilotError}
+              </div>
+            )}
             <Link className="action-secondary inline-flex min-h-11 items-center justify-center" href="/preorcamento">
               ← Voltar para pré-orçamentos
             </Link>
