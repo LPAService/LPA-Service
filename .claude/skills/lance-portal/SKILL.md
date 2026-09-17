@@ -29,12 +29,15 @@ Nunca invente valor, nunca corrija preco, nunca preencha item que nao veio no pa
 
 3. Inspecione abas abertas:
    - Use `tabs_context_mcp` para ver contexto atual.
-   - Calcule a URL de abertura a partir de `portal.proposalUrl`.
-   - Se `portal.proposalUrl` comecar com `/`, resolva contra a mesma origem do app usada no passo 2, o `{APP}` da chamada ao endpoint.
-   - Se `portal.proposalUrl` ja vier absoluta, use como esta.
-   - Abra uma aba nova com `tabs_create_mcp` nessa URL calculada.
-   - Essa URL e um redirecionamento `302` do proprio app para o portal. E esperado a aba terminar em outro dominio, `caixaescolar.educacao.mg.gov.br`.
-   - Se o redirecionamento cair em `/selecionar-perfil` em vez da tela do orcamento, a sessao nao esta autenticada ou o orcamento nao foi encontrado. Pare e peca login ao humano. Nao tente adivinhar a URL do orcamento na mao.
+   - Nao abra `portal.proposalUrl` direto com `tabs_create_mcp`. Medido no portal real em 17/09/2026: carregar URL de orcamento direto na barra derruba a rota Angular e joga na home `https://caixaescolar.educacao.mg.gov.br/`.
+   - Se ja existir aba autenticada do portal, use essa aba. Se nao existir, abra `https://caixaescolar.educacao.mg.gov.br/` e confirme login; se cair em login ou `/selecionar-perfil`, pare e peca ao humano para entrar no portal.
+   - Navegue dentro do app do portal: menu `Compras`, item `Orcamento`. A tela esperada e `/compras/orcamentos`.
+   - No campo `ID Orcamento` com placeholder `Digite o ID do orcamento`, preencha `portal.orderId`. Esse valor e o `nuBudgetOrder`, por exemplo `2026200309`; nao use `portal.quotationExternalId` nessa busca.
+   - Clique `Buscar` e espere a tabela carregar. A tabela mostra spinner; os contadores do topo podem aparecer antes das linhas, entao aguarde a linha do orcamento existir.
+   - Na linha do orcamento, localize o botao `Editar` por elemento/texto. Nunca clique por coordenada cega: `Excluir` fica colado em `Editar`, e a linha tambem tem `Visualizar`.
+   - Antes de clicar, cheque se `Editar` esta habilitado. Se `Editar` estiver com `disabled=true`, pare e diga ao humano que o cadastro do fornecedor nao esta habilitado para editar proposta; o humano pode conferir em `Fornecedor` -> `Situacao de Cadastro`.
+   - Clique `Editar` somente se habilitado.
+   - Depois da navegacao, se a URL/tela nao for a tela do orcamento/proposta esperada, pare. Home `/` e `/selecionar-perfil` sao casos conhecidos, mas a regra vale para qualquer tela diferente da esperada. Nao tente adivinhar a URL do orcamento na mao.
 
 4. Confirme que a pagina certa carregou:
    - Use `read_page`.
