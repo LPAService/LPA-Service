@@ -15,6 +15,8 @@ import type {
 } from "@/lib/data/analytics";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { NotificationBell } from "@/components/notification-bell";
+import { getBidsReportData, type BidsReportData } from "@/lib/data/bids-report";
+import { BidsReportSection } from "@/components/bids-report-section";
 
 export const dynamic = "force-dynamic";
 
@@ -84,6 +86,7 @@ export default async function RelatoriosPage() {
   let proposalLossesList: ProposalLossListItem[] = [];
   let lossesByGroup: ProposalLossGroupAggregate[] = [];
   let winningCompetitors: ProposalLossWinnerRanking[] = [];
+  let bidsReportData: BidsReportData | null = null;
 
   try {
     const [
@@ -98,7 +101,8 @@ export default async function RelatoriosPage() {
       discount,
       lossItems,
       lossGroups,
-      lossWinners
+      lossWinners,
+      bidsReportRes
     ] = await Promise.allSettled([
       quotationSource.listOpportunities({ situation: "open" }, { page: 1, pageSize: 1 }),
       quotationSource.listOpportunities({ situation: "all" }, { page: 1, pageSize: 1 }),
@@ -111,7 +115,8 @@ export default async function RelatoriosPage() {
       competitiveAnalytics.getWinnerDiscount(),
       proposalLossAnalytics.listLosses(100),
       proposalLossAnalytics.getLossesByExpenseGroup(),
-      proposalLossAnalytics.getWinningCompetitors(10)
+      proposalLossAnalytics.getWinningCompetitors(10),
+      getBidsReportData()
     ]);
 
     if (openRes.status === "fulfilled") liveOpenCount = openRes.value.total;
@@ -130,6 +135,7 @@ export default async function RelatoriosPage() {
     if (lossItems.status === "fulfilled") proposalLossesList = lossItems.value ?? [];
     if (lossGroups.status === "fulfilled") lossesByGroup = lossGroups.value ?? [];
     if (lossWinners.status === "fulfilled") winningCompetitors = lossWinners.value ?? [];
+    if (bidsReportRes.status === "fulfilled") bidsReportData = bidsReportRes.value ?? null;
   } catch (error) {
     console.error("Erro ao carregar dados dinâmicos para relatórios:", error);
   }
@@ -293,6 +299,9 @@ export default async function RelatoriosPage() {
             value={formatOptionalNumber(summary.expenseGroupCount)}
           />
         </section>
+
+        {/* SEÇÃO: Por que você está perdendo? (Lance a Lance com Bids) */}
+        <BidsReportSection data={bidsReportData} />
 
         {/* SEÇÃO: Aprenda com as perdas (Diagnóstico de Propostas Perdidas) */}
         <section className="rounded-2xl border-2 border-[var(--color-danger)]/40 bg-[var(--color-bg)] p-6 sm:p-8 shadow-xl space-y-6">
