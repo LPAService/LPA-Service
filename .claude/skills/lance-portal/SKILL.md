@@ -29,7 +29,12 @@ Nunca invente valor, nunca corrija preco, nunca preencha item que nao veio no pa
 
 3. Inspecione abas abertas:
    - Use `tabs_context_mcp` para ver contexto atual.
-   - Abra uma aba nova com `tabs_create_mcp` em `portal.proposalUrl`.
+   - Calcule a URL de abertura a partir de `portal.proposalUrl`.
+   - Se `portal.proposalUrl` comecar com `/`, resolva contra a mesma origem do app usada no passo 2, o `{APP}` da chamada ao endpoint.
+   - Se `portal.proposalUrl` ja vier absoluta, use como esta.
+   - Abra uma aba nova com `tabs_create_mcp` nessa URL calculada.
+   - Essa URL e um redirecionamento `302` do proprio app para o portal. E esperado a aba terminar em outro dominio, `caixaescolar.educacao.mg.gov.br`.
+   - Se o redirecionamento cair em `/selecionar-perfil` em vez da tela do orcamento, a sessao nao esta autenticada ou o orcamento nao foi encontrado. Pare e peca login ao humano. Nao tente adivinhar a URL do orcamento na mao.
 
 4. Confirme que a pagina certa carregou:
    - Use `read_page`.
