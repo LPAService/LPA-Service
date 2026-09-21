@@ -51,6 +51,7 @@ export type CollectQuotationsOptions = {
   timeBudgetMs?: number;
   timeBudgetReserveMs?: number;
   nowFn?: () => number;
+  runMode?: string;
 };
 
 export type QuotationCollectionResult = {
@@ -64,6 +65,22 @@ export type QuotationCollectionResult = {
   closedCount: number;
   errorCount: number;
   errors: Array<{ externalId?: string; message: string }>;
+  resumeCursor: QuotationResumeCursor | null;
+  counties: QuotationCountyCollectionSummary[];
+};
+
+export type QuotationCountyCollectionSummary = {
+  idCounty: number;
+  name: string;
+  found: number;
+  fetchedCount: number;
+  skippedCount: number;
+  newCount: number;
+  updatedCount: number;
+  closedCount: number;
+  errors: Array<{ externalId?: string; message: string }>;
+  status: "completed" | "partial" | "failed";
+  pending: boolean;
   resumeCursor: QuotationResumeCursor | null;
 };
 
@@ -272,7 +289,7 @@ export async function collectOpenQuotationsWithClient(
   repository: QuotationRepository,
   options: CollectQuotationsOptions = {}
 ): Promise<QuotationCollectionResult> {
-  const mode = options.dryRun ? "open_quotations_dry_run" : "open_quotations";
+  const mode = options.runMode ?? (options.dryRun ? "open_quotations_dry_run" : "open_quotations");
   const runId = await repository.startRun(mode);
   const result: QuotationCollectionResult = {
     runId,
@@ -285,7 +302,8 @@ export async function collectOpenQuotationsWithClient(
     closedCount: 0,
     errorCount: 0,
     errors: [],
-    resumeCursor: null
+    resumeCursor: null,
+    counties: []
   };
   const counties = options.counties ?? defaultTier1Counties();
   let processed = 0;
@@ -310,9 +328,31 @@ export async function collectOpenQuotationsWithClient(
     return timeBudgetMs > 0 && now() - startedAt >= Math.max(0, timeBudgetMs - reserveMs);
   }
 
+  function countySummary(county: QuotationCounty): QuotationCountyCollectionSummary {
+    const existing = result.counties.find((candidate) => candidate.idCounty === county.idCounty);
+    if (existing) return existing;
+    const summary: QuotationCountyCollectionSummary = {
+      idCounty: county.idCounty,
+      name: county.name,
+      found: 0,
+      fetchedCount: 0,
+      skippedCount: 0,
+      newCount: 0,
+      updatedCount: 0,
+      closedCount: 0,
+      errors: [],
+      status: "completed",
+      pending: false,
+      resumeCursor: null
+    };
+    result.counties.push(summary);
+    return summary;
+  }
+
   try {
     for (let countyIndex = start.countyIndex; countyIndex < counties.length; countyIndex += 1) {
       const county = counties[countyIndex];
+      const countyResult = countySummary(county);
       const firstPage = countyIndex === start.countyIndex ? start.page : 1;
       let page = firstPage;
       const seenInCounty = new Set<string>();
@@ -320,36 +360,56 @@ export async function collectOpenQuotationsWithClient(
         for (; ; page += 1) {
           const currentCursor = { countyId: county.idCounty, countyName: county.name, page };
           if (shouldStop()) {
-            return finishPartial(currentCursor, `Orçamento de tempo atingido antes de ${county.name} página ${page}; próxima execução continuará deste cursor.`);
+            const message = `Orçamento de tempo atingido antes de ${county.name} página ${page}; próxima execução continuará deste cursor.`;
+            countyResult.status = "partial";
+            countyResult.pending = true;
+            countyResult.resumeCursor = currentCursor;
+            countyResult.errors.push({ message });
+            return finishPartial(currentCursor, message);
           }
           const listing = await client.listOpenQuotations(county, page, options.pageSize ?? DEFAULT_PAGE_SIZE);
           if (listing.data.length === 0) break;
           for (const record of listing.data) {
             if (options.maxRecords && processed >= options.maxRecords) break;
             if (shouldStop()) {
-              return finishPartial(currentCursor, `Orçamento de tempo atingido em ${county.name} página ${page}; próxima execução relerá a página e pulará cotações inalteradas.`);
+              const message = `Orçamento de tempo atingido em ${county.name} página ${page}; próxima execução relerá a página e pulará cotações inalteradas.`;
+              countyResult.status = "partial";
+              countyResult.pending = true;
+              countyResult.resumeCursor = currentCursor;
+              countyResult.errors.push({ message });
+              return finishPartial(currentCursor, message);
             }
             const externalId = buildQuotationExternalId(record);
             seenInCounty.add(externalId);
             result.found += 1;
+            countyResult.found += 1;
             processed += 1;
             try {
               if (!await repository.shouldFetchQuotation(record)) {
                 result.skippedCount += 1;
+                countyResult.skippedCount += 1;
                 continue;
               }
               result.fetchedCount += 1;
+              countyResult.fetchedCount += 1;
               const detail = await client.getBudgetDetail(record);
               const items = await fetchQuotationItems(client, record, options.itemPageSize ?? DEFAULT_ITEM_PAGE_SIZE);
               const quotation = buildQuotationRecord(record, detail, items);
               if (!options.dryRun) {
                 const upsert = await repository.upsertQuotation(quotation);
-                if (upsert === "new") result.newCount += 1;
-                else result.updatedCount += 1;
+                if (upsert === "new") {
+                  result.newCount += 1;
+                  countyResult.newCount += 1;
+                } else {
+                  result.updatedCount += 1;
+                  countyResult.updatedCount += 1;
+                }
               }
             } catch (error) {
               result.errorCount += 1;
-              result.errors.push({ externalId, message: errorMessage(error) });
+              const collectedError = { externalId, message: errorMessage(error) };
+              result.errors.push(collectedError);
+              countyResult.errors.push(collectedError);
             }
           }
           if ((options.maxRecords && processed >= options.maxRecords) || page >= (listing.meta?.totalPages ?? page)) break;
@@ -360,13 +420,18 @@ export async function collectOpenQuotationsWithClient(
         // um municipio retomado do cursor ou cortado por maxRecords tem paginas nao lidas.
         const readWholeCounty = firstPage === 1 && !(options.maxRecords && processed >= options.maxRecords);
         if (readWholeCounty && !options.dryRun) {
-          result.closedCount += await repository.reconcileCountyListing(county.idCounty, [...seenInCounty]);
+          const closed = await repository.reconcileCountyListing(county.idCounty, [...seenInCounty]);
+          result.closedCount += closed;
+          countyResult.closedCount += closed;
         }
         const nextCounty = counties[countyIndex + 1];
         await repository.saveCursor(runId, nextCounty ? { countyId: nextCounty.idCounty, countyName: nextCounty.name, page: 1 } : null);
       } catch (error) {
         result.errorCount += 1;
-        result.errors.push({ message: `[${county.name}] ${errorMessage(error)}` });
+        countyResult.status = "failed";
+        const collectedError = { message: `[${county.name}] ${errorMessage(error)}` };
+        result.errors.push(collectedError);
+        countyResult.errors.push(collectedError);
       }
     }
     result.errorCount = result.errors.length;
@@ -395,13 +460,26 @@ export function selectCounties(input?: string) {
   if (!input) return defaultTier1Counties();
   const tokens = input.split(",").map((token) => token.trim()).filter(Boolean);
   const all = [...rmbhCounties.counties, ...rmbhCounties.priority];
-  return tokens.map((token) => {
+  const unknown: string[] = [];
+  const selected = tokens.flatMap((token) => {
     const byId = all.find((county) => String(county.idCounty) === token);
     const byName = all.find((county) => normalize(county.name) === normalize(token));
     const county = byId ?? byName;
-    if (!county) throw new Error(`Município desconhecido: ${token}`);
+    if (!county) {
+      unknown.push(token);
+      return [];
+    }
     return { idCounty: county.idCounty, name: county.name };
   });
+  if (unknown.length > 0) throw new UnknownCountiesError(unknown);
+  return selected;
+}
+
+export class UnknownCountiesError extends Error {
+  constructor(public readonly unknown: string[]) {
+    super(`Município desconhecido: ${unknown.join(", ")}`);
+    this.name = "UnknownCountiesError";
+  }
 }
 
 export function buildQuotationExternalId(record: Pick<SummaryRecord, "idSubprogram" | "idSchool" | "idBudget">) {

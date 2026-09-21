@@ -8,7 +8,9 @@ import {
   collectOpenQuotationsWithClient,
   defaultTier1Counties,
   getQuotationStatus,
+  selectCounties,
   shouldRefreshQuotationFromListing,
+  UnknownCountiesError,
   type QuotationRepository
 } from "@/lib/collector/quotations";
 import { analyzeProposalBlock } from "@/lib/collector/proposal-block";
@@ -45,6 +47,28 @@ describe("cotações abertas", () => {
       "Brumadinho",
       "Mário Campos"
     ]);
+  });
+
+  it("seleciona município por id", () => {
+    expect(selectCounties("2546")).toEqual([{ idCounty: 2546, name: "Belo Horizonte" }]);
+  });
+
+  it("seleciona município por nome com acento", () => {
+    expect(selectCounties("Ibirité")).toEqual([{ idCounty: 2209, name: "Ibirité" }]);
+  });
+
+  it("seleciona município por nome sem acento", () => {
+    expect(selectCounties("ibirite")).toEqual([{ idCounty: 2209, name: "Ibirité" }]);
+  });
+
+  it("lista todos os municípios desconhecidos", () => {
+    expect(() => selectCounties("Ibirité, Lugar Nenhum, Outro Nada")).toThrow(UnknownCountiesError);
+    try {
+      selectCounties("Ibirité, Lugar Nenhum, Outro Nada");
+    } catch (error) {
+      expect(error).toBeInstanceOf(UnknownCountiesError);
+      expect((error as UnknownCountiesError).unknown).toEqual(["Lugar Nenhum", "Outro Nada"]);
+    }
   });
 
   it("gera externalId e deep link autenticado", () => {
@@ -369,6 +393,18 @@ describe("cotações abertas", () => {
     });
 
     expect(result1).toMatchObject({ status: "partial", resumeCursor: { countyId: 2209, countyName: "Ibirité", page: 2 } });
+    expect(result1.counties).toMatchObject([
+      {
+        idCounty: 2209,
+        name: "Ibirité",
+        found: 1,
+        newCount: 1,
+        updatedCount: 0,
+        status: "partial",
+        pending: true,
+        resumeCursor: { countyId: 2209, countyName: "Ibirité", page: 2 }
+      }
+    ]);
     expect(firstClient.listCalls).toEqual([{ countyId: 2209, page: 1 }]);
 
     const secondClient = new CountingQuotationClient([

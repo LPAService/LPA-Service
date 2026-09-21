@@ -1,7 +1,11 @@
 import { and, desc, eq, gt, sql } from "drizzle-orm";
 import { CaixaEscolarClient } from "@/lib/collector/client";
 import { collectOpportunities, type CollectionError } from "@/lib/collector/collect";
-import { collectOpenQuotations } from "@/lib/collector/quotations";
+import {
+  collectOpenQuotations,
+  type QuotationCollectionResult,
+  type QuotationCounty
+} from "@/lib/collector/quotations";
 import type { CescomCatalogLoadResult } from "@/lib/catalog/cescom-loader";
 import rmbhCounties from "@/lib/collector/rmbh-counties.json";
 import { collectionRuns } from "@/lib/db/schema";
@@ -16,6 +20,15 @@ export const DAILY_SYNC_OPPORTUNITIES_SLOT_MS = 45_000;
 export const DAILY_SYNC_TIMEOUT_MS = DAILY_SYNC_DEADLINE_MS;
 export const DAILY_SYNC_RUNNING_WINDOW_MS = 330_000;
 const DAILY_SYNC_LOCK_KEY = 849_016_275;
+
+export type DailySyncOptions = {
+  counties?: QuotationCounty[];
+};
+
+export type DailySyncScope = {
+  mode: string;
+  counties?: QuotationCounty[];
+};
 
 export type DailySyncSummary = {
   runId: number;
@@ -34,6 +47,7 @@ export type DailySyncSummary = {
     errors: CollectionError[];
     status?: string;
     resumeCursor?: unknown;
+    counties?: QuotationCollectionResult["counties"];
   };
   notifications?: {
     notificationsCreated: number;
@@ -45,14 +59,18 @@ export type DailySyncSummary = {
 };
 
 export class DailySyncAlreadyRunningError extends Error {
-  constructor(public readonly runId: number) {
-    super(`Sync diário já está em execução (run ${runId})`);
+  constructor(public readonly runId: number, public readonly countyName?: string) {
+    super(
+      countyName
+        ? `Sync diário já está em execução para ${countyName} (run ${runId})`
+        : `Sync diário completo já está em execução (run ${runId})`
+    );
     this.name = "DailySyncAlreadyRunningError";
   }
 }
 
 type DailySyncDependencies = {
-  startRun: () => Promise<number>;
+  startRun: (scope: DailySyncScope) => Promise<number>;
   finishRun: (runId: number, summary: DailySyncSummary, status: "completed" | "failed") => Promise<void>;
   collectCounty: (county: { idCounty: number; name: string }) => Promise<{
     found: number;
@@ -60,7 +78,7 @@ type DailySyncDependencies = {
     updatedCount: number;
     errors: CollectionError[];
   }>;
-  collectQuotations?: () => Promise<{
+  collectQuotations?: (scope: DailySyncScope) => Promise<{
     found: number;
     fetchedCount?: number;
     skippedCount?: number;
@@ -69,6 +87,7 @@ type DailySyncDependencies = {
     errors: CollectionError[];
     status?: string;
     resumeCursor?: unknown;
+    counties?: QuotationCollectionResult["counties"];
   }>;
   dispatchNotifications?: () => Promise<{
     notificationsCreated: number;
@@ -82,13 +101,21 @@ type DailySyncDependencies = {
 };
 
 export async function runDailySync(
-  dependencies?: DailySyncDependencies
+  optionsOrDependencies?: DailySyncOptions | DailySyncDependencies,
+  injectedDependencies?: DailySyncDependencies
 ): Promise<DailySyncSummary> {
+  const dependencies = isDailySyncDependencies(optionsOrDependencies)
+    ? optionsOrDependencies
+    : injectedDependencies;
+  const options = isDailySyncDependencies(optionsOrDependencies)
+    ? {}
+    : optionsOrDependencies ?? {};
+  const scope = createDailySyncScope(options.counties);
   const now = dependencies?.now ?? Date.now;
   const startedAt = now();
-  const activeDependencies = dependencies ?? (await createDefaultDependencies(startedAt));
+  const activeDependencies = dependencies ?? (await createDefaultDependencies(startedAt, scope));
   const timeoutMs = activeDependencies.timeoutMs ?? DAILY_SYNC_TIMEOUT_MS;
-  const runId = await activeDependencies.startRun();
+  const runId = await activeDependencies.startRun(scope);
   const summary: DailySyncSummary = {
     runId,
     found: 0,
@@ -102,7 +129,7 @@ export async function runDailySync(
   try {
     if (activeDependencies.collectQuotations) {
       try {
-        const quotations = await activeDependencies.collectQuotations();
+        const quotations = await activeDependencies.collectQuotations(scope);
         summary.quotationRun = {
           found: quotations.found,
           fetched: quotations.fetchedCount ?? 0,
@@ -111,7 +138,8 @@ export async function runDailySync(
           updated: quotations.updatedCount,
           errors: quotations.errors,
           status: quotations.status,
-          resumeCursor: quotations.resumeCursor
+          resumeCursor: quotations.resumeCursor,
+          counties: quotations.counties
         };
         summary.found += quotations.found;
         summary.new += quotations.newCount;
@@ -144,7 +172,7 @@ export async function runDailySync(
       }
     }
 
-    for (const county of rmbhCounties.collected) {
+    for (const county of scope.counties ?? rmbhCounties.collected) {
       if (now() - startedAt >= timeoutMs) {
         summary.errors.push({
           message: `Limite de tempo atingido antes de ${county.name}; próxima execução continuará pelo incremental.`
@@ -209,33 +237,93 @@ export async function listCollectionRunStatus(limit = 10) {
   }));
 }
 
-async function createDefaultDependencies(startedAt: number): Promise<DailySyncDependencies> {
+export function createDailySyncScope(counties?: QuotationCounty[]): DailySyncScope {
+  if (!counties || counties.length === 0) return { mode: "daily_sync" };
+  const unique = new Map(counties.map((county) => [county.idCounty, county]));
+  const selected = [...unique.values()];
+  const modeIds = selected.map((county) => county.idCounty).sort((left, right) => left - right);
+  return {
+    mode: `daily_sync:counties:${modeIds.join(",")}`,
+    counties: selected
+  };
+}
+
+export function findDailySyncConflict(
+  scope: DailySyncScope,
+  running: Array<{ id: number; mode: string }>
+) {
+  const requestedIds = scope.counties?.map((county) => county.idCounty) ?? null;
+  for (const run of running) {
+    const runningIds = parseDailySyncMode(run.mode);
+    if (runningIds === undefined) continue;
+    if (requestedIds === null) {
+      const countyId = runningIds?.[0];
+      return { runId: run.id, countyName: countyId ? countyName(countyId) : undefined };
+    }
+    if (runningIds === null) {
+      return { runId: run.id, countyName: countyName(requestedIds[0]) };
+    }
+    const conflictId = requestedIds.find((id) => runningIds.includes(id));
+    if (conflictId) return { runId: run.id, countyName: countyName(conflictId) };
+  }
+  return null;
+}
+
+function parseDailySyncMode(mode: string) {
+  if (mode === "daily_sync" || mode === "daily_sync:all") return null;
+  if (!mode.startsWith("daily_sync:counties:")) return undefined;
+  const ids = mode
+    .slice("daily_sync:counties:".length)
+    .split(",")
+    .map((value) => Number(value))
+    .filter((value) => Number.isInteger(value));
+  return ids.length > 0 ? ids : undefined;
+}
+
+function countyName(idCounty: number) {
+  const county = rmbhCounties.counties.find((candidate) => candidate.idCounty === idCounty) ??
+    rmbhCounties.priority.find((candidate) => candidate.idCounty === idCounty) ??
+    rmbhCounties.collected.find((candidate) => candidate.idCounty === idCounty);
+  return county?.name ?? String(idCounty);
+}
+
+function quotationRunMode(scope: DailySyncScope) {
+  return scope.counties
+    ? `open_quotations:counties:${scope.counties.map((county) => county.idCounty).join(",")}`
+    : undefined;
+}
+
+function isDailySyncDependencies(value: DailySyncOptions | DailySyncDependencies | undefined): value is DailySyncDependencies {
+  return Boolean(value && "startRun" in value);
+}
+
+async function createDefaultDependencies(startedAt: number, scope: DailySyncScope): Promise<DailySyncDependencies> {
   const { db } = await import("@/lib/db");
   const client = new CaixaEscolarClient();
 
   return {
-    async startRun() {
+    async startRun(requestedScope) {
       return db.transaction(async (tx) => {
         await tx.execute(sql`select pg_advisory_xact_lock(${DAILY_SYNC_LOCK_KEY})`);
         const cutoff = new Date(Date.now() - DAILY_SYNC_RUNNING_WINDOW_MS);
-        const [running] = await tx
-          .select({ id: collectionRuns.id })
+        const running = await tx
+          .select({ id: collectionRuns.id, mode: collectionRuns.mode })
           .from(collectionRuns)
           .where(
             and(
               eq(collectionRuns.status, "running"),
               gt(collectionRuns.startedAt, cutoff)
             )
-          )
-          .limit(1);
+          );
 
-        if (running) {
-          throw new DailySyncAlreadyRunningError(running.id);
+        const conflict = findDailySyncConflict(requestedScope, running);
+        if (conflict) {
+          throw new DailySyncAlreadyRunningError(conflict.runId, conflict.countyName);
         }
 
         const [run] = await tx
           .insert(collectionRuns)
-          .values({ mode: "daily_sync" })
+          .values({ mode: requestedScope.mode })
           .returning({ id: collectionRuns.id });
         return run.id;
       });
@@ -266,6 +354,8 @@ async function createDefaultDependencies(startedAt: number): Promise<DailySyncDe
     async collectQuotations() {
       const remaining = DAILY_SYNC_DEADLINE_MS - (Date.now() - startedAt) - DAILY_SYNC_OPPORTUNITIES_SLOT_MS;
       return collectOpenQuotations({
+        counties: scope.counties,
+        runMode: quotationRunMode(scope),
         timeBudgetMs: Math.max(30_000, remaining),
         timeBudgetReserveMs: 20_000
       });

@@ -2,8 +2,10 @@ import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createLossesHandler, createStatusHandler, createSyncHandler } from "@/lib/sync/handlers";
 import {
+  createDailySyncScope,
   DAILY_SYNC_DEADLINE_MS,
   DailySyncAlreadyRunningError,
+  findDailySyncConflict,
   runDailySync,
   type DailySyncSummary
 } from "@/lib/sync/daily";
@@ -44,21 +46,63 @@ describe("rotas de sync diário", () => {
   it("retorna 409 quando sync já está em execução", async () => {
     process.env.CRON_SECRET = "segredo";
     const response = await createSyncHandler(async () => {
-      throw new DailySyncAlreadyRunningError(17);
+      throw new DailySyncAlreadyRunningError(17, "Ibirité");
     })(request("/api/cron/sync", "segredo"));
 
     expect(response.status).toBe(409);
-    await expect(response.json()).resolves.toMatchObject({ runId: 17 });
+    await expect(response.json()).resolves.toMatchObject({ runId: 17, county: "Ibirité" });
   });
 
   it("retorna resumo do lote", async () => {
     process.env.CRON_SECRET = "segredo";
-    const response = await createSyncHandler(async () => summary)(
+    const runSync = vi.fn(async () => summary);
+    const response = await createSyncHandler(runSync)(
       request("/api/cron/sync?secret=segredo")
     );
 
     expect(response.status).toBe(200);
+    expect(runSync).toHaveBeenCalledWith();
     await expect(response.json()).resolves.toEqual(summary);
+  });
+
+  it("passa counties da query por id para o sync", async () => {
+    process.env.CRON_SECRET = "segredo";
+    const runSync = vi.fn(async () => summary);
+    const response = await createSyncHandler(runSync)(
+      request("/api/cron/sync?counties=2546", "segredo")
+    );
+
+    expect(response.status).toBe(200);
+    expect(runSync).toHaveBeenCalledWith({
+      counties: [{ idCounty: 2546, name: "Belo Horizonte" }]
+    });
+  });
+
+  it("passa cities da query por nome sem acento para o sync", async () => {
+    process.env.CRON_SECRET = "segredo";
+    const runSync = vi.fn(async () => summary);
+    const response = await createSyncHandler(runSync)(
+      request("/api/cron/sync?cities=ibirite", "segredo")
+    );
+
+    expect(response.status).toBe(200);
+    expect(runSync).toHaveBeenCalledWith({
+      counties: [{ idCounty: 2209, name: "Ibirité" }]
+    });
+  });
+
+  it("retorna 400 com municípios desconhecidos", async () => {
+    process.env.CRON_SECRET = "segredo";
+    const runSync = vi.fn(async () => summary);
+    const response = await createSyncHandler(runSync)(
+      request("/api/cron/sync?counties=2546,NaoExiste,Outro", "segredo")
+    );
+
+    expect(response.status).toBe(400);
+    expect(runSync).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toMatchObject({
+      unknown: ["NaoExiste", "Outro"]
+    });
   });
 
   it("status exige segredo e retorna últimas execuções", async () => {
@@ -129,6 +173,28 @@ describe("rota de coleta de perdas", () => {
 });
 
 describe("lote diário", () => {
+  it("lock não conflita entre municípios diferentes", () => {
+    const scope = createDailySyncScope([{ idCounty: 2546, name: "Belo Horizonte" }]);
+
+    expect(findDailySyncConflict(scope, [
+      { id: 20, mode: "daily_sync:counties:2209" }
+    ])).toBeNull();
+  });
+
+  it("lock conflita no mesmo município", () => {
+    const scope = createDailySyncScope([{ idCounty: 2209, name: "Ibirité" }]);
+
+    expect(findDailySyncConflict(scope, [
+      { id: 21, mode: "daily_sync:counties:2209" }
+    ])).toEqual({ runId: 21, countyName: "Ibirité" });
+  });
+
+  it("lock completo conflita com município em execução", () => {
+    expect(findDailySyncConflict(createDailySyncScope(), [
+      { id: 22, mode: "daily_sync:counties:2546" }
+    ])).toEqual({ runId: 22, countyName: "Belo Horizonte" });
+  });
+
   it("continua após falha de município e agrega resumo", async () => {
     const finishRun = vi.fn(async () => undefined);
     let timestamp = 0;
