@@ -17,6 +17,7 @@ import { catalogSource } from "@/lib/data/catalog";
 import { quotationSource } from "@/lib/data/source";
 import { db } from "@/lib/db";
 import { formatBRL } from "@/lib/prequote/calc";
+import { extractRequiredBrands } from "@/lib/prequote/required-brands";
 
 export const dynamic = "force-dynamic";
 
@@ -55,12 +56,7 @@ export default async function WorksheetPage({ params }: WorksheetPageProps) {
         const quoteItemAny = quoteItem as typeof quoteItem & {
           brandOptions?: string[];
         };
-        const brandOptions =
-          Array.isArray(itemAny.brandOptions) && itemAny.brandOptions.length > 0
-            ? itemAny.brandOptions
-            : Array.isArray(quoteItemAny?.brandOptions)
-              ? quoteItemAny.brandOptions
-              : [];
+        const brandOptions = resolveBrandOptions(item.description, itemAny, quoteItemAny);
         return {
           itemOrder: item.itemOrder,
           name: item.name,
@@ -86,6 +82,7 @@ export default async function WorksheetPage({ params }: WorksheetPageProps) {
           brandOptions?: string[];
           chosenBrand?: string | null;
         };
+        const brandOptions = resolveBrandOptions(item.description, itemAny);
         return {
           itemOrder: item.order,
           name: item.name,
@@ -102,7 +99,7 @@ export default async function WorksheetPage({ params }: WorksheetPageProps) {
           webUrl: null,
           notes: null,
           warranty: null,
-          brandOptions: Array.isArray(itemAny.brandOptions) ? itemAny.brandOptions : [],
+          brandOptions,
           chosenBrand: typeof itemAny.chosenBrand === "string" ? itemAny.chosenBrand : null
         };
       });
@@ -218,4 +215,17 @@ export default async function WorksheetPage({ params }: WorksheetPageProps) {
       </section>
     </main>
   );
+}
+
+function resolveBrandOptions(
+  description: string | null | undefined,
+  ...sources: Array<{ brandOptions?: string[] } | null | undefined>
+) {
+  for (const source of sources) {
+    if (Array.isArray(source?.brandOptions) && source.brandOptions.length > 0) {
+      return source.brandOptions;
+    }
+  }
+
+  return extractRequiredBrands(description);
 }
