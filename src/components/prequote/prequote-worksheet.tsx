@@ -31,6 +31,8 @@ export type WorksheetRow = {
   webUrl: string | null;
   notes: string | null;
   warranty: string | null;
+  brandOptions?: string[];
+  chosenBrand?: string | null;
 };
 
 export type WorksheetQuotation = {
@@ -94,6 +96,8 @@ export function PrequoteWorksheet({
       : generatePrequoteWarranty(quotation.categorySlug, referenceBrands);
     return {
       ...row,
+      brandOptions: row.brandOptions ?? [],
+      chosenBrand: row.chosenBrand ?? null,
       notes: generatedDescription || row.notes,
       warranty: generatedWarranty || row.warranty
     };
@@ -182,6 +186,37 @@ export function PrequoteWorksheet({
     [rows, marginPercent, freightCost]
   );
   const hasMissingPrices = totals.missingCount > 0;
+  const rowsWithBrandOptions = useMemo(
+    () => rows.filter((r) => Array.isArray(r.brandOptions) && r.brandOptions.length > 0),
+    [rows]
+  );
+  const missingBrandCount = useMemo(
+    () => rowsWithBrandOptions.filter((r) => !r.chosenBrand).length,
+    [rowsWithBrandOptions]
+  );
+  const hasMissingBrands = missingBrandCount > 0;
+
+  const sumLineReferenceValue = useMemo(() => {
+    let sum = 0;
+    let hasAnyLineRef = false;
+    for (const row of rows) {
+      if (row.referenceUnitValue !== null && row.referenceUnitValue >= 0) {
+        sum += row.referenceUnitValue * row.quantity;
+        hasAnyLineRef = true;
+      }
+    }
+    return hasAnyLineRef ? sum : null;
+  }, [rows]);
+
+  const isReferenceInconsistent = useMemo(() => {
+    if (quotation.totalReferenceValue === null || sumLineReferenceValue === null) return false;
+    if (quotation.totalReferenceValue === 0 && sumLineReferenceValue === 0) return false;
+    const maxVal = Math.max(Math.abs(quotation.totalReferenceValue), Math.abs(sumLineReferenceValue));
+    if (maxVal === 0) return false;
+    const diff = Math.abs(quotation.totalReferenceValue - sumLineReferenceValue);
+    return diff / maxVal > 0.05;
+  }, [quotation.totalReferenceValue, sumLineReferenceValue]);
+
   const referenceDiff = !hasMissingPrices && quotation.totalReferenceValue !== null
     ? totals.suggestedValue - quotation.totalReferenceValue
     : null;
@@ -439,7 +474,9 @@ export function PrequoteWorksheet({
         webPrice: row.webPrice,
         webUrl: row.webUrl,
         notes: row.notes,
-        warranty: row.warranty
+        warranty: row.warranty,
+        chosenBrand: row.chosenBrand ?? null,
+        brandOptions: row.brandOptions ?? []
       }))
     };
     try {
@@ -627,11 +664,18 @@ export function PrequoteWorksheet({
                       {row.name}
                     </h3>
                   </div>
-                  {row.source !== "none" && (
-                    <span className="shrink-0 rounded-full border border-[var(--color-primary)]/40 bg-[var(--color-primary)]/15 px-2.5 py-0.5 text-[10px] font-bold text-[var(--color-primary)]">
-                      {sourceLabel(row.source)}
-                    </span>
-                  )}
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    {row.brandOptions && row.brandOptions.length > 0 && !row.chosenBrand && (
+                      <span className="rounded-full badge-warning px-2.5 py-0.5 text-[10px] font-bold">
+                        Sem marca
+                      </span>
+                    )}
+                    {row.source !== "none" && (
+                      <span className="rounded-full border border-[var(--color-primary)]/40 bg-[var(--color-primary)]/15 px-2.5 py-0.5 text-[10px] font-bold text-[var(--color-primary)]">
+                        {sourceLabel(row.source)}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 {row.description && (
                   <p className="mt-2 text-xs leading-relaxed text-[var(--color-fg-muted)]">{row.description}</p>
@@ -874,6 +918,57 @@ export function PrequoteWorksheet({
                   </div>
                 </div>
 
+                {row.brandOptions && row.brandOptions.length > 0 && (
+                  <div
+                    className={`mt-4 rounded-lg p-3 ${
+                      !row.chosenBrand
+                        ? "badge-warning"
+                        : "border border-[var(--color-border)] bg-[var(--color-bg-subtle)]"
+                    }`}
+                  >
+                    <label>
+                      <span className="field-label flex items-center justify-between">
+                        <span className="font-bold">Marca ofertada</span>
+                        {!row.chosenBrand ? (
+                          <span className="text-[11px] font-bold text-[var(--color-warning)]">
+                            ⚠️ Escolha obrigatória
+                          </span>
+                        ) : (
+                          <span className="text-[11px] font-semibold text-[var(--color-success)]">
+                            ✓ {row.chosenBrand}
+                          </span>
+                        )}
+                      </span>
+                      <select
+                        aria-label={`Marca ofertada do item ${row.itemOrder}`}
+                        className="field mt-1.5"
+                        onChange={(event) =>
+                          updateRow(row.itemOrder, {
+                            chosenBrand: event.target.value ? event.target.value : null
+                          })
+                        }
+                        value={row.chosenBrand ?? ""}
+                      >
+                        <option value="">— escolher marca —</option>
+                        {Array.from(
+                          new Set(
+                            row.brandOptions.map((brand) => brand.trim()).filter(Boolean)
+                          )
+                        ).map((brand) => (
+                          <option key={brand} value={brand}>
+                            {brand}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {!row.chosenBrand && (
+                      <p className="mt-2 text-xs font-semibold leading-relaxed">
+                        Item sem marca: o portal exige que uma das marcas listadas seja informada no campo Garantia para aceitar a proposta.
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <div className="mt-4">
                   <span className="field-label">Observações</span>
                   <div className="mt-1 flex items-start gap-2">
@@ -991,12 +1086,21 @@ export function PrequoteWorksheet({
       <aside className="grid h-fit content-start gap-5 lg:sticky lg:top-24">
         <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-6 shadow-xl">
           <h2 className="text-lg font-bold text-[var(--color-fg)]">Resumo do Pré-Orçamento</h2>
-          {hasMissingPrices && (
+          {(hasMissingPrices || hasMissingBrands) && (
             <div className="badge-warning mt-4 rounded-lg p-3 text-sm" role="status">
               <p className="font-bold">Pré-orçamento incompleto</p>
-              <p className="mt-1 text-xs font-semibold">
-                {totals.missingCount} de {rows.length} itens sem preço. Preencha todos os preços para liberar o valor sugerido e a comparação com a referência.
-              </p>
+              <div className="mt-1 space-y-1 text-xs font-semibold">
+                {hasMissingPrices && (
+                  <p>
+                    {totals.missingCount} de {rows.length} itens sem preço. Preencha todos os preços para liberar o valor sugerido e a comparação com a referência.
+                  </p>
+                )}
+                {hasMissingBrands && (
+                  <p>
+                    {missingBrandCount} de {rowsWithBrandOptions.length} {rowsWithBrandOptions.length === 1 ? "item sem marca ofertada" : "itens sem marca ofertada"}. Escolha a marca para liberar o envio da proposta.
+                  </p>
+                )}
+              </div>
             </div>
           )}
           <dl className="mt-4 space-y-3 text-sm">
@@ -1010,6 +1114,14 @@ export function PrequoteWorksheet({
                 {totals.missingCount} de {rows.length}
               </dd>
             </div>
+            {rowsWithBrandOptions.length > 0 && (
+              <div className={`flex items-baseline justify-between gap-3 ${hasMissingBrands ? "badge-warning rounded-lg px-3 py-2" : ""}`}>
+                <dt className="text-[var(--color-fg-muted)]">Itens sem marca</dt>
+                <dd className={`font-bold tabular-nums ${hasMissingBrands ? "text-[var(--color-warning)]" : "text-[var(--color-success)]"}`}>
+                  {missingBrandCount} de {rowsWithBrandOptions.length}
+                </dd>
+              </div>
+            )}
             <div className="flex items-baseline justify-between gap-3">
               <dt className="text-[var(--color-fg-muted)]">Referência da escola</dt>
               <dd className="font-bold tabular-nums text-[var(--color-fg)]">
@@ -1029,7 +1141,7 @@ export function PrequoteWorksheet({
                 </p>
               )}
             </div>
-            {referenceDiff !== null && (
+            {!isReferenceInconsistent && referenceDiff !== null && (
               <div className="flex items-baseline justify-between gap-3 border-t border-[var(--color-border)] pt-3">
                 <dt className="text-[var(--color-fg-muted)]">Vs. referência</dt>
                 <dd className={`font-bold tabular-nums ${referenceDiff <= 0 ? "text-[var(--color-success)]" : "text-[var(--color-danger)]"}`}>
@@ -1039,6 +1151,35 @@ export function PrequoteWorksheet({
               </div>
             )}
           </dl>
+
+          {isReferenceInconsistent && (
+            <div className="mt-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-3 text-xs">
+              <p className="font-bold text-[var(--color-fg)]">
+                Referência do portal inconsistente
+              </p>
+              <p className="mt-1 text-[11px] leading-relaxed text-[var(--color-fg-muted)]">
+                O valor de referência total informado pelo portal diverge da soma das referências dos itens em mais de 5%.
+              </p>
+              <div className="mt-2.5 grid grid-cols-2 gap-2 border-t border-[var(--color-border)] pt-2 text-xs">
+                <div>
+                  <span className="block text-[10px] font-bold uppercase tracking-wide text-[var(--color-fg-muted)]">
+                    Total publicado
+                  </span>
+                  <span className="mt-0.5 block font-bold tabular-nums text-[var(--color-fg)]">
+                    {quotation.totalReferenceValue !== null ? formatBRL(quotation.totalReferenceValue) : "—"}
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-[10px] font-bold uppercase tracking-wide text-[var(--color-fg-muted)]">
+                    Soma dos itens
+                  </span>
+                  <span className="mt-0.5 block font-bold tabular-nums text-[var(--color-fg)]">
+                    {sumLineReferenceValue !== null ? formatBRL(sumLineReferenceValue) : "—"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="mt-5 grid gap-3 border-t border-[var(--color-border)] pt-4">
             <label>

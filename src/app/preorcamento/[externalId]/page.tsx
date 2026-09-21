@@ -46,40 +46,66 @@ export default async function WorksheetPage({ params }: WorksheetPageProps) {
   }));
 
   const rows: WorksheetRow[] = preQuote
-    ? preQuote.items.map((item) => ({
-        itemOrder: item.itemOrder,
-        name: item.name,
-        description: item.description,
-        unit: item.unit,
-        quantity: item.quantity,
-        referenceUnitValue: item.referenceValue,
-        supplierId: item.supplierId,
-        catalogItemId: item.catalogItemId,
-        unitCost: item.unitCost,
-        source: (["catalog", "manual", "web"].includes(item.source) ? item.source : "none") as WorksheetRow["source"],
-        webTitle: item.webTitle,
-        webPrice: item.webPrice,
-        webUrl: item.webUrl,
-        notes: item.notes,
-        warranty: item.warranty
-      }))
-    : quotation.items.map((item) => ({
-        itemOrder: item.order,
-        name: item.name,
-        description: item.description,
-        unit: item.unit,
-        quantity: item.quantity,
-        referenceUnitValue: item.referenceValue ?? null,
-        supplierId: null,
-        catalogItemId: null,
-        unitCost: null,
-        source: "none" as const,
-        webTitle: null,
-        webPrice: null,
-        webUrl: null,
-        notes: null,
-        warranty: null
-      }));
+    ? preQuote.items.map((item) => {
+        const itemAny = item as typeof item & {
+          brandOptions?: string[];
+          chosenBrand?: string | null;
+        };
+        const quoteItem = quotation.items.find((qi) => qi.order === item.itemOrder);
+        const quoteItemAny = quoteItem as typeof quoteItem & {
+          brandOptions?: string[];
+        };
+        const brandOptions =
+          Array.isArray(itemAny.brandOptions) && itemAny.brandOptions.length > 0
+            ? itemAny.brandOptions
+            : Array.isArray(quoteItemAny?.brandOptions)
+              ? quoteItemAny.brandOptions
+              : [];
+        return {
+          itemOrder: item.itemOrder,
+          name: item.name,
+          description: item.description,
+          unit: item.unit,
+          quantity: item.quantity,
+          referenceUnitValue: item.referenceValue,
+          supplierId: item.supplierId,
+          catalogItemId: item.catalogItemId,
+          unitCost: item.unitCost,
+          source: (["catalog", "manual", "web"].includes(item.source) ? item.source : "none") as WorksheetRow["source"],
+          webTitle: item.webTitle,
+          webPrice: item.webPrice,
+          webUrl: item.webUrl,
+          notes: item.notes,
+          warranty: item.warranty,
+          brandOptions,
+          chosenBrand: typeof itemAny.chosenBrand === "string" ? itemAny.chosenBrand : null
+        };
+      })
+    : quotation.items.map((item) => {
+        const itemAny = item as typeof item & {
+          brandOptions?: string[];
+          chosenBrand?: string | null;
+        };
+        return {
+          itemOrder: item.order,
+          name: item.name,
+          description: item.description,
+          unit: item.unit,
+          quantity: item.quantity,
+          referenceUnitValue: item.referenceValue ?? null,
+          supplierId: null,
+          catalogItemId: null,
+          unitCost: null,
+          source: "none" as const,
+          webTitle: null,
+          webPrice: null,
+          webUrl: null,
+          notes: null,
+          warranty: null,
+          brandOptions: Array.isArray(itemAny.brandOptions) ? itemAny.brandOptions : [],
+          chosenBrand: typeof itemAny.chosenBrand === "string" ? itemAny.chosenBrand : null
+        };
+      });
 
   const suggestions: Record<number, CatalogMatch[]> = {};
   const referenceSuggestions: Record<number, ReferenceMatch[]> = {};
