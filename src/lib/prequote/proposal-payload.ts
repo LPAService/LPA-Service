@@ -1,4 +1,6 @@
 import { calcPreQuoteLineTotals } from "@/lib/prequote/calc";
+import { extractRequiredBrands } from "@/lib/prequote/required-brands";
+import { normalize } from "@/lib/text/normalize";
 
 /**
  * Traduz um pré-orçamento para o formato que o formulário de proposta do SGD espera.
@@ -24,6 +26,8 @@ export type ProposalItemPayload = {
   txItemObservation: string;
   /** txWarrantyDescription. */
   txWarrantyDescription: string;
+  brandOptions: string[];
+  chosenBrand: string | null;
 };
 
 export type ProposalPayload = {
@@ -43,11 +47,13 @@ export type BuildProposalResult =
 type SourceLine = {
   itemOrder: number;
   name: string;
+  description: string;
   quantity: number;
   unit: string;
   unitCost: number | null;
   notes: string | null;
   warranty: string | null;
+  chosenBrand?: string | null;
 };
 
 type SourcePreQuote = {
@@ -79,6 +85,8 @@ export function buildProposalPayload(preQuote: SourcePreQuote): BuildProposalRes
 
   for (const line of [...preQuote.items].sort((a, b) => a.itemOrder - b.itemOrder)) {
     const label = `Item ${line.itemOrder} (${line.name})`;
+    const brandOptions = extractRequiredBrands(line.description);
+    const chosenBrand = normalizeChosenBrand(line.chosenBrand);
 
     if (seenOrders.has(line.itemOrder)) {
       // Ordem duplicada colidiria no id do campo (nuValueByItem_3) e um item
@@ -87,6 +95,15 @@ export function buildProposalPayload(preQuote: SourcePreQuote): BuildProposalRes
       continue;
     }
     seenOrders.add(line.itemOrder);
+
+    if (brandOptions.length > 0 && !chosenBrand) {
+      blockers.push(`${label}: exige marca ofertada e nenhuma foi escolhida.`);
+      continue;
+    }
+    if (chosenBrand && brandOptions.length > 0 && !brandOptions.some((brand) => sameBrand(brand, chosenBrand))) {
+      blockers.push(`${label}: marca ofertada "${chosenBrand}" não está entre as exigidas.`);
+      continue;
+    }
 
     const { unitFinalCost, lineTotal } = calcPreQuoteLineTotals(
       { quantity: line.quantity, unitCost: line.unitCost },
@@ -109,7 +126,7 @@ export function buildProposalPayload(preQuote: SourcePreQuote): BuildProposalRes
       continue;
     }
 
-    const warranty = (line.warranty ?? "").trim();
+    const warranty = buildWarrantyText((line.warranty ?? "").trim(), chosenBrand);
     if (warranty.length > MAX_TEXT) {
       blockers.push(`${label}: garantia com ${warranty.length} caracteres (o portal aceita ${MAX_TEXT}).`);
       continue;
@@ -123,7 +140,9 @@ export function buildProposalPayload(preQuote: SourcePreQuote): BuildProposalRes
       nuValueByItem: unitFinalCost,
       totalValue: lineTotal,
       txItemObservation: observation,
-      txWarrantyDescription: warranty
+      txWarrantyDescription: warranty,
+      brandOptions,
+      chosenBrand
     });
   }
 
@@ -144,4 +163,18 @@ export function buildProposalPayload(preQuote: SourcePreQuote): BuildProposalRes
 
 function round2(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function normalizeChosenBrand(value: string | null | undefined) {
+  const clean = value?.trim();
+  return clean ? clean : null;
+}
+
+function sameBrand(left: string, right: string) {
+  return normalize(left) === normalize(right);
+}
+
+function buildWarrantyText(warranty: string, chosenBrand: string | null) {
+  if (!chosenBrand) return warranty;
+  return `Marca ofertada: ${chosenBrand}.${warranty ? ` ${warranty}` : ""}`;
 }

@@ -2,12 +2,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GET } from "@/app/api/prequotes/[id]/proposta/route";
 
 const mocks = vi.hoisted(() => ({
-  getPreQuote: vi.fn()
+  getPreQuote: vi.fn(),
+  dbExecute: vi.fn()
 }));
 
 vi.mock("@/lib/data/catalog", () => ({
   catalogSource: {
     getPreQuote: mocks.getPreQuote
+  }
+}));
+
+vi.mock("@/lib/db", () => ({
+  db: {
+    execute: mocks.dbExecute
   }
 }));
 
@@ -21,6 +28,7 @@ const preQuote = (patch: Record<string, unknown> = {}) => ({
     {
       itemOrder: 1,
       name: "Açúcar cristal",
+      description: "Açúcar cristal, pacote de 5 KG.",
       quantity: 100,
       unit: "KG",
       unitCost: 5,
@@ -34,6 +42,8 @@ const preQuote = (patch: Record<string, unknown> = {}) => ({
 describe("prequote proposta route", () => {
   beforeEach(() => {
     mocks.getPreQuote.mockReset();
+    mocks.dbExecute.mockReset();
+    mocks.dbExecute.mockResolvedValue({ rows: [] });
   });
 
   it("devolve proposta e dados de navegação do portal", async () => {
@@ -64,6 +74,7 @@ describe("prequote proposta route", () => {
           {
             itemOrder: 1,
             name: "Açúcar cristal",
+            description: "Açúcar cristal, pacote de 5 KG.",
             quantity: 100,
             unit: "KG",
             unitCost: null,
@@ -83,6 +94,67 @@ describe("prequote proposta route", () => {
     expect(body).toEqual({
       error: "Pré-orçamento ainda não está pronto para virar proposta.",
       blockers: ["Item 1 (Açúcar cristal): sem preço."]
+    });
+  });
+
+  it("bloqueia proposta quando item exige marca e nenhuma foi escolhida", async () => {
+    mocks.getPreQuote.mockResolvedValue(
+      preQuote({
+        items: [
+          {
+            itemOrder: 1,
+            name: "Margarina",
+            description: "MARCAS EXIGIDAS : QUALY,DORIANA,DELICIA",
+            quantity: 10,
+            unit: "UN",
+            unitCost: 8,
+            notes: "Margarina 500g.",
+            warranty: "Validade adequada."
+          }
+        ]
+      })
+    );
+
+    const response = await GET(new Request("https://lpa.test/api/prequotes/7/proposta"), {
+      params: Promise.resolve({ id: "7" })
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body.blockers).toEqual([
+      "Item 1 (Margarina): exige marca ofertada e nenhuma foi escolhida."
+    ]);
+  });
+
+  it("usa marca escolhida salva na proposta", async () => {
+    mocks.dbExecute.mockResolvedValue({ rows: [{ item_order: 1, chosen_brand: "Qualy" }] });
+    mocks.getPreQuote.mockResolvedValue(
+      preQuote({
+        items: [
+          {
+            itemOrder: 1,
+            name: "Margarina",
+            description: "MARCAS EXIGIDAS : QUALY,DORIANA,DELICIA",
+            quantity: 10,
+            unit: "UN",
+            unitCost: 8,
+            notes: "Margarina 500g.",
+            warranty: "Validade adequada."
+          }
+        ]
+      })
+    );
+
+    const response = await GET(new Request("https://lpa.test/api/prequotes/7/proposta"), {
+      params: Promise.resolve({ id: "7" })
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.proposta.items[0]).toMatchObject({
+      brandOptions: ["Qualy", "Doriana", "Delicia"],
+      chosenBrand: "Qualy",
+      txWarrantyDescription: "Marca ofertada: Qualy. Validade adequada."
     });
   });
 });

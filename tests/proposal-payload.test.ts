@@ -4,6 +4,7 @@ import { buildProposalPayload } from "@/lib/prequote/proposal-payload";
 const line = (over: Partial<Parameters<typeof buildProposalPayload>[0]["items"][number]> = {}) => ({
   itemOrder: 1,
   name: "Açúcar cristal",
+  description: "Açúcar cristal, pacote de 5 KG.",
   quantity: 100,
   unit: "KG",
   unitCost: 5,
@@ -94,8 +95,58 @@ describe("proposta para o portal", () => {
       nuValueByItem: 6,
       totalValue: 600,
       txItemObservation: "Açúcar cristal, 100 KG.",
-      txWarrantyDescription: "Produto lacrado, validade mínima de 6 meses."
+      txWarrantyDescription: "Produto lacrado, validade mínima de 6 meses.",
+      brandOptions: [],
+      chosenBrand: null
     });
+  });
+
+  it("inclui opções de marca e prefixa marca escolhida na garantia", () => {
+    const result = buildProposalPayload(preQuote({
+      items: [
+        line({
+          description: "Marcas: PERFA,MORATO,APOLLO .",
+          chosenBrand: "Morato"
+        })
+      ]
+    }));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.payload.items[0]).toMatchObject({
+      brandOptions: ["Perfa", "Morato", "Apollo"],
+      chosenBrand: "Morato",
+      txWarrantyDescription: "Marca ofertada: Morato. Produto lacrado, validade mínima de 6 meses."
+    });
+  });
+
+  it("recusa item com marca exigida sem marca escolhida", () => {
+    const result = buildProposalPayload(preQuote({
+      items: [line({ description: "Exigência de Marcas: Itambé, Porto Alegre e Quatá." })]
+    }));
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.blockers).toEqual([
+      "Item 1 (Açúcar cristal): exige marca ofertada e nenhuma foi escolhida."
+    ]);
+  });
+
+  it("recusa marca escolhida fora das marcas exigidas", () => {
+    const result = buildProposalPayload(preQuote({
+      items: [
+        line({
+          description: "MARCAS EXIGIDAS : QUALY,DORIANA,DELICIA",
+          chosenBrand: "Manteiga X"
+        })
+      ]
+    }));
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.blockers).toEqual([
+      "Item 1 (Açúcar cristal): marca ofertada \"Manteiga X\" não está entre as exigidas."
+    ]);
   });
 
   it("junta todos os bloqueios de uma vez em vez de parar no primeiro", () => {

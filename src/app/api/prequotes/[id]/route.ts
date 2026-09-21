@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { CatalogValidationError } from "@/lib/catalog/source";
 import { catalogSource } from "@/lib/data/catalog";
+import { loadChosenBrandMap, persistChosenBrands, withBrandFields } from "./chosen-brand";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,8 @@ export async function GET(_request: Request, context: RouteContext) {
   if (!id) return NextResponse.json({ error: "Pré-orçamento inválido." }, { status: 400 });
   const preQuote = await catalogSource.getPreQuote(id);
   if (!preQuote) return NextResponse.json({ error: "Pré-orçamento não encontrado." }, { status: 404 });
-  return NextResponse.json({ preQuote });
+  const choices = await loadChosenBrandMap(id);
+  return NextResponse.json({ preQuote: withBrandFields(preQuote, choices) });
 }
 
 export async function PUT(request: Request, context: RouteContext) {
@@ -28,10 +30,13 @@ export async function PUT(request: Request, context: RouteContext) {
     const id = parseId(rawId);
     if (!id) return NextResponse.json({ error: "Pré-orçamento inválido." }, { status: 400 });
     const body = await request.json();
+    const previousChoices = await loadChosenBrandMap(id);
     const updatedId = await catalogSource.savePreQuote(id, body ?? { quotationExternalId: "" });
     if (!updatedId) return NextResponse.json({ error: "Pré-orçamento não encontrado." }, { status: 404 });
+    await persistChosenBrands(updatedId, body?.items, previousChoices);
     const preQuote = await catalogSource.getPreQuote(updatedId);
-    return NextResponse.json({ preQuote });
+    const choices = await loadChosenBrandMap(updatedId);
+    return NextResponse.json({ preQuote: preQuote ? withBrandFields(preQuote, choices) : preQuote });
   } catch (error) {
     if (error instanceof CatalogValidationError) {
       return NextResponse.json({ error: error.message }, { status: 400 });

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { catalogSource } from "@/lib/data/catalog";
 import { buildProposalPayload } from "@/lib/prequote/proposal-payload";
+import { loadChosenBrandMap } from "../chosen-brand";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,7 @@ export async function GET(_request: Request, context: RouteContext) {
 
   const preQuote = await catalogSource.getPreQuote(id);
   if (!preQuote) return NextResponse.json({ error: "Pré-orçamento não encontrado." }, { status: 404 });
+  const choices = await loadChosenBrandMap(id);
 
   const result = buildProposalPayload({
     id: preQuote.id,
@@ -35,11 +37,13 @@ export async function GET(_request: Request, context: RouteContext) {
     items: preQuote.items.map((item) => ({
       itemOrder: item.itemOrder,
       name: item.name,
+      description: item.description,
       quantity: item.quantity,
       unit: item.unit,
       unitCost: item.unitCost,
       notes: item.notes,
-      warranty: item.warranty
+      warranty: item.warranty,
+      chosenBrand: choices.get(item.itemOrder) ?? null
     }))
   });
 
