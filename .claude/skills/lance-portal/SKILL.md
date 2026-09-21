@@ -24,7 +24,7 @@ Nunca invente valor, nunca corrija preco, nunca preencha item que nao veio no pa
 2. Busque o payload do pre-orcamento no app:
    - Chame `GET {APP}/api/prequotes/<id>/proposta`.
    - Em `200`, use `{ proposta, portal: { proposalUrl, orderId, quotationExternalId } }`.
-   - Em `409`, mostre `blockers` ao humano e pare. Nao comece proposta pela metade.
+   - Em `409`, mostre `blockers` ao humano e pare. Nao comece proposta pela metade. Motivos possiveis incluem item sem preco, item que exige marca ofertada e nao tem marca escolhida, ou outro bloqueio comercial retornado pelo app.
    - Em qualquer outro erro, reporte status/corpo e pare.
 
 3. Inspecione abas abertas:
@@ -34,15 +34,20 @@ Nunca invente valor, nunca corrija preco, nunca preencha item que nao veio no pa
    - Navegue dentro do app do portal: menu `Compras`, item `Orcamento`. A tela esperada e `/compras/orcamentos`.
    - No campo `ID Orcamento` com placeholder `Digite o ID do orcamento`, preencha `portal.orderId`. Esse valor e o `nuBudgetOrder`, por exemplo `2026200309`; nao use `portal.quotationExternalId` nessa busca.
    - Clique `Buscar` e espere a tabela carregar. A tabela mostra spinner; os contadores do topo podem aparecer antes das linhas, entao aguarde a linha do orcamento existir.
-   - Na linha do orcamento, ignore `Excluir` e `Editar` mesmo quando aparecerem com `disabled=true`; isso nao significa bloqueio de proposta.
-   - Localize o botao `Visualizar` por elemento/texto e clique nele. Nunca clique por coordenada cega: a linha tambem tem `Excluir` e `Editar`.
-   - `Visualizar` abre um modal chamado `Solicitacao de Orcamento`, com a secao `Preenchimento dos Itens`. Nao e outra pagina; a URL continua `/compras/orcamentos?budgetOrder=<ordem>`.
+   - Na linha do orcamento, ignore `Excluir`.
+   - Se o botao `Editar` existir e estiver habilitado (`disabled=false`), localize `Editar` por elemento/texto e clique nele. Caminho medido em 21/09/2026: quando ja existe rascunho no portal, `Editar` abre direto o formulario preenchido.
+   - Se `Editar` nao existir ou estiver desabilitado (`disabled=true`), localize o botao `Visualizar` por elemento/texto e clique nele. Nunca clique por coordenada cega: a linha tambem tem `Excluir` e `Editar`.
+   - `Visualizar` abre um modal chamado `Solicitacao de Orcamento`, que e a ficha da solicitacao em modo leitura: dados da escola, prazos e lista dos itens. Ainda nao existe campo editavel nesse modal; `nuValueByItem_*`, `totalValue_*`, `txItemObservation_*` e `txWarrantyDescription_*` nao existem no DOM nesse momento.
+   - No modal aberto por `Visualizar`, role ate o rodape e clique `Cadastrar Proposta`. O rodape tambem tem `Cancelar`; clique somente `Cadastrar Proposta`.
+   - Depois de `Editar` ou de `Cadastrar Proposta`, o formulario de proposta fica aberto no modal, com a secao `Preenchimento dos Itens` e os campos `nuValueByItem_<n>`, `totalValue_<n>`, `txItemObservation_<n>` e `txWarrantyDescription_<n>`.
+   - Nao e outra pagina; a URL continua `/compras/orcamentos?budgetOrder=<ordem>`.
    - Se depois dessa navegacao/modal a tela nao for a tela esperada, pare. Home `/` e `/selecionar-perfil` sao casos conhecidos, mas a regra vale para qualquer tela diferente da esperada. Nao tente adivinhar a URL do orcamento na mao.
 
 4. Confirme que a pagina certa carregou:
    - Use `read_page`.
-   - A tela precisa estar no modal `Solicitacao de Orcamento`.
-   - O modal precisa conter a secao `Preenchimento dos Itens`.
+   - A tela precisa estar no formulario de proposta aberto a partir do modal `Solicitacao de Orcamento`.
+   - O formulario precisa conter a secao `Preenchimento dos Itens`.
+   - O DOM precisa conter campos editaveis dos itens, por exemplo `nuValueByItem_<n>` e `totalValue_<n>`. Se esses campos nao existirem, voce ainda esta na ficha de leitura; volte ao passo 3, role ate o rodape e clique `Cadastrar Proposta`.
    - Confira o numero do orcamento no modal contra `portal.orderId`.
    - Se o numero for diferente, pare. Nao preencha outro orcamento.
 
@@ -96,11 +101,13 @@ Nunca invente valor, nunca corrija preco, nunca preencha item que nao veio no pa
     - Nunca marque `Declaro estar apto para realizar todos os servicos propostos neste orcamento e concordo com os termos.`
     - Nunca clique em enviar.
     - Nunca feche a aba.
+    - Nao diga que fechar a aba descarta o preenchimento. Medido em 21/09/2026: o rascunho persiste no portal; ao reabrir por `Editar`, os valores continuam preenchidos.
+    - O rodape do formulario tem apenas `Cancelar` e `Enviar Cotacao`; nao existe botao separado de salvar.
     - Relate ao humano:
       - total do portal;
       - total do pre-orcamento;
       - conferencia item a item;
-      - frase obrigatoria: `Falta voce preencher a data de entrega, marcar o Declaro e enviar no portal.`
+      - frase obrigatoria: `Falta voce preencher a data de entrega, marcar o Declaro e clicar Enviar Cotacao.`
 
 ## O Que Esta Skill NAO Faz
 
