@@ -449,8 +449,8 @@ describe("PrequoteWorksheet - Sugestões Automáticas", () => {
       json: async () => ({ results: {} })
     });
     const rows: WorksheetRow[] = [
-      makeRow({ itemOrder: 1, name: "Item um", quantity: 1, unitCost: 10 }),
-      makeRow({ itemOrder: 2, name: "Item dois", quantity: 1, unitCost: 20 })
+      makeRow({ itemOrder: 1, name: "Item um", quantity: 1, unitCost: 10, referenceUnitValue: 20 }),
+      makeRow({ itemOrder: 2, name: "Item dois", quantity: 1, unitCost: 20, referenceUnitValue: 20 })
     ];
 
     await act(async () => {
@@ -476,6 +476,40 @@ describe("PrequoteWorksheet - Sugestões Automáticas", () => {
     expect(summaryText).toContain("Vs. referência");
     expect(summaryText).toContain(formatBRL(-10));
     expect(summaryText).toContain("-25%");
+  });
+
+  it("mostra aviso neutro e oculta percentual quando referencia do portal diverge da soma dos itens", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ results: {} })
+    });
+    const rows: WorksheetRow[] = [
+      makeRow({ itemOrder: 1, name: "Item um", quantity: 1, unitCost: 10, referenceUnitValue: 10 }),
+      makeRow({ itemOrder: 2, name: "Item dois", quantity: 1, unitCost: 20, referenceUnitValue: 10 })
+    ];
+
+    await act(async () => {
+      root!.render(
+        <PrequoteWorksheet
+          catalogItems={mockCatalogItems}
+          initialPreQuoteId={null}
+          initialRows={rows}
+          quotation={{ ...mockQuotation, totalReferenceValue: 40 }}
+          referenceSuggestions={{}}
+          suggestions={{}}
+        />
+      );
+    });
+
+    const summary = Array.from(container!.querySelectorAll("section")).find(
+      (section) => section.querySelector("h2")?.textContent === "Resumo do Pré-Orçamento"
+    );
+    const summaryText = summary?.textContent ?? "";
+
+    expect(summaryText).not.toContain("Vs. referência");
+    expect(summaryText).toContain("Referência do portal inconsistente");
+    expect(summaryText).toContain(formatBRL(40));
+    expect(summaryText).toContain(formatBRL(20));
   });
 
   it("deixa a margem global visível no topo e recalcula o valor final de cada item", async () => {
@@ -1259,6 +1293,66 @@ describe("PrequoteWorksheet - Sugestões Automáticas", () => {
       expect(container!.textContent).not.toContain(
         "Itens de serviço/locação não têm busca automática de preço. O valor vem do contato direto com fornecedores."
       );
+    });
+
+    it("exibe seletor de marca ofertada quando brandOptions existe, avisa pendência e atualiza resumo", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ results: {} })
+      });
+      const rows: WorksheetRow[] = [
+        makeRow({
+          itemOrder: 1,
+          name: "Leite Integral",
+          unitCost: 5,
+          referenceUnitValue: 5,
+          brandOptions: ["Itambé", "Piracanjuba"],
+          chosenBrand: null
+        }),
+        makeRow({
+          itemOrder: 2,
+          name: "Arroz",
+          unitCost: 10,
+          referenceUnitValue: 10,
+          brandOptions: [],
+          chosenBrand: null
+        })
+      ];
+
+      await act(async () => {
+        root!.render(
+          <PrequoteWorksheet
+            catalogItems={mockCatalogItems}
+            initialPreQuoteId={null}
+            initialRows={rows}
+            quotation={{ ...mockQuotation, totalReferenceValue: 15 }}
+            referenceSuggestions={{}}
+            suggestions={{}}
+          />
+        );
+      });
+
+      const select = container!.querySelector(
+        'select[aria-label="Marca ofertada do item 1"]'
+      ) as HTMLSelectElement | null;
+      expect(select).not.toBeNull();
+      const options = Array.from(select!.options).map((opt) => opt.value);
+      expect(options).toEqual(["", "Itambé", "Piracanjuba"]);
+
+      const select2 = container!.querySelector('select[aria-label="Marca ofertada do item 2"]');
+      expect(select2).toBeNull();
+
+      expect(container!.textContent).toContain("Sem marca");
+      expect(container!.textContent).toContain("Itens sem marca");
+      expect(container!.textContent).toContain("1 de 1");
+
+      await act(async () => {
+        select!.value = "Itambé";
+        select!.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+
+      expect(container!.textContent).not.toContain("Sem marca");
+      expect(container!.textContent).toContain("0 de 1");
     });
   });
 });
