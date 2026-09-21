@@ -20,6 +20,11 @@
   --color-success: #0e9f6e;
   --color-warning: #b45309;
   --color-danger: #e11d48;
+  --teal: #0d9488;
+  --cyan: #06b6d4;
+  --indigo: #6366f1;
+  --amber: #f59e0b;
+  --rose: #f43f5e;
   --grad: linear-gradient(100deg, #0d9488, #06b6d4 55%, #6366f1);
   --radius-card: 20px;
   --shadow-card: 0 8px 24px -14px rgba(13, 27, 42, 0.18);
@@ -43,6 +48,11 @@
   --color-success: #34d399;
   --color-warning: #fbbf24;
   --color-danger: #fb7185;
+  --teal: #2dd4bf;
+  --cyan: #22d3ee;
+  --indigo: #818cf8;
+  --amber: #fbbf24;
+  --rose: #fb7185;
   --shadow-card: 0 8px 24px -14px rgba(0, 0, 0, 0.6);
   --shadow-lift: 0 22px 44px -20px rgba(0, 0, 0, 0.7);
 }
@@ -64,6 +74,11 @@
     --color-success: #34d399;
     --color-warning: #fbbf24;
     --color-danger: #fb7185;
+    --teal: #2dd4bf;
+    --cyan: #22d3ee;
+    --indigo: #818cf8;
+    --amber: #fbbf24;
+    --rose: #fb7185;
     --shadow-card: 0 8px 24px -14px rgba(0, 0, 0, 0.6);
     --shadow-lift: 0 22px 44px -20px rgba(0, 0, 0, 0.7);
   }
@@ -184,6 +199,14 @@ select.field { padding-right: 2.2rem; }
 }
 .card-link span { font-size: 1.25rem; transition: transform 0.15s; }
 .card-link:hover span { transform: translateX(4px); }
+
+/* ---------- ring de prazo 2026 ---------- */
+.ring-wrap { position: relative; width: 48px; height: 48px; flex: none; }
+.ring { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring circle { fill: none; stroke-width: 5; }
+.ring .ring-bg { stroke: var(--color-border); }
+.ring .ring-fg { stroke-linecap: round; stroke-dasharray: 150.8; }
+.ring-num { position: absolute; inset: 0; display: grid; place-items: center; font-variant-numeric: tabular-nums; font-weight: 800; }
 
 /* ---------- elementos novos da home ---------- */
 .nav-pill {

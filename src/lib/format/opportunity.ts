@@ -53,3 +53,113 @@ export function cleanDisplayedDescription(description: string, unitValue: number
     .replace(/\s*(?:[-–—]\s*)?pre[cç]o\s+de\s+refer[eê]ncia\s*:?\s*r\$\s*\d{1,3}(?:\.\d{3})*,\d{2}\s*\.?\s*$/i, "")
     .trim();
 }
+
+export type DeadlineRingState = {
+  ringDisplay: string;
+  label: string;
+  sublabel: string;
+  color: string;
+  fraction: number;
+  strokeDashoffset: number;
+  isUrgent: boolean;
+  days: number | null;
+};
+
+export function calculateDaysRemaining(
+  dateString: string | null | undefined,
+  now: Date = new Date()
+): number | null {
+  if (!dateString) return null;
+  const target = new Date(dateString);
+  if (!Number.isFinite(target.getTime())) return null;
+
+  const targetMidnight = new Date(target.getFullYear(), target.getMonth(), target.getDate()).getTime();
+  const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  return Math.round((targetMidnight - nowMidnight) / (24 * 60 * 60 * 1000));
+}
+
+export function getDeadlineRingState(
+  dateString: string | null | undefined,
+  now: Date = new Date()
+): DeadlineRingState {
+  const CIRCUMFERENCE = 150.8;
+
+  if (!dateString) {
+    return {
+      ringDisplay: "—",
+      label: "Sem prazo",
+      sublabel: "Data não informada",
+      color: "var(--color-fg-muted)",
+      fraction: 0,
+      strokeDashoffset: CIRCUMFERENCE,
+      isUrgent: false,
+      days: null
+    };
+  }
+
+  const target = new Date(dateString);
+  if (!Number.isFinite(target.getTime())) {
+    return {
+      ringDisplay: "—",
+      label: "Sem prazo",
+      sublabel: "Data inválida",
+      color: "var(--color-fg-muted)",
+      fraction: 0,
+      strokeDashoffset: CIRCUMFERENCE,
+      isUrgent: false,
+      days: null
+    };
+  }
+
+  const days = calculateDaysRemaining(dateString, now)!;
+  const formattedDate = formatDate(dateString);
+
+  if (days < 0) {
+    return {
+      ringDisplay: "—",
+      label: "Prazo encerrado",
+      sublabel: `Venceu em ${formattedDate}`,
+      color: "var(--color-fg-muted)",
+      fraction: 0,
+      strokeDashoffset: CIRCUMFERENCE,
+      isUrgent: false,
+      days
+    };
+  }
+
+  if (days === 0) {
+    return {
+      ringDisplay: "0",
+      label: "Vence hoje",
+      sublabel: "Prazo até hoje",
+      color: "var(--rose, #f43f5e)",
+      fraction: 1,
+      strokeDashoffset: 0,
+      isUrgent: true,
+      days: 0
+    };
+  }
+
+  // days > 0
+  const color =
+    days <= 3
+      ? "var(--rose, #f43f5e)"
+      : days <= 7
+        ? "var(--amber, #f59e0b)"
+        : "var(--teal, #0d9488)";
+
+  const fraction = Math.min(1, Math.max(0.05, days / 30));
+  const strokeDashoffset = Number((CIRCUMFERENCE * (1 - fraction)).toFixed(1));
+
+  return {
+    ringDisplay: String(days),
+    label: days === 1 ? "Falta 1 dia" : `Faltam ${days} dias`,
+    sublabel: `Prazo até ${formattedDate}`,
+    color,
+    fraction,
+    strokeDashoffset,
+    isUrgent: days <= 3,
+    days
+  };
+}
+

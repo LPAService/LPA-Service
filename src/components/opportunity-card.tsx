@@ -13,6 +13,7 @@ import {
   formatDate,
   formatDateTime,
   formatOpportunityValue,
+  getDeadlineRingState,
   pluralize
 } from "@/lib/format/opportunity";
 
@@ -136,14 +137,12 @@ export function OpportunityCard({ opportunity, watched = null }: OpportunityCard
               </p>
             </div>
             {isQuotation && (
-              <div>
-                <p className="eyebrow">Prazo Proposta</p>
-                <p className="font-semibold text-[var(--color-fg)] mt-0.5 text-xs sm:text-sm">
-                  {formatDate(opportunity.proposalDeadline ?? opportunity.proposalDate)}
-                </p>
+              <div className="col-span-2">
+                <p className="eyebrow mb-1.5">Prazo Proposta</p>
+                <DeadlineRing date={opportunity.proposalDeadline ?? opportunity.proposalDate} />
               </div>
             )}
-            <div>
+            <div className={isQuotation ? "col-span-2 sm:col-span-1" : ""}>
               <p className="eyebrow">Entrega</p>
               <p className="font-semibold text-[var(--color-fg)] mt-0.5 text-xs sm:text-sm">
                 {formatDate(opportunity.deliveryDate)}
@@ -237,6 +236,57 @@ function StatusBadge({ statusLabel }: { statusLabel: string }) {
     <span className="inline-flex items-center rounded-full border border-[var(--color-primary)]/40 bg-[var(--color-primary)]/15 px-2.5 py-0.5 text-xs font-bold text-[var(--color-primary)]">
       {statusLabel}
     </span>
+  );
+}
+
+export function DeadlineRing({ date }: { date: string | null | undefined }) {
+  const ringState = getDeadlineRingState(date);
+
+  return (
+    <div className="deadline flex items-center gap-3.5 p-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)]/70 transition-colors">
+      <div className="ring-wrap relative w-12 h-12 flex-none">
+        <svg className="ring w-full h-full -rotate-90" viewBox="0 0 56 56" aria-hidden="true">
+          <circle
+            cx="28"
+            cy="28"
+            r="24"
+            fill="none"
+            strokeWidth="5"
+            className="ring-bg stroke-[var(--color-border)]"
+          />
+          {ringState.fraction > 0 && (
+            <circle
+              cx="28"
+              cy="28"
+              r="24"
+              fill="none"
+              strokeWidth="5"
+              strokeLinecap="round"
+              strokeDasharray="150.8"
+              strokeDashoffset={ringState.strokeDashoffset}
+              style={{ stroke: ringState.color }}
+              className={`ring-fg transition-[stroke-dashoffset] duration-700 ease-out ${
+                ringState.isUrgent ? "animate-pulse" : ""
+              }`}
+            />
+          )}
+        </svg>
+        <span
+          className="ring-num absolute inset-0 grid place-items-center text-sm font-extrabold tabular-nums select-none"
+          style={{ color: ringState.color }}
+        >
+          {ringState.ringDisplay}
+        </span>
+      </div>
+      <div className="min-w-0">
+        <b className="block text-sm font-bold tracking-tight text-[var(--color-fg)] truncate">
+          {ringState.label}
+        </b>
+        <small className="block text-xs font-semibold text-[var(--color-fg-muted)] mt-0.5 truncate">
+          {ringState.sublabel}
+        </small>
+      </div>
+    </div>
   );
 }
 
@@ -346,11 +396,14 @@ export function QuotationModal({
         {/* Header do Modal */}
         <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--color-border)] p-4 sm:p-6 bg-[var(--color-bg-subtle)]/50">
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="category-badge text-xs font-semibold px-3 py-1 text-[var(--color-primary)] bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-full">
+                {data.expenseGroup || "Categoria"}
+              </span>
+              {data.statusLabel && <StatusBadge statusLabel={data.statusLabel} />}
               <span className="eyebrow text-xs">
                 Orçamento nº <span className="select-all tabular-nums text-[var(--color-fg)]">{data.orderId}</span>
               </span>
-              {data.statusLabel && <StatusBadge statusLabel={data.statusLabel} />}
             </div>
             <h2
               className="mt-2 text-2xl font-bold leading-tight text-[var(--color-fg)] sm:text-3xl"
@@ -363,7 +416,7 @@ export function QuotationModal({
             <WatchButton compact externalId={data.externalId} initialWatched={null} />
             <button
               aria-label="Fechar detalhes"
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-[var(--color-border)] text-2xl leading-none text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)]"
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[var(--color-border)] text-2xl leading-none text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] transition-transform duration-200 hover:rotate-90"
               onClick={onClose}
               type="button"
             >
