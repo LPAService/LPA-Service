@@ -431,7 +431,18 @@ async function buildOpportunityRecord(
   const sourceAttachments = await client.getPurchaseOrderImages(key);
   const school = await schoolPromise;
 
-  const mappedItems = sourceItems.map(mapItem);
+  // A fonte pode repetir nuItemOrder com valores distintos. Preserve todas as
+  // linhas e a ordem original no rawJson, usando uma ordem local livre no banco.
+  const usedOrders = new Set<number>();
+  let nextOrder = sourceItems.reduce((max, item) => Math.max(max, item.nuItemOrder), 0);
+  const mappedItems = sourceItems.map((item) => {
+    const mapped = mapItem(item);
+    if (usedOrders.has(mapped.itemOrder)) {
+      mapped.itemOrder = ++nextOrder;
+    }
+    usedOrders.add(mapped.itemOrder);
+    return mapped;
+  });
   const classification = classifyOpportunity({
     expenseGroup: detail.expenseGroupDescription ?? listing.expenseGroup,
     initiativeDescription: detail.initiativeDescription,
