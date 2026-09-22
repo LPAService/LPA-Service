@@ -26,7 +26,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR">
+    // O script acima grava data-theme antes do React hidratar; sem isto o dev
+    // acusa hydration mismatch no <html> em toda carga.
+    <html lang="pt-BR" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
       </head>
