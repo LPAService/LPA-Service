@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import rmbhCounties from "@/lib/collector/rmbh-counties.json";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createLossesHandler, createStatusHandler, createSyncHandler } from "@/lib/sync/handlers";
 import {
@@ -210,7 +211,7 @@ describe("lote diário", () => {
     });
 
     expect(result.runId).toBe(99);
-    expect(result.countiesProcessed).toBe(10);
+    expect(result.countiesProcessed).toBe(rmbhCounties.collected.length);
     expect(result.errors.some((error) => error.message.includes("API indisponível"))).toBe(true);
     expect(finishRun).toHaveBeenCalledWith(99, result, "completed");
   });
