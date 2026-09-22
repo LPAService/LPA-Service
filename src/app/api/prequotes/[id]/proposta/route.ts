@@ -59,7 +59,11 @@ export async function GET(_request: Request, context: RouteContext) {
     portal: {
       proposalUrl: `/api/quotations/${encodeURIComponent(preQuote.quotationExternalId)}/proposal`,
       orderId: preQuote.orderId ?? preQuote.quotationExternalId,
-      quotationExternalId: preQuote.quotationExternalId
+      quotationExternalId: preQuote.quotationExternalId,
+      // Medido no portal em 22/09/2026: o modal "Solicitacao de Orcamento" nao
+      // mostra o numero do orcamento em lugar nenhum, mas mostra a escola. É o
+      // que a automação tem para conferir que abriu a ficha certa.
+      schoolName: preQuote.schoolName
     }
   });
 }

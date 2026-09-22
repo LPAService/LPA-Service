@@ -15,7 +15,13 @@ const JOB_TIMEOUT_MS = 8000;
 
 export type PilotJob = {
   proposta: unknown;
-  portal: { orderId: string; quotationExternalId: string; proposalUrl?: string | null };
+  portal: {
+    orderId: string;
+    quotationExternalId: string;
+    proposalUrl?: string | null;
+    /** O modal do portal não mostra o número do orçamento; a escola é o cruzamento possível. */
+    schoolName?: string | null;
+  };
 };
 
 export type PilotDispatch = { ok: boolean; where?: string; error?: string };

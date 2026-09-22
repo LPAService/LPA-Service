@@ -89,8 +89,11 @@
     return location.pathname.toLowerCase().startsWith(ORCAMENTOS_PATH);
   }
 
-  /** Campo "ID Orçamento" da busca — o portal não dá id a ele, então vai por placeholder/label. */
+  /** Campo "ID Orçamento" da busca. `#budget-order` confirmado no portal em 22/09/2026. */
   function findOrderInput() {
+    const byId = document.getElementById("budget-order");
+    if (byId && F.isVisible(byId)) return byId;
+
     const inputs = Array.from(document.querySelectorAll("input[type='text'], input:not([type]), input[type='search'], input[type='tel'], input[type='number']"))
       .filter(F.isVisible);
 
@@ -175,11 +178,34 @@
     return ready ? "ok" : "sem-campos";
   }
 
-  /** Confere que o modal aberto é mesmo o orçamento do pré-orçamento. */
-  function formMatchesOrder(orderId) {
+  /**
+   * Confere que a ficha aberta é mesmo o orçamento do pré-orçamento.
+   *
+   * Medido no portal em 22/09/2026: o modal `Solicitacao de Orcamento` NÃO traz
+   * o numero do orcamento — só escola, municipio, endereco, prazos e itens. Por
+   * isso a conferencia vai em tres camadas, da mais forte para a mais fraca:
+   *
+   * 1. `budgetOrder=<ordem>` na URL, que o portal escreve no caminho `Editar`;
+   * 2. o nome da escola do pre-orcamento contra o texto do modal;
+   * 3. a linha da tabela, que ja foi achada pelo proprio orderId depois de uma
+   *    busca filtrada por ele — garantia suficiente para nao abortar à toa.
+   *
+   * Só recusa quando encontra prova de que é OUTRO orçamento (escola diferente).
+   */
+  function formMatchesOrder(orderId, schoolName) {
+    if (new RegExp(`budgetOrder=${String(orderId)}\\b`).test(location.href)) return true;
+
     const scope =
-      document.querySelector(".p-dialog, [role='dialog'], .modal, app-budget-proposal-form") ?? document.body;
-    return (scope.textContent ?? "").includes(String(orderId));
+      document.querySelector(".p-dialog, [role='dialog'], .modal.show, .modal, app-budget-proposal-form") ??
+      document.body;
+    const text = F.norm(scope.textContent ?? "");
+    if (text.includes(F.norm(orderId))) return true;
+
+    const school = F.norm(schoolName ?? "");
+    if (school) return text.includes(school);
+
+    // Sem escola no payload não há como cruzar; a linha buscada pelo orderId vale.
+    return true;
   }
 
   /** Paginação dos itens dentro do formulário. */
@@ -249,8 +275,11 @@
         return;
       }
 
-      if (!formMatchesOrder(orderId)) {
-        hud.note(`O formulário aberto não é o orçamento ${orderId}. Parei sem preencher nada.`, "error");
+      if (!formMatchesOrder(orderId, portal.schoolName)) {
+        hud.note(
+          `A ficha aberta não bate com ${portal.schoolName ?? orderId}. Parei sem preencher nada.`,
+          "error"
+        );
         return;
       }
       hud.log("Formulário de proposta aberto", "ok");
@@ -367,4 +396,17 @@
       if (response?.job) run(response.job);
     })
     .catch(() => {});
+
+  // Exposto para teste e para depurar na aba do portal; a extensão não usa.
+  globalThis.LPA_PORTAL = {
+    onLoginScreen,
+    onOrcamentosScreen,
+    findOrderInput,
+    goToOrcamentos,
+    searchOrder,
+    openProposalForm,
+    formMatchesOrder,
+    goToNextItemsPage,
+    run
+  };
 })();
