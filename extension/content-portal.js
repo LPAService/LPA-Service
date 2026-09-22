@@ -134,6 +134,16 @@
   }
 
   async function searchOrder(orderId) {
+    const findRow = () =>
+      Array.from(document.querySelectorAll("tr, .p-datatable-row, [role='row']")).find(
+        (candidate) => F.isVisible(candidate) && (candidate.textContent ?? "").includes(String(orderId))
+      ) ?? null;
+
+    // Ao repetir o piloto, a busca anterior pode já estar na tela. Evita
+    // disparar outra consulta lenta enquanto a linha correta está disponível.
+    const visibleRow = findRow();
+    if (visibleRow) return visibleRow;
+
     const input = findOrderInput();
     if (!input) return false;
     F.setTextField(input, String(orderId));
@@ -143,13 +153,7 @@
     else F.dispatchKey(input, "keydown", 13);
 
     // A tabela mostra spinner e os contadores do topo carregam antes das linhas.
-    const row = await F.waitFor(
-      () =>
-        Array.from(document.querySelectorAll("tr, .p-datatable-row, [role='row']")).find(
-          (candidate) => F.isVisible(candidate) && (candidate.textContent ?? "").includes(String(orderId))
-        ) ?? null,
-      { timeout: 25000 }
-    );
+    const row = await F.waitFor(findRow, { timeout: 40000 });
     return row ?? false;
   }
 

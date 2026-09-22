@@ -1,23 +1,10 @@
 /**
  * Motor de preenchimento da proposta do SGD (Caixa Escolar MG).
  *
- * Roda no mundo isolado do content script: o DOM é o mesmo da página, então os
- * eventos que disparamos aqui chegam nos listeners do Angular normalmente.
- *
- * POR QUE DÁ PARA DIGITAR SEM TECLADO DE VERDADE:
- * o campo de valor usa a máscara de moeda do portal (ngx-currency, confirmado em
- * research/portal/chunk-CWW7GISC.js). A diretiva registra host listeners de
- * `keydown`/`keypress`/`keyup`/`paste`, e `handleKeypress` lê
- * `event.which || event.charCode || event.keyCode` antes de chamar
- * `addNumber()` + `onModelChange()`. Host listener de Angular é addEventListener
- * comum: dispara também com evento sintético (`isTrusted:false`). Por isso um
- * `KeyboardEvent('keypress')` com o charCode certo alimenta o modelo do Angular
- * — coisa que `input.value = "6,90"` NÃO faz (medido em 15/09/2026: a tela
- * mostrava 6,90 e o totalValue continuava R$ 0,00).
- *
- * A máscara insere o dígito na posição do cursor (`addNumber` usa
- * selectionStart/selectionEnd) e remonta o texto a partir dos dígitos. Por isso
- * forçamos o cursor para o fim antes de cada dígito: "690" vira R$ 6,90.
+ * Roda no mundo isolado do content script. Em produção, pede ao service worker
+ * teclas confiáveis via chrome.debugger: o portal real ignora KeyboardEvent
+ * sintético para a máscara de moeda. O caminho sintético fica só para o porte
+ * da máscara usado nos testes unitários.
  *
  * A prova de que o valor entrou continua sendo `totalValue_<n>`, que vem do
  * modelo do Angular, nunca o texto do próprio campo de valor.
@@ -165,8 +152,17 @@
     }
   }
 
-  /** Digita o valor dígito a dígito, sempre no fim do campo. */
-  function typeCurrency(el, digits) {
+  /** Digita no portal com teclas do navegador; fallback sintético só nos testes. */
+  async function typeCurrency(el, digits) {
+    if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+      el.focus();
+      el.setSelectionRange(0, el.value.length);
+      const result = await chrome.runtime.sendMessage({ type: "pilot-type-currency", digits });
+      if (!result?.ok) throw new Error(result?.error ?? "O navegador não conseguiu digitar o valor.");
+      el.blur();
+      return;
+    }
+
     clearCurrency(el);
     for (const char of digits) {
       caretToEnd(el);
@@ -245,7 +241,7 @@
       let read = null;
       let ok = false;
       for (let attempt = 1; attempt <= 3 && !ok; attempt += 1) {
-        typeCurrency(fields.value, digits);
+        await typeCurrency(fields.value, digits);
         await sleep(120);
         read = readTotal(item.itemOrder);
         ok = read !== null && Math.abs(read - item.totalValue) <= 0.01;

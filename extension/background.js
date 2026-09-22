@@ -85,7 +85,52 @@ async function dispatchJob() {
   }
 }
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+/** Digita apenas números no campo já focado pelo content script do portal. */
+async function typeCurrencyInPortal(digits, sender) {
+  const tabId = sender?.tab?.id;
+  const url = sender?.url ?? sender?.tab?.url ?? "";
+  if (!Number.isInteger(tabId) || !url.startsWith(`${PORTAL_ORIGIN}/`) || !/^\d{1,12}$/.test(digits)) {
+    return { ok: false, error: "Pedido de digitação inválido." };
+  }
+
+  const target = { tabId };
+  await chrome.debugger.attach(target, "1.3");
+  try {
+    async function key(key, code, virtualKeyCode, text) {
+      await chrome.debugger.sendCommand(target, "Input.dispatchKeyEvent", {
+        type: "keyDown",
+        key,
+        code,
+        windowsVirtualKeyCode: virtualKeyCode,
+        nativeVirtualKeyCode: virtualKeyCode,
+        ...(text ? { text, unmodifiedText: text } : {})
+      });
+      await chrome.debugger.sendCommand(target, "Input.dispatchKeyEvent", {
+        type: "keyUp",
+        key,
+        code,
+        windowsVirtualKeyCode: virtualKeyCode,
+        nativeVirtualKeyCode: virtualKeyCode
+      });
+    }
+
+    await key("Backspace", "Backspace", 8);
+    for (const digit of digits) {
+      await key(digit, `Digit${digit}`, digit.charCodeAt(0), digit);
+    }
+    return { ok: true };
+  } finally {
+    await chrome.debugger.detach(target);
+  }
+}
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === "pilot-type-currency") {
+    typeCurrencyInPortal(message.digits, sender)
+      .then(sendResponse)
+      .catch((error) => sendResponse({ ok: false, error: String(error?.message ?? error) }));
+    return true;
+  }
   if (message?.type === "pilot-job") {
     if (!isValidJob(message.job)) {
       sendResponse({ ok: false, error: "Proposta inválida: item sem ordem, valor ou observação." });

@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "LPA Modo Piloto — Caixa Escolar MG",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Preenche a proposta no portal Caixa Escolar MG a partir de um pré-orçamento do LPA Service. Não envia, não marca aceite e não toca em credencial.",
-  "permissions": ["storage", "tabs"],
+  "permissions": ["storage", "tabs", "debugger"],
   "host_permissions": [
     "https://caixaescolar.educacao.mg.gov.br/*"
   ],
