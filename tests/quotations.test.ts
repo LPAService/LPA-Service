@@ -13,6 +13,7 @@ import {
   UnknownCountiesError,
   type QuotationRepository
 } from "@/lib/collector/quotations";
+import rmbhCounties from "@/lib/collector/rmbh-counties.json";
 import { analyzeProposalBlock } from "@/lib/collector/proposal-block";
 import { createPostgresQuotationSource } from "@/lib/data/quotation-source";
 import type * as schema from "@/lib/db/schema";
@@ -34,19 +35,21 @@ const listing = {
 };
 
 describe("cotações abertas", () => {
-  it("usa os 10 municípios coletados na ordem comercial padrão", () => {
-    expect(defaultTier1Counties().map((county) => county.name)).toEqual([
-      "Ibirité",
-      "Contagem",
-      "Betim",
-      "Belo Horizonte",
-      "Ribeirão das Neves",
-      "Lagoa Santa",
-      "Nova Lima",
-      "Sarzedo",
-      "Brumadinho",
-      "Mário Campos"
-    ]);
+  it("cobre os 34 municípios da RMBH, prioritários primeiro", () => {
+    const nomes = defaultTier1Counties().map((county) => county.name);
+    // Os quatro prioritários abrem a fila: o cursor retoma dali se o tempo acabar.
+    expect(nomes.slice(0, 4)).toEqual(["Ibirité", "Contagem", "Betim", "Belo Horizonte"]);
+    expect(nomes).toHaveLength(34);
+    expect(new Set(nomes).size).toBe(34);
+    // Tinham 76 cotações abertas fora do site em 22/09/2026.
+    for (const cidade of ["Sabará", "Vespasiano", "Igarapé", "Esmeraldas", "Santa Luzia"]) {
+      expect(nomes).toContain(cidade);
+    }
+  });
+
+  it("a coleta diária cobre exatamente a RMBH declarada", () => {
+    const ids = (lista: Array<{ idCounty: number }>) => lista.map((c) => c.idCounty).sort((a, b) => a - b);
+    expect(ids(rmbhCounties.collected)).toEqual(ids(rmbhCounties.counties));
   });
 
   it("seleciona município por id", () => {
