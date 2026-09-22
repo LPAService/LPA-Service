@@ -244,15 +244,15 @@ export function DeadlineRing({ date }: { date: string | null | undefined }) {
 
   return (
     <div className="deadline flex items-center gap-3.5 p-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)]/70 transition-colors">
-      <div className="ring-wrap relative w-12 h-12 flex-none">
-        <svg className="ring w-full h-full -rotate-90" viewBox="0 0 56 56" aria-hidden="true">
+      <div className="deadline-ring-wrap relative w-12 h-12 flex-none">
+        <svg className="deadline-ring w-full h-full -rotate-90" viewBox="0 0 56 56" aria-hidden="true">
           <circle
             cx="28"
             cy="28"
             r="24"
             fill="none"
             strokeWidth="5"
-            className="ring-bg stroke-[var(--color-border)]"
+            className="deadline-ring-bg stroke-[var(--color-border)]"
           />
           {ringState.fraction > 0 && (
             <circle
@@ -265,14 +265,14 @@ export function DeadlineRing({ date }: { date: string | null | undefined }) {
               strokeDasharray="150.8"
               strokeDashoffset={ringState.strokeDashoffset}
               style={{ stroke: ringState.color }}
-              className={`ring-fg transition-[stroke-dashoffset] duration-700 ease-out ${
+              className={`deadline-ring-fg transition-[stroke-dashoffset] duration-700 ease-out ${
                 ringState.isUrgent ? "animate-pulse" : ""
               }`}
             />
           )}
         </svg>
         <span
-          className="ring-num absolute inset-0 grid place-items-center text-sm font-extrabold tabular-nums select-none"
+          className="deadline-ring-num absolute inset-0 grid place-items-center text-sm font-extrabold tabular-nums select-none"
           style={{ color: ringState.color }}
         >
           {ringState.ringDisplay}
