@@ -7,6 +7,10 @@ description: Use quando o humano pedir para fazer, montar, preencher ou conferir
 
 Use esta skill para preencher proposta no portal Caixa Escolar MG/SGD a partir de um pre-orcamento do LPA_Leo.
 
+Existe caminho sem Claude: a extensao `extension/` (LPA Modo Piloto) faz o mesmo trabalho sozinha quando o humano clica `Modo piloto` no pre-orcamento. Esta skill continua valendo como plano B, quando a extensao nao esta instalada ou quando o humano pede a conferencia manual.
+
+Nota medida em 22/09/2026: o campo de valor usa ngx-currency, cujos host listeners de `keypress` leem `event.which || event.charCode || event.keyCode`. Evento sintetico dispara esses listeners, entao digitar com `computer` nao e a unica saida — mas siga o passo 7 assim mesmo quando estiver operando por esta skill, porque a conferencia por `totalValue` e o que vale.
+
 Enviar proposta e lance vinculante em licitacao publica. Envio e sempre decisao do humano. O portal separa `update-proposal` de `send-proposal`; esta skill faz somente preenchimento/salvamento de dados de proposta, nunca envio.
 
 Nunca use `alert`, `confirm` ou `prompt` na pagina. Essas chamadas travam a extensao Claude in Chrome.

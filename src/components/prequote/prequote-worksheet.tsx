@@ -14,6 +14,7 @@ import { generatePrequoteDescription } from "@/lib/prequote/generate-description
 import { generatePrequoteWarranty } from "@/lib/prequote/generate-warranty";
 import { ProposalActionButton } from "@/components/proposal-action-button";
 import { buildBestPriceSearchQuery } from "@/lib/search/best-price-query";
+import { pingPilotExtension, sendPilotJob } from "@/lib/prequote/pilot-bridge";
 
 export type WorksheetRow = {
   itemOrder: number;
@@ -120,12 +121,24 @@ export function PrequoteWorksheet({
   const [copiedDeliveryDate, setCopiedDeliveryDate] = useState(false);
   const copyFeedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pilotLoading, setPilotLoading] = useState(false);
-  const [pilotCopied, setPilotCopied] = useState(false);
+  const [pilotMode, setPilotMode] = useState<"extension" | "clipboard" | null>(null);
   const [pilotBlockers, setPilotBlockers] = useState<string[] | null>(null);
   const [pilotError, setPilotError] = useState<string | null>(null);
+  const [pilotExtension, setPilotExtension] = useState(false);
 
   useEffect(() => () => {
     if (copyFeedbackTimer.current) clearTimeout(copyFeedbackTimer.current);
+  }, []);
+
+  // A extensão marca o <html> ao carregar; o ping confirma que ela responde.
+  useEffect(() => {
+    let alive = true;
+    pingPilotExtension().then((version) => {
+      if (alive) setPilotExtension(Boolean(version));
+    });
+    return () => {
+      alive = false;
+    };
   }, []);
 
   function generatedDescription(row: WorksheetRow) {
@@ -372,12 +385,22 @@ export function PrequoteWorksheet({
     return copyValue(value, () => setCopiedDeliveryDate(true), "Não foi possível copiar o prazo de entrega.");
   }
 
+  /**
+   * Modo piloto: manda a proposta pronta para a extensão preencher no portal.
+   *
+   * Com a extensão instalada não sobra passo manual — ela acha/abre a aba do
+   * portal, navega até o orçamento e preenche item a item, parando antes da data
+   * de entrega, do Declaro e do Enviar Cotação.
+   *
+   * Sem extensão, cai no plano B de sempre: copia `/lance-portal <id>` para o
+   * Claude in Chrome fazer o mesmo trabalho.
+   */
   async function handlePilotMode() {
     if (pilotLoading) return;
     setPilotLoading(true);
     setPilotError(null);
     setPilotBlockers(null);
-    setPilotCopied(false);
+    setPilotMode(null);
 
     if (!preQuoteId) {
       setPilotError("Salve o pré-orçamento antes de acionar o modo piloto.");
@@ -387,55 +410,46 @@ export function PrequoteWorksheet({
 
     try {
       const response = await fetch(`/api/prequotes/${preQuoteId}/proposta`);
+
       if (response.status === 409) {
         const data = await response.json();
         const blockers = Array.isArray(data.blockers)
           ? data.blockers
           : [data.error ?? "Pré-orçamento não está pronto para proposta."];
         setPilotBlockers(blockers);
-      } else if (response.ok) {
-        const data = await response.json();
-        const command = `/lance-portal ${preQuoteId}`;
-        let copied = false;
-        try {
-          if (navigator.clipboard?.writeText) {
-            await navigator.clipboard.writeText(command);
-            copied = true;
-          }
-        } catch {
-          // fallback abaixo se permissões falharem
-        }
+        return;
+      }
 
-        if (!copied) {
-          try {
-            const helper = document.createElement("textarea");
-            helper.value = command;
-            helper.setAttribute("readonly", "");
-            helper.style.position = "fixed";
-            helper.style.left = "-9999px";
-            helper.style.top = "0";
-            document.body.appendChild(helper);
-            helper.select();
-            copied = document.execCommand("copy");
-            helper.remove();
-          } catch {
-            copied = false;
-          }
-        }
-
-        if (copied) {
-          setPilotCopied(true);
-        } else {
-          setPilotError("Não foi possível copiar o comando para a área de transferência.");
-        }
-
-        const portalUrl = data?.portal?.proposalUrl;
-        if (typeof portalUrl === "string" && portalUrl.trim() && typeof window !== "undefined") {
-          window.open(portalUrl, "_blank", "noopener");
-        }
-      } else {
+      if (!response.ok) {
         const data = await response.json().catch(() => null);
         setPilotError(data?.error ?? "Erro ao consultar proposta.");
+        return;
+      }
+
+      const data = await response.json();
+
+      const extensionVersion = await pingPilotExtension();
+      setPilotExtension(Boolean(extensionVersion));
+
+      if (extensionVersion) {
+        const dispatch = await sendPilotJob({ proposta: data.proposta, portal: data.portal });
+        if (dispatch.ok) {
+          setPilotMode("extension");
+        } else {
+          setPilotError(dispatch.error ?? "A extensão não conseguiu iniciar o piloto.");
+        }
+        return;
+      }
+
+      if (await copyToClipboard(`/lance-portal ${preQuoteId}`)) {
+        setPilotMode("clipboard");
+      } else {
+        setPilotError("Não foi possível copiar o comando para a área de transferência.");
+      }
+
+      const portalUrl = data?.portal?.proposalUrl;
+      if (typeof portalUrl === "string" && portalUrl.trim() && typeof window !== "undefined") {
+        window.open(portalUrl, "_blank", "noopener");
       }
     } catch {
       setPilotError("Erro de conexão ao verificar proposta.");
@@ -1245,10 +1259,30 @@ export function PrequoteWorksheet({
               onClick={handlePilotMode}
               type="button"
             >
-              {pilotLoading ? "Verificando proposta…" : "Modo piloto (Claude in Chrome)"}
+              {pilotLoading
+                ? "Verificando proposta…"
+                : pilotExtension
+                  ? "Modo piloto — preencher no portal"
+                  : "Modo piloto (Claude in Chrome)"}
             </button>
-            {pilotCopied && (
+            {pilotMode === "extension" && (
               <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-3 text-xs space-y-2" role="status">
+                <p className="font-bold text-[var(--color-fg)]">Piloto rodando na aba do portal.</p>
+                <p className="text-[var(--color-fg-muted)] leading-relaxed">
+                  Acompanhe o painel no canto da tela do portal: ele navega até o orçamento, preenche valor,
+                  observações e garantia e confere total por total.
+                </p>
+                <p className="badge-warning rounded-lg p-2.5 font-semibold">
+                  Você põe a data de entrega, marca o Declaro e clica Enviar Cotação.
+                </p>
+              </div>
+            )}
+            {pilotMode === "clipboard" && (
+              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-3 text-xs space-y-2" role="status">
+                <p className="text-[var(--color-fg-muted)] leading-relaxed">
+                  Extensão do Modo piloto não encontrada — usando o Claude in Chrome. Para preencher sem copiar e
+                  colar, instale a extensão em <code>extension/</code>.
+                </p>
                 <ol className="space-y-1.5 leading-relaxed">
                   <li className="flex items-start gap-1.5 text-[var(--color-fg)]">
                     <span className="font-bold text-[var(--color-fg-muted)] shrink-0">1.</span>
@@ -1290,6 +1324,34 @@ export function PrequoteWorksheet({
       </aside>
     </div>
   );
+}
+
+/** Clipboard API com fallback para navegador que nega permissão. */
+async function copyToClipboard(text: string) {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // segue para o fallback
+  }
+
+  try {
+    const helper = document.createElement("textarea");
+    helper.value = text;
+    helper.setAttribute("readonly", "");
+    helper.style.position = "fixed";
+    helper.style.left = "-9999px";
+    helper.style.top = "0";
+    document.body.appendChild(helper);
+    helper.select();
+    const copied = document.execCommand("copy");
+    helper.remove();
+    return copied;
+  } catch {
+    return false;
+  }
 }
 
 function parseNonNegative(value: string) {
