@@ -15,6 +15,9 @@ const state = {
   created: [] as string[],
   reloaded: [] as number[],
   sent: [] as Array<{ tabId: number; message: unknown }>,
+  debuggerCommands: [] as Array<{ method: string; params: Record<string, unknown> }>,
+  debuggerAttached: [] as number[],
+  debuggerDetached: [] as number[],
   sendFails: false
 };
 
@@ -43,15 +46,22 @@ const state = {
       state.sent.push({ tabId, message });
     }
   },
-  windows: { update: async () => undefined }
+  windows: { update: async () => undefined },
+  debugger: {
+    attach: async ({ tabId }: { tabId: number }) => { state.debuggerAttached.push(tabId); },
+    sendCommand: async (_target: unknown, method: string, params: Record<string, unknown>) => {
+      state.debuggerCommands.push({ method, params });
+    },
+    detach: async ({ tabId }: { tabId: number }) => { state.debuggerDetached.push(tabId); }
+  }
 };
 
 await import("../extension/background.js");
 
-const send = (message: unknown) =>
+const send = (message: unknown, sender: unknown = null) =>
   new Promise<Record<string, unknown>>((resolve) => {
     for (const listener of listeners) {
-      const handled = listener(message, null, (response) => resolve(response as Record<string, unknown>));
+      const handled = listener(message, sender, (response) => resolve(response as Record<string, unknown>));
       if (handled) return;
     }
     resolve({});
@@ -81,6 +91,9 @@ describe("service worker do modo piloto", () => {
     state.created = [];
     state.reloaded = [];
     state.sent = [];
+    state.debuggerCommands = [];
+    state.debuggerAttached = [];
+    state.debuggerDetached = [];
     state.sendFails = false;
   });
 
@@ -158,5 +171,25 @@ describe("service worker do modo piloto", () => {
     await send({ type: "pilot-job", job: validJob() });
     expect(await send({ type: "pilot-done" })).toMatchObject({ ok: true });
     expect(state.store.pilotJob).toBeUndefined();
+  });
+
+  it("digita teclas reais apenas na aba oficial do portal", async () => {
+    const sender = { tab: { id: 7, url: "https://caixaescolar.educacao.mg.gov.br/compras/orcamentos" } };
+    expect(await send({ type: "pilot-type-currency", digits: "690" }, sender)).toEqual({ ok: true });
+    expect(state.debuggerAttached).toEqual([7]);
+    expect(state.debuggerDetached).toEqual([7]);
+    expect(state.debuggerCommands.map(({ method, params }) => [method, params.type, params.key])).toEqual([
+      ["Input.dispatchKeyEvent", "keyDown", "Backspace"],
+      ["Input.dispatchKeyEvent", "keyUp", "Backspace"],
+      ["Input.dispatchKeyEvent", "keyDown", "6"],
+      ["Input.dispatchKeyEvent", "keyUp", "6"],
+      ["Input.dispatchKeyEvent", "keyDown", "9"],
+      ["Input.dispatchKeyEvent", "keyUp", "9"],
+      ["Input.dispatchKeyEvent", "keyDown", "0"],
+      ["Input.dispatchKeyEvent", "keyUp", "0"]
+    ]);
+    expect(await send({ type: "pilot-type-currency", digits: "690" }, { tab: { id: 8, url: "https://example.com/" } })).toMatchObject({ ok: false });
+    expect(await send({ type: "pilot-type-currency", digits: "690\n" }, sender)).toMatchObject({ ok: false });
+    expect(state.debuggerAttached).toEqual([7]);
   });
 });

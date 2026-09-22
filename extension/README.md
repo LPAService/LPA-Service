@@ -32,13 +32,13 @@ E confere `totalValue_<n>` item a item antes de dizer que terminou.
 
 Envio de lance em licitação pública é decisão do humano. O piloto para na tela preenchida e mostra: *"Falta você preencher a data de entrega, marcar o Declaro e clicar Enviar Cotação."*
 
-## Por que dá para digitar sem teclado de verdade
+## Digitação do valor
 
-O campo de valor usa a máscara de moeda do portal (ngx-currency, confirmado em `research/portal/chunk-CWW7GISC.js`). A diretiva registra host listeners de `keydown`/`keypress`/`keyup`/`paste`, e `handleKeypress` lê `event.which || event.charCode || event.keyCode` antes de chamar `addNumber()` + `onModelChange()`.
+O portal real ignorou `KeyboardEvent` sintético: em 22/09/2026 os campos mostraram `R$ 0,00` após três tentativas. Teclas reais atualizaram o total imediatamente. A extensão usa a permissão `debugger` para enviar somente Backspace e dígitos à aba oficial do portal, soltando o depurador após cada campo.
 
-Host listener do Angular é `addEventListener` comum: dispara também com evento sintético (`isTrusted: false`). Então `KeyboardEvent('keypress')` com o charCode certo alimenta o modelo — coisa que `input.value = "6,90"` **não** faz (medido em 15/09/2026: a tela mostrava 6,90 e `totalValue` continuava `R$ 0,00`).
+O piloto só aceita o item quando `totalValue_<n>` confere com o pré-orçamento. Se o Chrome recusar a depuração, ele para e mostra o erro no painel.
 
-`tests/pilot-portal-fill.test.ts` roda o motor contra um porte fiel dessa máscara, extraído do bundle do portal.
+`tests/pilot-background.test.ts` verifica o escopo da aba e a sequência de teclas. `tests/pilot-portal-fill.test.ts` exercita o cálculo e a conferência com um porte da máscara.
 
 ## Arquivos
 
