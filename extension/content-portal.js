@@ -133,6 +133,21 @@
     return Boolean(await F.waitFor(() => onOrcamentosScreen() && findOrderInput(), { timeout: 20000 }));
   }
 
+  /** Remove o filtro de status clicando no cartão "Todas" do portal. */
+  async function clearStatusFilter() {
+    if (!new URL(location.href).searchParams.get("status")) return true;
+
+    const label = Array.from(document.querySelectorAll("span, div, p, strong, label"))
+      .filter((element) => F.isVisible(element) && F.norm(element.textContent) === "todas")
+      .sort((a, b) => a.children.length - b.children.length)[0];
+    if (!label) return false;
+
+    F.clickElement(label);
+    return Boolean(
+      await F.waitFor(() => !new URL(location.href).searchParams.get("status"), { timeout: 8000, interval: 100 })
+    );
+  }
+
   async function searchOrder(orderId) {
     const findRow = () =>
       Array.from(document.querySelectorAll("tr, .p-datatable-row, [role='row']")).find(
@@ -143,6 +158,10 @@
     // disparar outra consulta lenta enquanto a linha correta está disponível.
     const visibleRow = findRow();
     if (visibleRow) return visibleRow;
+
+    if (!(await clearStatusFilter())) {
+      throw new Error('O portal está filtrado por status. Clique em "Todas" e execute o Modo piloto novamente.');
+    }
 
     const input = findOrderInput();
     if (!input) return false;
@@ -407,6 +426,7 @@
     onOrcamentosScreen,
     findOrderInput,
     goToOrcamentos,
+    clearStatusFilter,
     searchOrder,
     openProposalForm,
     formMatchesOrder,
