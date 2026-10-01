@@ -77,6 +77,37 @@ describe("WorksheetPage", () => {
     expect(catalogSource.getLatestPreQuoteForQuotation).toHaveBeenCalledWith("quote-open-soon");
   });
 
+  it.each([true, false])("exclui fornecedores inativos das sugestões e seleção (ativo presente: %s)", async (includeActive) => {
+    vi.mocked(quotationSource.getOpportunity).mockResolvedValue(makeQuotation());
+    const item = {
+      id: 1,
+      supplierId: 1,
+      supplierName: "Fornecedor inativo",
+      supplierActive: false,
+      name: "Caderno universitário",
+      normalizedName: "caderno universitario",
+      unit: "UN",
+      unitPrice: 1,
+      notes: null,
+      lastPriceAt: null
+    };
+    vi.mocked(catalogSource.listAllCatalogItems).mockResolvedValueOnce([
+      item,
+      ...(includeActive ? [{ ...item, id: 2, supplierId: 2, supplierName: "Fornecedor ativo", supplierActive: true, unitPrice: 5 }] : [])
+    ]);
+
+    render(await WorksheetPage({ params: Promise.resolve({ externalId: "quote-open-soon" }) }));
+
+    expect(container!.textContent).not.toContain("Fornecedor inativo");
+    expect(container!.querySelector('option[value="1"]')).toBeNull();
+    expect(Array.from(container!.querySelectorAll("optgroup")).map((group) => group.label))
+      .toEqual(includeActive ? ["Fornecedor ativo"] : []);
+    const suggestions = Array.from(container!.querySelectorAll("button"))
+      .filter((button) => button.textContent?.includes("Fornecedor"));
+    expect(suggestions).toHaveLength(includeActive ? 1 : 0);
+    if (includeActive) expect(suggestions[0].textContent).toContain("Fornecedor ativo");
+  });
+
   it("desabilita Fazer lance no portal nos dois pontos quando proposta está bloqueada", async () => {
     vi.mocked(quotationSource.getOpportunity).mockResolvedValue(
       makeQuotation({
