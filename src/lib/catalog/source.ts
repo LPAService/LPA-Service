@@ -68,6 +68,7 @@ export type PreQuoteLine = {
   webSearchedAt: string | null;
   notes: string | null;
   warranty: string | null;
+  chosenBrand: string | null;
 };
 
 export type PreQuote = {
@@ -85,6 +86,19 @@ export type PreQuote = {
   createdAt: string | null;
   updatedAt: string | null;
   items: PreQuoteLine[];
+};
+
+export type PreQuotePage = {
+  page?: number;
+  pageSize?: number;
+};
+
+export type PreQuoteListResult = {
+  data: PreQuote[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 };
 
 export type PreQuoteLineInput = {
@@ -184,6 +198,7 @@ type PreQuoteItemRow = {
   web_searched_at: Date | string | null;
   notes: string | null;
   warranty: string | null;
+  chosen_brand: string | null;
 };
 
 export class CatalogValidationError extends Error {
@@ -194,6 +209,74 @@ export class CatalogValidationError extends Error {
 }
 
 export function createCatalogSource(database: CatalogDatabase) {
+  async function listPreQuotes(pagination: PreQuotePage): Promise<PreQuoteListResult>;
+  async function listPreQuotes(): Promise<PreQuote[]>;
+  async function listPreQuotes(pagination?: PreQuotePage): Promise<PreQuote[] | PreQuoteListResult> {
+    const isPaginated = pagination !== undefined;
+    const pageNum = Math.max(1, pagination?.page ?? 1);
+    const pageSize = Math.max(1, pagination?.pageSize ?? 24);
+    const offset = (pageNum - 1) * pageSize;
+
+    let total = 0;
+    let headerResult;
+
+    if (isPaginated) {
+      const countResult = await database.execute<{ count: string | number }>(sql`
+        select count(*)::integer as count from ${preQuotes}
+      `);
+      total = Number(countResult.rows[0]?.count ?? 0);
+      headerResult = await database.execute<PreQuoteRow>(sql`
+        select * from ${preQuotes}
+        order by ${preQuotes.updatedAt} desc, ${preQuotes.id} desc
+        limit ${pageSize} offset ${offset}
+      `);
+    } else {
+      headerResult = await database.execute<PreQuoteRow>(sql`
+        select * from ${preQuotes}
+        order by ${preQuotes.updatedAt} desc, ${preQuotes.id} desc
+      `);
+      total = headerResult.rows.length;
+    }
+
+    if (headerResult.rows.length === 0) {
+      if (isPaginated) {
+        return {
+          data: [],
+          total,
+          page: pageNum,
+          pageSize,
+          totalPages: Math.max(1, Math.ceil(total / pageSize))
+        };
+      }
+      return [];
+    }
+
+    const ids = headerResult.rows.map((row) => row.id);
+    const itemsResult = await database.execute<PreQuoteItemRow>(sql`
+      select * from ${preQuoteItems}
+      where ${preQuoteItems.preQuoteId} in (${sql.join(ids.map((id) => sql`${id}`), sql`, `)})
+      order by ${preQuoteItems.itemOrder} asc
+    `);
+    const itemsByQuote = new Map<number, PreQuoteItemRow[]>();
+    for (const item of itemsResult.rows) {
+      const list = itemsByQuote.get(item.pre_quote_id) ?? [];
+      list.push(item);
+      itemsByQuote.set(item.pre_quote_id, list);
+    }
+    const data = headerResult.rows.map((row) => toPreQuote(row, itemsByQuote.get(row.id) ?? []));
+
+    if (isPaginated) {
+      return {
+        data,
+        total,
+        page: pageNum,
+        pageSize,
+        totalPages: Math.max(1, Math.ceil(total / pageSize))
+      };
+    }
+    return data;
+  }
+
   const source = {
     async listSuppliers(): Promise<CatalogSupplier[]> {
       const result = await database.execute<SupplierRow>(sql`
@@ -411,25 +494,7 @@ export function createCatalogSource(database: CatalogDatabase) {
       return row ? source.getPreQuote(row.id) : null;
     },
 
-    async listPreQuotes(): Promise<PreQuote[]> {
-      const headerResult = await database.execute<PreQuoteRow>(sql`
-        select * from ${preQuotes} order by ${preQuotes.updatedAt} desc, ${preQuotes.id} desc limit 200
-      `);
-      if (headerResult.rows.length === 0) return [];
-      const ids = headerResult.rows.map((row) => row.id);
-      const itemsResult = await database.execute<PreQuoteItemRow>(sql`
-        select * from ${preQuoteItems}
-        where ${preQuoteItems.preQuoteId} in (${sql.join(ids.map((id) => sql`${id}`), sql`, `)})
-        order by ${preQuoteItems.itemOrder} asc
-      `);
-      const itemsByQuote = new Map<number, PreQuoteItemRow[]>();
-      for (const item of itemsResult.rows) {
-        const list = itemsByQuote.get(item.pre_quote_id) ?? [];
-        list.push(item);
-        itemsByQuote.set(item.pre_quote_id, list);
-      }
-      return headerResult.rows.map((row) => toPreQuote(row, itemsByQuote.get(row.id) ?? []));
-    },
+    listPreQuotes,
 
     async deletePreQuote(id: number) {
       const result = await database
@@ -611,7 +676,8 @@ function toPreQuote(row: PreQuoteRow, items: PreQuoteItemRow[]): PreQuote {
       webUrl: item.web_url,
       webSearchedAt: toIso(item.web_searched_at),
       notes: item.notes,
-      warranty: item.warranty
+      warranty: item.warranty,
+      chosenBrand: item.chosen_brand
     }))
   };
 }

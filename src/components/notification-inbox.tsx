@@ -34,16 +34,25 @@ const dateFormat = new Intl.DateTimeFormat("pt-BR", {
 export function NotificationInbox({ initial, unread }: NotificationInboxProps) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function markRead(id?: number) {
     setBusy(true);
+    setError(null);
     try {
-      await fetch("/api/notifications/read", {
+      const response = await fetch("/api/notifications/read", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(id === undefined ? {} : { id })
       });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        setError(data?.error ?? "Não foi possível marcar as notificações como lidas.");
+        return;
+      }
       router.refresh();
+    } catch {
+      setError("Falha de rede ao marcar as notificações como lidas.");
     } finally {
       setBusy(false);
     }
@@ -61,6 +70,12 @@ export function NotificationInbox({ initial, unread }: NotificationInboxProps) {
           </button>
         )}
       </div>
+
+      {error && (
+        <p role="alert" className="mb-5 rounded-lg border border-[var(--color-danger)] bg-[var(--color-bg-subtle)] p-3 text-sm font-semibold text-[var(--color-danger)]">
+          {error}
+        </p>
+      )}
 
       {initial.length === 0 ? (
         <div className="glass-panel p-8 text-center">

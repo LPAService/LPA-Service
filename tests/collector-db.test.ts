@@ -176,6 +176,40 @@ describe("DrizzleCollectorRepository em Postgres real", () => {
     });
   });
 
+  it("preserva itens com ordem repetida na fonte e mantém a recoleta idempotente", async () => {
+    const client = new DatabaseFakeClient();
+    const repository = new DrizzleCollectorRepository(database);
+    const repeatedItems = [
+      { ...sourceItems[0]!, nuItemOrder: 1, nuQuantity: 1, nuValueByItem: 5990 },
+      { ...sourceItems[0]!, nuItemOrder: 1, nuQuantity: 1, nuValueByItem: 4100 },
+      { ...sourceItems[1]!, nuItemOrder: 2, nuQuantity: 1, nuValueByItem: 10 }
+    ];
+    client.items[buildExternalId(listing)] = repeatedItems;
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const result = await collectOpportunities(client, repository, {
+        mode: "full",
+        refreshSchools: false
+      });
+      expect(result).toMatchObject({
+        found: 1, newCount: attempt === 0 ? 1 : 0,
+        updatedCount: attempt === 0 ? 0 : 1, errorCount: 0
+      });
+
+      const saved = await database.select().from(schema.items).orderBy(schema.items.itemOrder);
+      expect(saved.map((item) => [item.itemOrder, Number(item.unitValue)])).toEqual([
+        [1, 5990], [2, 10], [3, 4100]
+      ]);
+      expect(saved.map((item) => item.rawJson)).toEqual([
+        repeatedItems[0], repeatedItems[2], repeatedItems[1]
+      ]);
+      const [opportunity] = await database.select().from(schema.opportunities);
+      expect(opportunity.itemCount).toBe(3);
+      expect(Number(opportunity.totalValue)).toBe(10100);
+      expect(opportunity.rawJson).toMatchObject({ items: repeatedItems });
+    }
+  });
+
   it("falha de insert de filhos faz rollback real de parent e filhos", async () => {
     const client = new DatabaseFakeClient();
     const repository = new DrizzleCollectorRepository(database);

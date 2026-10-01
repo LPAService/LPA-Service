@@ -101,7 +101,7 @@ describe("preorcamento brand options", () => {
     expect(mocks.worksheetProps[0].initialRows[0]).toMatchObject({
       itemOrder: 1,
       brandOptions: ["Nacional", "Selecta", "Agrofrut"],
-      chosenBrand: null
+      chosenBrand: "Selecta"
     });
   });
 
@@ -183,7 +183,8 @@ function makePreQuote() {
         webPrice: null,
         webUrl: null,
         notes: null,
-        warranty: null
+        warranty: null,
+        chosenBrand: "Selecta"
       }
     ]
   } as never;

@@ -14,6 +14,7 @@ import "../extension/portal-fill.js";
 type PortalApi = {
   findOrderInput(): HTMLInputElement | null;
   formMatchesOrder(orderId: string, schoolName?: string | null): boolean;
+  clearStatusFilter(): Promise<boolean>;
   openProposalForm(row: Element): Promise<string>;
 };
 
@@ -85,6 +86,26 @@ describe("navegação do piloto no portal", () => {
     document.body.innerHTML = FILTRO_REAL.replace('id="budget-order" ', "");
     makeVisible();
     expect(portal.findOrderInput()?.getAttribute("placeholder")).toBe("Digite o ID do orçamento");
+  });
+
+  it("limpa o status selecionado clicando em Todas antes de pesquisar", async () => {
+    window.history.replaceState({}, "", "/compras/orcamentos?status=ENVI&page=1&limit=10");
+    document.body.innerHTML = `<div id="all-status"><span>Todas</span><b>20077</b></div>`;
+    makeVisible();
+    document.getElementById("all-status")!.addEventListener("click", () => {
+      window.history.replaceState({}, "", "/compras/orcamentos?page=1&limit=10");
+    });
+
+    expect(await portal.clearStatusFilter()).toBe(true);
+    expect(new URL(location.href).searchParams.has("status")).toBe(false);
+  });
+
+  it("para com erro claro se o filtro está ativo e não acha o cartão Todas", async () => {
+    window.history.replaceState({}, "", "/compras/orcamentos?status=ENVI&page=1");
+    document.body.innerHTML = "";
+    makeVisible();
+
+    expect(await portal.clearStatusFilter()).toBe(false);
   });
 
   it("aceita a ficha pela escola quando o modal não traz o número do orçamento", () => {

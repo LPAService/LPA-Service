@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { CatalogValidationError } from "@/lib/catalog/source";
 import { catalogSource } from "@/lib/data/catalog";
+import { persistChosenBrands } from "./[id]/chosen-brand";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const id = await catalogSource.createPreQuote(body ?? { quotationExternalId: "" });
+    await persistChosenBrands(id, body?.items);
     const preQuote = await catalogSource.getPreQuote(id);
     return NextResponse.json({ preQuote }, { status: 201 });
   } catch (error) {
