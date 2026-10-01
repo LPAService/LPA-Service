@@ -1,6 +1,5 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
-import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";

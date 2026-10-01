@@ -5,7 +5,6 @@ import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import RelatoriosPage, {
   CategoryAuditSection,
-  CATEGORY_AUDIT_DATA,
   type CategoryAuditData
 } from "@/app/relatorios/page";
 
