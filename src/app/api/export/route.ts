@@ -5,8 +5,9 @@ import {
   OPPORTUNITY_CSV_HEADER,
   opportunityCsvRow
 } from "@/lib/export/csv";
-import { opportunitySource } from "@/lib/data/source";
+import { opportunitySource, quotationSource } from "@/lib/data/source";
 import { csvDownloadHeaders, filtersFromSearchParams } from "@/lib/export/http";
+import { getCurrentUserId } from "@/lib/session";
 
 export const runtime = "nodejs";
 
@@ -19,9 +20,13 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const filters = filtersFromSearchParams(request.nextUrl.searchParams);
+  const currentUserId = await getCurrentUserId();
+  const filters = filtersFromSearchParams(request.nextUrl.searchParams, currentUserId);
+  const source = request.nextUrl.searchParams.get("view")?.trim() === "history"
+    ? opportunitySource
+    : quotationSource;
   const encoder = new TextEncoder();
-  const rows = exportOpportunities(opportunitySource, filters);
+  const rows = exportOpportunities(source, filters);
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       controller.enqueue(encoder.encode(`\uFEFF${csvRow(OPPORTUNITY_CSV_HEADER)}`));

@@ -5,6 +5,7 @@ import { NotificationBell } from "@/components/notification-bell";
 import { opportunitySource, quotationSource, sanitizePageParam } from "@/lib/data/source";
 import type { OpportunityFilters } from "@/lib/data/source";
 import { getCurrentUserId } from "@/lib/session";
+import { quotationSituation } from "@/lib/export/http";
 import { watchStore } from "@/lib/watch";
 import rmbhCounties from "@/lib/collector/rmbh-counties.json";
 import { db } from "@/lib/db";
@@ -35,7 +36,7 @@ export default async function Home({ searchParams }: PageProps) {
   const result = await source.listOpportunities(filters, { page, pageSize: PAGE_SIZE });
   const freshness = describeFreshness(await loadCollectionFreshness(db));
   const watchedIds = view === "history" || !currentUserId ? null : new Set(await watchStore.listWatchedExternalIds(currentUserId));
-  const exportParams = new URLSearchParams();
+  const exportParams = new URLSearchParams({ view });
   for (const [key, value] of Object.entries(filters)) {
     if (typeof value !== "string" || !value) continue;
     exportParams.set(key, value);
@@ -129,7 +130,6 @@ export default async function Home({ searchParams }: PageProps) {
   </main>;
 }
 const str = (value: string | string[] | undefined) => typeof value === "string" ? value : undefined;
-function quotationSituation(value: string | undefined) { return value === "closed" || value === "all" || value === "watched" ? value : "open"; }
 function situationLabel(value: OpportunityFilters["situation"]) { return value === "closed" ? "encerradas" : value === "all" ? "todas" : value === "watched" ? "acompanhadas" : "abertas"; }
 function quotationCountLabel(value: OpportunityFilters["situation"]) { return value === "closed" ? "cotações encerradas" : value === "all" ? "cotações" : value === "watched" ? "cotações acompanhadas" : "cotações abertas"; }
 function filterLabel(key: string, value: string | string[] | undefined) { if (key === "situation") return value === "closed" ? "Encerradas" : value === "all" ? "Todas" : value === "watched" ? "Acompanhadas" : "Abertas"; return value; }
