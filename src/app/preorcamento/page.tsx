@@ -4,7 +4,7 @@ import { PrequoteDeleteButton } from "@/components/prequote/prequote-delete-butt
 import { ThemeToggle } from "@/components/theme-toggle";
 import { NotificationBell } from "@/components/notification-bell";
 import { catalogSource } from "@/lib/data/catalog";
-import { quotationSource } from "@/lib/data/source";
+import { quotationSource, sanitizePageParam } from "@/lib/data/source";
 import { calcPreQuoteTotals, formatBRL } from "@/lib/prequote/calc";
 
 export const metadata = {
@@ -14,12 +14,37 @@ export const metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default async function PreOrcamentoPage() {
-  const [openResult, preQuotes] = await Promise.all([
-    quotationSource.listOpportunities({ situation: "open" }, { page: 1, pageSize: 48 }),
-    catalogSource.listPreQuotes()
+type PageProps = { searchParams?: Promise<Record<string, string | string[] | undefined>> };
+const OPEN_PAGE_SIZE = 48;
+const SAVED_PAGE_SIZE = 24;
+
+export default async function PreOrcamentoPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const currentParams = new URLSearchParams();
+  const cleanParams: Record<string, string | string[] | undefined> = {};
+  for (const [key, value] of Object.entries(params ?? {})) {
+    const cleanKey = key.trim();
+    if (!cleanKey) continue;
+    if (Array.isArray(value)) {
+      cleanParams[cleanKey] = value;
+      continue;
+    }
+    const cleanValue = value?.trim();
+    if (cleanValue) {
+      cleanParams[cleanKey] = cleanValue;
+      currentParams.set(cleanKey, cleanValue);
+    }
+  }
+
+  const page = sanitizePageParam(cleanParams.page);
+  const savedPage = sanitizePageParam(cleanParams.savedPage);
+
+  const [openResult, preQuotesResult] = await Promise.all([
+    quotationSource.listOpportunities({ situation: "open" }, { page, pageSize: OPEN_PAGE_SIZE }),
+    catalogSource.listPreQuotes({ page: savedPage, pageSize: SAVED_PAGE_SIZE })
   ]);
   const openQuotations = openResult.data.filter((quotation) => quotation.items.length > 0);
+  const preQuotes = preQuotesResult.data;
 
   return (
     <main className="min-h-screen bg-[var(--color-bg)] text-[var(--color-fg)]">
@@ -46,11 +71,11 @@ export default async function PreOrcamentoPage() {
             </div>
             <div className="grid grid-cols-2 divide-x divide-[var(--color-border)] self-end border-y border-[var(--color-border)]">
               <div className="px-4 py-2">
-                <p className="text-2xl font-bold tabular-nums text-[var(--color-fg)]">{openQuotations.length}</p>
+                <p className="text-2xl font-bold tabular-nums text-[var(--color-fg)]">{openResult.total}</p>
                 <p className="eyebrow mt-1">cotações abertas</p>
               </div>
               <div className="px-4 py-2">
-                <p className="text-2xl font-bold tabular-nums text-[var(--color-fg)]">{preQuotes.length}</p>
+                <p className="text-2xl font-bold tabular-nums text-[var(--color-fg)]">{preQuotesResult.total}</p>
                 <p className="eyebrow mt-1">pré-orçamentos</p>
               </div>
             </div>
@@ -60,7 +85,14 @@ export default async function PreOrcamentoPage() {
 
       <div className="shell space-y-10 py-8">
         <section>
-          <h2 className="text-xl font-bold text-[var(--color-fg)]">Pré-orçamentos salvos</h2>
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <h2 className="text-xl font-bold text-[var(--color-fg)]">Pré-orçamentos salvos</h2>
+            {preQuotesResult.totalPages > 1 && (
+              <p className="text-sm text-[var(--color-fg-muted)]">
+                Página {preQuotesResult.page} de {preQuotesResult.totalPages}
+              </p>
+            )}
+          </div>
           {preQuotes.length === 0 ? (
             <p className="mt-3 text-sm text-[var(--color-fg-muted)]">
               Nenhum pré-orçamento ainda. Escolha uma cotação aberta abaixo para começar.
@@ -100,10 +132,24 @@ export default async function PreOrcamentoPage() {
               })}
             </ul>
           )}
+          <Pagination
+            basePath="/preorcamento"
+            currentParams={currentParams}
+            page={preQuotesResult.page}
+            paramName="savedPage"
+            totalPages={preQuotesResult.totalPages}
+          />
         </section>
 
         <section>
-          <h2 className="text-xl font-bold text-[var(--color-fg)]">Cotações abertas para pré-orçar</h2>
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <h2 className="text-xl font-bold text-[var(--color-fg)]">Cotações abertas para pré-orçar</h2>
+            {openResult.totalPages > 1 && (
+              <p className="text-sm text-[var(--color-fg-muted)]">
+                Página {openResult.page} de {openResult.totalPages}
+              </p>
+            )}
+          </div>
           {openQuotations.length === 0 ? (
             <p className="mt-3 text-sm text-[var(--color-fg-muted)]">
               Nenhuma cotação aberta com itens publicados no momento.
@@ -149,8 +195,48 @@ export default async function PreOrcamentoPage() {
               </table>
             </div>
           )}
+          <Pagination
+            basePath="/preorcamento"
+            currentParams={currentParams}
+            page={openResult.page}
+            paramName="page"
+            totalPages={openResult.totalPages}
+          />
         </section>
       </div>
     </main>
+  );
+}
+
+function Pagination({
+  currentParams,
+  page,
+  totalPages,
+  paramName = "page",
+  basePath = "/preorcamento"
+}: {
+  currentParams: URLSearchParams;
+  page: number;
+  totalPages: number;
+  paramName?: string;
+  basePath?: string;
+}) {
+  if (totalPages <= 1) return null;
+  const prev = new URLSearchParams(currentParams);
+  prev.set(paramName, `${Math.max(1, page - 1)}`);
+  const next = new URLSearchParams(currentParams);
+  next.set(paramName, `${Math.min(totalPages, page + 1)}`);
+  return (
+    <nav className="mt-10 flex items-center justify-between border-t border-[var(--color-border)] pt-5">
+      <a aria-disabled={page <= 1} className="action-secondary" href={`${basePath}?${prev.toString()}`}>
+        ← Anterior
+      </a>
+      <p className="text-sm font-medium text-[var(--color-fg-muted)]">
+        {page} / {totalPages}
+      </p>
+      <a aria-disabled={page >= totalPages} className="action-secondary" href={`${basePath}?${next.toString()}`}>
+        Próxima →
+      </a>
+    </nav>
   );
 }
