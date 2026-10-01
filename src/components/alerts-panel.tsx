@@ -56,17 +56,37 @@ export function AlertsPanel({ initial, categories }: AlertsPanelProps) {
   }
 
   async function toggle(subscription: SubscriptionRow) {
-    await fetch(`/api/notifications/subscriptions/${subscription.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ active: !subscription.active })
-    });
-    router.refresh();
+    setError(null);
+    try {
+      const response = await fetch(`/api/notifications/subscriptions/${subscription.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active: !subscription.active })
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        setError(data?.error ?? "Não foi possível atualizar o alerta.");
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("Falha de rede ao atualizar o alerta.");
+    }
   }
 
   async function remove(subscription: SubscriptionRow) {
-    await fetch(`/api/notifications/subscriptions/${subscription.id}`, { method: "DELETE" });
-    router.refresh();
+    setError(null);
+    try {
+      const response = await fetch(`/api/notifications/subscriptions/${subscription.id}`, { method: "DELETE" });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        setError(data?.error ?? "Não foi possível excluir o alerta.");
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("Falha de rede ao excluir o alerta.");
+    }
   }
 
   function criteriaLabel(subscription: SubscriptionRow) {
@@ -111,7 +131,7 @@ export function AlertsPanel({ initial, categories }: AlertsPanelProps) {
       </form>
 
       {error && (
-        <p className="mt-3 rounded-lg border border-[var(--color-danger)] bg-[var(--color-bg-subtle)] p-3 text-sm font-semibold text-[var(--color-danger)]">
+        <p role="alert" className="mt-3 rounded-lg border border-[var(--color-danger)] bg-[var(--color-bg-subtle)] p-3 text-sm font-semibold text-[var(--color-danger)]">
           {error}
         </p>
       )}
