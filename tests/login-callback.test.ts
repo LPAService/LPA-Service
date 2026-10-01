@@ -94,7 +94,7 @@ describe('middleware redirect preserving query and pathname', () => {
   });
 
   it('permite acesso direto quando usuário possui token válido', async () => {
-    vi.mocked(getToken).mockResolvedValue({ sub: 'user-1' } as any);
+    vi.mocked(getToken).mockResolvedValue({ sub: 'user-1' });
 
     const req = new NextRequest('https://app.caixaescolar.com.br/cotacoes?cidade=BH');
     const res = await middleware(req);
