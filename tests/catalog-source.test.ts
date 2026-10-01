@@ -280,6 +280,32 @@ describe("createCatalogSource", () => {
     expect(list[0].items).toHaveLength(1);
     expect(list[0].items[0].name).toBe("Item A");
   });
+
+  it("suporta paginação na listagem de pré-orçamentos", async () => {
+    const source = createCatalogSource(database);
+    for (let i = 1; i <= 5; i++) {
+      await source.createPreQuote({
+        quotationExternalId: `quote-page-${i}`,
+        headline: `Cotação ${i}`,
+        items: []
+      });
+    }
+
+    const page1 = await source.listPreQuotes({ page: 1, pageSize: 2 });
+    expect(page1.total).toBe(5);
+    expect(page1.data).toHaveLength(2);
+    expect(page1.page).toBe(1);
+    expect(page1.pageSize).toBe(2);
+    expect(page1.totalPages).toBe(3);
+
+    const page2 = await source.listPreQuotes({ page: 2, pageSize: 2 });
+    expect(page2.data).toHaveLength(2);
+    expect(page2.page).toBe(2);
+
+    const page3 = await source.listPreQuotes({ page: 3, pageSize: 2 });
+    expect(page3.data).toHaveLength(1);
+    expect(page3.page).toBe(3);
+  });
 });
 
 async function resetDatabase(pool: Pool) {
