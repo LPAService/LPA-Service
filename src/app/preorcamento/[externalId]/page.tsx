@@ -48,15 +48,11 @@ export default async function WorksheetPage({ params }: WorksheetPageProps) {
 
   const rows: WorksheetRow[] = preQuote
     ? preQuote.items.map((item) => {
-        const itemAny = item as typeof item & {
-          brandOptions?: string[];
-          chosenBrand?: string | null;
-        };
         const quoteItem = quotation.items.find((qi) => qi.order === item.itemOrder);
         const quoteItemAny = quoteItem as typeof quoteItem & {
           brandOptions?: string[];
         };
-        const brandOptions = resolveBrandOptions(item.description, itemAny, quoteItemAny);
+        const brandOptions = resolveBrandOptions(item.description, quoteItemAny);
         return {
           itemOrder: item.itemOrder,
           name: item.name,
@@ -74,7 +70,7 @@ export default async function WorksheetPage({ params }: WorksheetPageProps) {
           notes: item.notes,
           warranty: item.warranty,
           brandOptions,
-          chosenBrand: typeof itemAny.chosenBrand === "string" ? itemAny.chosenBrand : null
+          chosenBrand: item.chosenBrand
         };
       })
     : quotation.items.map((item) => {

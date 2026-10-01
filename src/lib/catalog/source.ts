@@ -68,6 +68,7 @@ export type PreQuoteLine = {
   webSearchedAt: string | null;
   notes: string | null;
   warranty: string | null;
+  chosenBrand: string | null;
 };
 
 export type PreQuote = {
@@ -184,6 +185,7 @@ type PreQuoteItemRow = {
   web_searched_at: Date | string | null;
   notes: string | null;
   warranty: string | null;
+  chosen_brand: string | null;
 };
 
 export class CatalogValidationError extends Error {
@@ -611,7 +613,8 @@ function toPreQuote(row: PreQuoteRow, items: PreQuoteItemRow[]): PreQuote {
       webUrl: item.web_url,
       webSearchedAt: toIso(item.web_searched_at),
       notes: item.notes,
-      warranty: item.warranty
+      warranty: item.warranty,
+      chosenBrand: item.chosen_brand
     }))
   };
 }
