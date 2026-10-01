@@ -102,4 +102,15 @@ describe('middleware redirect preserving query and pathname', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('location')).toBeNull();
   });
+
+  it('permite carregar a marca usada na tela pública de login sem token', async () => {
+    vi.mocked(getToken).mockResolvedValue(null);
+
+    const req = new NextRequest('https://app.caixaescolar.com.br/lpa-mark.png');
+    const res = await middleware(req);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('location')).toBeNull();
+    expect(getToken).not.toHaveBeenCalled();
+  });
 });

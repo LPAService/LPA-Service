@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 
 export const config = {
-  matcher: ['/((?!api/auth|api/admin|api/cron|api/notifications|_next/static|_next/image|favicon.ico|login).*)'],
+  matcher: ['/((?!api/auth|api/admin|api/cron|api/notifications|_next/static|_next/image|favicon.ico|lpa-mark.png|lpa-logo.png|login).*)'],
 };
 
 export async function middleware(request: NextRequest) {
@@ -17,7 +17,9 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/api/cron') ||
     pathname.startsWith('/api/notifications') ||
     pathname.startsWith('/_next') ||
-    pathname === '/favicon.ico'
+    pathname === '/favicon.ico' ||
+    pathname === '/lpa-mark.png' ||
+    pathname === '/lpa-logo.png'
   ) {
     return NextResponse.next();
   }
