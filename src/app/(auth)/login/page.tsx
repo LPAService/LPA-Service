@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
+import { getLoginCallbackUrl } from '@/lib/login-callback';
 import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
@@ -17,18 +18,20 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      const callbackUrl = getLoginCallbackUrl(new URLSearchParams(window.location.search).get('callbackUrl'));
       const result = await signIn('credentials', {
         email,
         password,
         redirect: false,
+        callbackUrl,
       });
 
       if (result?.error) {
         setError('Credenciais inválidas. Verifique seu email e senha.');
       } else {
-        router.push('/');
+        router.push(callbackUrl);
       }
-    } catch (err) {
+    } catch {
       setError('Erro ao fazer login. Tente novamente.');
     } finally {
       setLoading(false);
