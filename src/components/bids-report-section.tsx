@@ -1,6 +1,5 @@
 import React from "react";
-import Link from "next/link";
-import type { BidsReportData, BidLossDetailItem } from "@/lib/data/bids-report";
+import type { BidsReportData } from "@/lib/data/bids-report";
 
 function formatCurrency(value: number | null | undefined): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return "—";
@@ -18,13 +17,6 @@ function formatPercent(value: number | null | undefined): string {
 function formatNumber(value: number | null | undefined): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return "0";
   return new Intl.NumberFormat("pt-BR").format(value);
-}
-
-function formatDate(value: Date | string | null | undefined): string {
-  if (!value) return "—";
-  const date = typeof value === "string" ? new Date(value) : value;
-  if (!Number.isFinite(date.getTime())) return "—";
-  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
 }
 
 export function BidsReportSection({ data }: { data: BidsReportData | null }) {

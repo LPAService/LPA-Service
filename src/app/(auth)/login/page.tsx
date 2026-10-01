@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { signIn } from 'next-auth/react';
 import { getLoginCallbackUrl } from '@/lib/login-callback';
 import { useRouter } from 'next/navigation';
@@ -45,7 +46,7 @@ export default function LoginPage() {
     >
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-[var(--color-border)]">
         <div className="text-center mb-8">
-          <img src="/lpa-mark.png" alt="LPA Service - Manutenção Industrial" className="mx-auto h-24 mb-6 rounded-lg bg-[#0A1A2F] p-3" />
+          <Image src="/lpa-mark.png" alt="LPA Service - Manutenção Industrial" width={1250} height={470} priority className="mx-auto h-24 w-auto mb-6 rounded-lg bg-[#0A1A2F] p-3" />
           <h1 className="text-3xl font-bold text-[#17231f]">Caixa Escolar MG</h1>
           <p className="text-[#52615a] mt-2">Portal de Fornecedores</p>
         </div>

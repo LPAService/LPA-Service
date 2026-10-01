@@ -134,7 +134,7 @@ describe("bids-report unit & math tests", () => {
           })
         })
       })
-    } as any;
+    } as unknown as Parameters<typeof getBidsReportData>[0];
 
     const data = await getBidsReportData(mockDb);
 

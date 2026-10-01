@@ -1161,7 +1161,7 @@ describe("PrequoteWorksheet - Sugestões Automáticas", () => {
     it.each(["servicos", "transporte", "capacitacao-formacao"])(
       "para categoria '%s': oculta busca internet, não dispara batch search e exibe aviso único",
       async (categorySlug) => {
-        const fetchMock = vi.fn().mockImplementation((url: string) => {
+        const fetchMock = vi.fn().mockImplementation(() => {
           return Promise.resolve({
             ok: true,
             json: async () => ({ results: {} })
