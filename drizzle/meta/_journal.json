@@ -141,6 +141,13 @@
       "when": 1790020175000,
       "tag": "0020_prequote_item_chosen_brand",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794925961190,
+      "tag": "0021_user_school_favorites",
+      "breakpoints": true
     }
   ]
 }

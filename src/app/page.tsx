@@ -61,6 +61,7 @@ export default async function Home({ searchParams }: PageProps) {
         <Link className="pill-link" href="/relatorios">📊 Relatórios</Link>
         <Link className="pill-link" href="/fornecedores">📦 Fornecedores</Link>
         <Link className="pill-link" href="/preorcamento">🧮 Pré-Orçamento</Link>
+        <Link className="pill-link" href="/escolas">🏫 Escolas</Link>
         <a className="action-secondary ml-auto hidden min-h-[38px] sm:inline-flex" href={`/api/export?${exportParams.toString()}`}>Exportar</a>
         <NotificationBell /><ThemeToggle />
       </div>
@@ -92,6 +93,7 @@ export default async function Home({ searchParams }: PageProps) {
           <Link className="pill-link" href="/relatorios">📊 Relatório & Análise</Link>
           <Link className="pill-link" href="/fornecedores">📦 Fornecedores</Link>
           <Link className="pill-link" href="/preorcamento">🧮 Pré-Orçamento</Link>
+          <Link className="pill-link" href="/escolas">🏫 Escolas</Link>
         </div>
         <form className="grid gap-4 lg:grid-cols-[minmax(0,1.7fr)_repeat(4,minmax(0,1fr))_auto]" role="search">
           {view === "history" && <input name="view" type="hidden" value="history" />}

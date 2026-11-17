@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-type MainNavItem = "open" | "history" | "relatorios" | "fornecedores" | "preorcamento";
+type MainNavItem = "open" | "history" | "relatorios" | "fornecedores" | "preorcamento" | "escolas";
 
 type MainNavProps = {
   current: MainNavItem;
@@ -11,7 +11,8 @@ const links: Array<{ current: MainNavItem; href: string; label: string }> = [
   { current: "history", href: "/?view=history", label: "Histórico de compras" },
   { current: "relatorios", href: "/relatorios", label: "Relatório & Análise" },
   { current: "fornecedores", href: "/fornecedores", label: "Fornecedores" },
-  { current: "preorcamento", href: "/preorcamento", label: "Pré-Orçamento" }
+  { current: "preorcamento", href: "/preorcamento", label: "Pré-Orçamento" },
+  { current: "escolas", href: "/escolas", label: "Escolas" }
 ];
 
 export function MainNav({ current }: MainNavProps) {

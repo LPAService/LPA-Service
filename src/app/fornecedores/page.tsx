@@ -26,6 +26,7 @@ export default async function FornecedoresPage() {
             <Link className="action-secondary text-sm" href="/relatorios">📊 Relatório & Análise</Link>
             <Link className="action-primary text-sm font-bold" href="/fornecedores">📦 Fornecedores</Link>
             <Link className="action-secondary text-sm" href="/preorcamento">🧮 Pré-Orçamento</Link>
+            <Link className="action-secondary text-sm" href="/escolas">🏫 Escolas</Link>
             <span className="ml-auto" />
             <NotificationBell /><ThemeToggle />
           </nav>

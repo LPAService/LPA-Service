@@ -262,6 +262,9 @@ export default async function RelatoriosPage() {
               <Link className="action-secondary text-sm" href="/preorcamento">
                 🧮 Pré-Orçamento
               </Link>
+              <Link className="action-secondary text-sm" href="/escolas">
+                🏫 Escolas
+              </Link>
               <span className="ml-auto" />
               <NotificationBell />
               <ThemeToggle />

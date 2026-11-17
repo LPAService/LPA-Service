@@ -552,3 +552,21 @@ export const notifications = pgTable(
     index("notifications_user_read_idx").on(table.userId, table.read)
   ]
 );
+
+export const userSchoolFavorites = pgTable(
+  "user_school_favorites",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    idSchool: integer("id_school")
+      .notNull()
+      .references(() => schools.idSchool, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    uniqueIndex("user_school_favorites_user_school_unique").on(table.userId, table.idSchool),
+    index("user_school_favorites_school_idx").on(table.idSchool)
+  ]
+);
